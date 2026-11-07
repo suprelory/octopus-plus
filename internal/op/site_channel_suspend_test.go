@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	dbpkg "github.com/bestruirui/octopus/internal/db"
-	"github.com/bestruirui/octopus/internal/model"
+	dbpkg "github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func setupSiteChannelSuspendTestDB(t *testing.T) context.Context {

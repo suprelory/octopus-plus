@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"testing"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/relay/stream"
-	"github.com/bestruirui/octopus/polywire/inbound"
-	"github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/relay/stream"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 func TestStreamWhitespaceWaitsForMeaningfulContent(t *testing.T) {

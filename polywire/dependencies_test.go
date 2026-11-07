@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-const transformerImportPrefix = "github.com/bestruirui/octopus/polywire/"
+const transformerImportPrefix = "github.com/suprelory/octopus-plus/polywire/"
 
 func TestTransformerDependencyDirection(t *testing.T) {
 	t.Helper()
@@ -47,7 +47,7 @@ func assertAllowedTransformerImport(t *testing.T, source, importPath string, lin
 	fail := func(reason string) {
 		t.Errorf("%s imports %q: %s (line %d)", source, importPath, reason, line)
 	}
-	host := "github.com/bestruirui/octopus"
+	host := "github.com/suprelory/octopus-plus"
 	if (importPath == host || strings.HasPrefix(importPath, host+"/")) &&
 		importPath != strings.TrimSuffix(transformerImportPrefix, "/") && !strings.HasPrefix(importPath, transformerImportPrefix) {
 		fail("Polywire, including its tests, must not depend on the host application")

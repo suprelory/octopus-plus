@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 type EmbeddingInbound struct {

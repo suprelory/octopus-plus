@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 // Provider messages can echo prompts, credentials or entire request bodies.

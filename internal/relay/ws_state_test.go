@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestBuildWSResponseCreateMessageNormalizesWSFields(t *testing.T) {

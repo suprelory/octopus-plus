@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // BuildRequest returns the wire request and the same conversion evidence used

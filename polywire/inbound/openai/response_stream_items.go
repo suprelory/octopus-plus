@@ -1,8 +1,8 @@
 package openai
 
 import (
-	"github.com/bestruirui/octopus/polywire/model"
 	"github.com/samber/lo"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func (i *ResponseInbound) handleReasoningContent(content *string) [][]byte {

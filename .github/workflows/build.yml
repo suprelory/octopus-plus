@@ -62,10 +62,10 @@ jobs:
           BUILD_TIME="$(TZ='Asia/Shanghai' date +'%F %T %z')"
           GIT_VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo 'dev')"
           COMMIT_ID="$(git rev-parse --short HEAD)"
-          LDFLAGS="-X 'github.com/bestruirui/octopus/internal/conf.Version=${GIT_VERSION}' \
-                   -X 'github.com/bestruirui/octopus/internal/conf.BuildTime=${BUILD_TIME}' \
-                   -X 'github.com/bestruirui/octopus/internal/conf.Author=suprelory' \
-                   -X 'github.com/bestruirui/octopus/internal/conf.Commit=${COMMIT_ID}' \
+          LDFLAGS="-X 'github.com/suprelory/octopus-plus/internal/conf.Version=${GIT_VERSION}' \
+                   -X 'github.com/suprelory/octopus-plus/internal/conf.BuildTime=${BUILD_TIME}' \
+                   -X 'github.com/suprelory/octopus-plus/internal/conf.Author=suprelory' \
+                   -X 'github.com/suprelory/octopus-plus/internal/conf.Commit=${COMMIT_ID}' \
                    -s -w"
 
           GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build -o build/bin/octopus-linux-x86_64        -ldflags="${LDFLAGS}" -tags=jsoniter ./

@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/config"
-	"github.com/bestruirui/octopus/polywire/httpio"
-	"github.com/bestruirui/octopus/polywire/model"
-	anthropicModel "github.com/bestruirui/octopus/polywire/protocol/anthropic"
+	"github.com/suprelory/octopus-plus/polywire/config"
+	"github.com/suprelory/octopus-plus/polywire/httpio"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	anthropicModel "github.com/suprelory/octopus-plus/polywire/protocol/anthropic"
 )
 
 type MessageOutbound struct {

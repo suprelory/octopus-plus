@@ -1,6 +1,6 @@
 package balancer
 
-import "github.com/bestruirui/octopus/internal/op"
+import "github.com/suprelory/octopus-plus/internal/op"
 
 func init() {
 	op.RegisterRelayBalancerStateReset(ResetStateByChannel)

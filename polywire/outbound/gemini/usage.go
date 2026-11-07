@@ -3,7 +3,7 @@ package gemini
 import (
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func convertGeminiUsageMetadata(metadata *model.GeminiUsageMetadata) *model.Usage {

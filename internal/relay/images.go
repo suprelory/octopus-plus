@@ -11,16 +11,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/helper"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/relay/balancer"
-	"github.com/bestruirui/octopus/internal/relay/bodycache"
-	"github.com/bestruirui/octopus/internal/server/middleware"
-	"github.com/bestruirui/octopus/internal/server/resp"
-	"github.com/bestruirui/octopus/internal/utils/log"
-	"github.com/bestruirui/octopus/polywire/outbound"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/helper"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/relay/balancer"
+	"github.com/suprelory/octopus-plus/internal/relay/bodycache"
+	"github.com/suprelory/octopus-plus/internal/server/middleware"
+	"github.com/suprelory/octopus-plus/internal/server/resp"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 // ImagesHandler 是 OpenAI Images API 的统一 relay 入口。

@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/transformer"
-	"github.com/bestruirui/octopus/polywire/inbound"
 	"github.com/coder/websocket"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/transformer"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
 )
 
 func TestWSReplaySharesBudgetAndSettlement(t *testing.T) {

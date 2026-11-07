@@ -11,8 +11,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 const siteCheckinResponseLimit = 1 << 20

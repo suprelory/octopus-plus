@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 // Compressed bodies cannot participate in SQL LIKE. Scan a bounded set of

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestPlanRequestForModelUsesEffectiveModelWithoutMutatingRequest(t *testing.T) {

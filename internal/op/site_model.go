@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/db"
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func SiteAvailableModels(siteID int, ctx context.Context) ([]string, error) {

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestOutboundOperationOnlyMatchesLegacyPayload(t *testing.T) {

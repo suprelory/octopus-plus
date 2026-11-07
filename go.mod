@@ -1,9 +1,8 @@
-module github.com/bestruirui/octopus
+module github.com/suprelory/octopus-plus
 
 go 1.25.0
 
 require (
-	github.com/bestruirui/octopus/polywire v0.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/coder/websocket v1.8.14
 	github.com/dlclark/regexp2 v1.11.5
@@ -17,6 +16,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/studio-b12/gowebdav v0.12.0
+	github.com/suprelory/octopus-plus/polywire v0.0.0
 	github.com/tiktoken-go/tokenizer v0.7.0
 	github.com/yuin/goldmark v1.7.16
 	go.uber.org/zap v1.27.1
@@ -28,7 +28,7 @@ require (
 	gorm.io/gorm v1.31.1
 )
 
-replace github.com/bestruirui/octopus/polywire => ./polywire
+replace github.com/suprelory/octopus-plus/polywire => ./polywire
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect

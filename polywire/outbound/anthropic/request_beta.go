@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
-	anthropicModel "github.com/bestruirui/octopus/polywire/protocol/anthropic"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	anthropicModel "github.com/suprelory/octopus-plus/polywire/protocol/anthropic"
 )
 
 // collectAnthropicBetaHeaders scans the outbound MessageRequest for features

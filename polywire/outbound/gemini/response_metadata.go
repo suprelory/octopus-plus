@@ -1,7 +1,7 @@
 package gemini
 
 import (
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // convertGeminiGroundingToInternal maps Gemini's groundingMetadata response

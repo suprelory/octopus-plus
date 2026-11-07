@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/db"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/server/auth"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/server/auth"
 )
 
 func TestCreateAPIKeyEnabledContract(t *testing.T) {

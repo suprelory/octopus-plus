@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // TestHTTPReplayIntegration tests the complete HTTP replay flow:

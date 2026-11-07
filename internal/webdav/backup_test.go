@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )

@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
 	"github.com/samber/lo"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func (i *ResponseInbound) TransformRequest(ctx context.Context, body []byte) (*model.InternalLLMRequest, error) {

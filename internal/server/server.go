@@ -8,17 +8,17 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/conf"
-	"github.com/bestruirui/octopus/internal/relay/bodycache"
-	_ "github.com/bestruirui/octopus/internal/server/handlers"
-	"github.com/bestruirui/octopus/internal/server/middleware"
-	"github.com/bestruirui/octopus/internal/server/resp"
-	"github.com/bestruirui/octopus/internal/server/router"
-	"github.com/bestruirui/octopus/internal/utils/log"
-	"github.com/bestruirui/octopus/internal/utils/safe"
-	"github.com/bestruirui/octopus/static"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/conf"
+	"github.com/suprelory/octopus-plus/internal/relay/bodycache"
+	_ "github.com/suprelory/octopus-plus/internal/server/handlers"
+	"github.com/suprelory/octopus-plus/internal/server/middleware"
+	"github.com/suprelory/octopus-plus/internal/server/resp"
+	"github.com/suprelory/octopus-plus/internal/server/router"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/internal/utils/safe"
+	"github.com/suprelory/octopus-plus/static"
 )
 
 var httpSrv http.Server

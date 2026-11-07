@@ -2,12 +2,12 @@
 package transformer
 
 import (
-	"github.com/bestruirui/octopus/internal/utils/log"
-	"github.com/bestruirui/octopus/internal/utils/tokenizer"
-	"github.com/bestruirui/octopus/polywire"
-	"github.com/bestruirui/octopus/polywire/inbound"
-	"github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/internal/utils/tokenizer"
+	"github.com/suprelory/octopus-plus/polywire"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 // The host owns this Engine for the process lifetime so scoped signatures survive

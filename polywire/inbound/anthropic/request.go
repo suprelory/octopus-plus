@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/compat"
-	"github.com/bestruirui/octopus/polywire/model"
-	wire "github.com/bestruirui/octopus/polywire/protocol/anthropic"
 	"github.com/samber/lo"
+	"github.com/suprelory/octopus-plus/polywire/compat"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	wire "github.com/suprelory/octopus-plus/polywire/protocol/anthropic"
 )
 
 func (i *MessagesInbound) TransformRequest(ctx context.Context, body []byte) (*model.InternalLLMRequest, error) {

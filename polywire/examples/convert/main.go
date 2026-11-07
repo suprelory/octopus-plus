@@ -9,9 +9,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire"
-	"github.com/bestruirui/octopus/polywire/inbound"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	"github.com/suprelory/octopus-plus/polywire"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 func main() {

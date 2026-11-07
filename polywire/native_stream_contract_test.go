@@ -10,10 +10,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/inbound"
-	"github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
-	relaystream "github.com/bestruirui/octopus/polywire/streamio"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
+	relaystream "github.com/suprelory/octopus-plus/polywire/streamio"
 )
 
 func TestNativeResponsesLifecycleAndSourceReplay(t *testing.T) {

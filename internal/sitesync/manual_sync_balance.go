@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func parseManualAccountBalance(platform model.SitePlatform, value any) (*float64, *float64, *float64) {

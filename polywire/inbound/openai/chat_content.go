@@ -3,7 +3,7 @@ package openai
 import (
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // Keep native content in the stored response, but only expose content that

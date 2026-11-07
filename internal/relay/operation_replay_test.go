@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestReplayRequestUpdatesOperationPayload(t *testing.T) {

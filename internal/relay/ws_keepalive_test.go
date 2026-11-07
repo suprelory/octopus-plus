@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/server/middleware"
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/server/middleware"
 )
 
 func TestWebSocketKeepAliveDuringTurnsAndIdle(t *testing.T) {

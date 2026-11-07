@@ -8,17 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/apperror"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/server/middleware"
-	"github.com/bestruirui/octopus/internal/server/resp"
-	"github.com/bestruirui/octopus/internal/server/router"
-	sitesvc "github.com/bestruirui/octopus/internal/site"
-	"github.com/bestruirui/octopus/internal/sitesync"
-	"github.com/bestruirui/octopus/internal/utils/log"
-	"github.com/bestruirui/octopus/internal/utils/safe"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/apperror"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/server/middleware"
+	"github.com/suprelory/octopus-plus/internal/server/resp"
+	"github.com/suprelory/octopus-plus/internal/server/router"
+	sitesvc "github.com/suprelory/octopus-plus/internal/site"
+	"github.com/suprelory/octopus-plus/internal/sitesync"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/internal/utils/safe"
 )
 
 func refreshAccountCheckinScheduleBestEffort(ctx context.Context, accountID int) {

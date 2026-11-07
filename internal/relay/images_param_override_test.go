@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/relay/bodycache"
 	"github.com/gin-gonic/gin"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/relay/bodycache"
 )
 
 func TestImagesAttemptAppliesJSONOverrideAndTracksFinalModel(t *testing.T) {

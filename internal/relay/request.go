@@ -11,17 +11,17 @@ import (
 	"strings"
 	"time"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/relay/balancer"
-	"github.com/bestruirui/octopus/internal/server/middleware"
-	"github.com/bestruirui/octopus/internal/server/resp"
-	"github.com/bestruirui/octopus/internal/transformer"
-	"github.com/bestruirui/octopus/internal/utils/log"
-	"github.com/bestruirui/octopus/polywire/compat"
-	"github.com/bestruirui/octopus/polywire/inbound"
-	"github.com/bestruirui/octopus/polywire/model"
 	"github.com/gin-gonic/gin"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/relay/balancer"
+	"github.com/suprelory/octopus-plus/internal/server/middleware"
+	"github.com/suprelory/octopus-plus/internal/server/resp"
+	"github.com/suprelory/octopus-plus/internal/transformer"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/polywire/compat"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // prepareHTTPRelay validates the inbound request and fixes request-scoped routing

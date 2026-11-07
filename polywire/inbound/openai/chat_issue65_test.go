@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // Issue #65 Bug 1: model.InternalResponseFromStreamEvents returns nil when the

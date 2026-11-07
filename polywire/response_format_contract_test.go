@@ -7,8 +7,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/inbound"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 func TestStructuredOutputStrictRoundTrip(t *testing.T) {

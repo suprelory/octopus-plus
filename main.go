@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/bestruirui/octopus/cmd"
-	"github.com/bestruirui/octopus/internal/update"
+	"github.com/suprelory/octopus-plus/cmd"
+	"github.com/suprelory/octopus-plus/internal/update"
 )
 
 func main() {

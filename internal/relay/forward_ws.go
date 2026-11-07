@@ -7,10 +7,10 @@ import (
 	"io"
 	"strings"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/relay/stream"
-	"github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/relay/stream"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 // forwardViaWS sends at most one generation request. Status -1 permits HTTP

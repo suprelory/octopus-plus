@@ -18,14 +18,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/client"
-	"github.com/bestruirui/octopus/internal/conf"
-	"github.com/bestruirui/octopus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/internal/client"
+	"github.com/suprelory/octopus-plus/internal/conf"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 const (
-	updateURL             = "https://github.com/suprelory/octopus/releases/latest/download"
-	updateAPIURL          = "https://api.github.com/repos/suprelory/octopus/releases/latest"
+	updateURL             = "https://github.com/suprelory/octopus-plus/releases/latest/download"
+	updateAPIURL          = "https://api.github.com/repos/suprelory/octopus-plus/releases/latest"
 	checksumManifestName  = "checksums.sha256"
 	manifestSignatureName = "checksums.sha256.sig"
 	maxReleaseInfoBytes   = 2 << 20

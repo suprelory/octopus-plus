@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/bestruirui/octopus/internal/db"
-	"github.com/bestruirui/octopus/internal/model"
+	dbpkg "github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func TestSiteChannelModelHourlyForAccountsMergesDBAndPending(t *testing.T) {

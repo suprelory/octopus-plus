@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	inboundOpenai "github.com/bestruirui/octopus/polywire/inbound/openai"
+	inboundOpenai "github.com/suprelory/octopus-plus/polywire/inbound/openai"
 )
 
 // TestIssue88_ThinkingParameterPassthrough tests that the thinking parameter

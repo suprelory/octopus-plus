@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/apperror"
+	"github.com/suprelory/octopus-plus/internal/apperror"
 )
 
 func TestMutationErrorStatus(t *testing.T) {

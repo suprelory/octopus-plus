@@ -11,8 +11,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/bestruirui/octopus/internal/apperror"
-	"github.com/bestruirui/octopus/internal/helper"
+	"github.com/suprelory/octopus-plus/internal/apperror"
+	"github.com/suprelory/octopus-plus/internal/helper"
 )
 
 const maxSiteStatusMessageRunes = 300

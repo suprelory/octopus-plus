@@ -1,6 +1,6 @@
 services:
   octopus:
-    image: suprelory/octopus
+    image: ghcr.io/suprelory/octopus-plus:latest
     environment:
        # 首次启动建议通过部署平台的 secret 注入，至少 12 位；初始化成功后可移除。
        - OCTOPUS_ADMIN_PASSWORD=${OCTOPUS_ADMIN_PASSWORD:?set OCTOPUS_ADMIN_PASSWORD}

@@ -3,8 +3,8 @@ package compat
 import (
 	"encoding/json"
 
-	"github.com/bestruirui/octopus/polywire/model"
-	anthropic "github.com/bestruirui/octopus/polywire/protocol/anthropic"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	anthropic "github.com/suprelory/octopus-plus/polywire/protocol/anthropic"
 )
 
 // AnthropicCitationsToModel retains the native payload alongside the fields

@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/server/middleware"
-	"github.com/bestruirui/octopus/internal/server/resp"
-	"github.com/bestruirui/octopus/internal/server/router"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/server/middleware"
+	"github.com/suprelory/octopus-plus/internal/server/resp"
+	"github.com/suprelory/octopus-plus/internal/server/router"
 	"gorm.io/gorm"
 )
 

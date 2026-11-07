@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/client"
-	"github.com/bestruirui/octopus/internal/helper"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/client"
+	"github.com/suprelory/octopus-plus/internal/helper"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
 )
 
 // siteResponseBodyLimit caps how much of an upstream response is buffered. Model

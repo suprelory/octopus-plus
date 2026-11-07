@@ -1,6 +1,6 @@
 package outbound
 
-import "github.com/bestruirui/octopus/polywire/model"
+import "github.com/suprelory/octopus-plus/polywire/model"
 
 type LossAction = model.RequestTransformationAction
 

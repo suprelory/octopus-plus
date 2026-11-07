@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/relay/balancer"
-	"github.com/bestruirui/octopus/polywire/inbound"
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/relay/balancer"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 func TestKeyFailuresRotateWithinChannelAndRespectBudget(t *testing.T) {

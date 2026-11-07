@@ -3,9 +3,9 @@ package anthropic
 import (
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
-	anthropicModel "github.com/bestruirui/octopus/polywire/protocol/anthropic"
 	"github.com/samber/lo"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	anthropicModel "github.com/suprelory/octopus-plus/polywire/protocol/anthropic"
 )
 
 // convertToAnthropicRequest converts internal LLM request to Anthropic format

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/db"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
 )
 
 func rewriteManagedGroupItemsForAccount(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, split bool, groupMap map[string]model.SiteUserGroup, tokenGroups map[string][]model.SiteToken, accountModels []model.SiteModel, bindingChannelByKey map[string]int) error {

@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/compat"
-	"github.com/bestruirui/octopus/polywire/internal/dataurl"
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/compat"
+	"github.com/suprelory/octopus-plus/polywire/internal/dataurl"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func (i *MessagesInbound) TransformResponse(ctx context.Context, response *model.InternalLLMResponse) ([]byte, error) {

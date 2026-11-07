@@ -3,11 +3,11 @@ package relay
 import (
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/helper"
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/transformer"
-	"github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	"github.com/suprelory/octopus-plus/internal/helper"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/transformer"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 // relayCapabilityCacheKey describes every decision input that can vary between

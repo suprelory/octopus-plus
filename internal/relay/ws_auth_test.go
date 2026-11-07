@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/apperror"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/server/middleware"
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/apperror"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/server/middleware"
 )
 
 func TestWebSocketRevalidatesEachRequest(t *testing.T) {

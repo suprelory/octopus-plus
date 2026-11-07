@@ -1,7 +1,7 @@
 // Package config defines the optional host services used by protocol adapters.
 package config
 
-import "github.com/bestruirui/octopus/polywire/compat"
+import "github.com/suprelory/octopus-plus/polywire/compat"
 
 // Logger receives conversion diagnostics. Implementations must support concurrent
 // calls when shared by an Engine. Polywire never configures a process-wide logger.

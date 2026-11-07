@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/notify"
+	"github.com/suprelory/octopus-plus/internal/notify"
 )
 
 func TestCheckinTemplateUsesEventDetails(t *testing.T) {

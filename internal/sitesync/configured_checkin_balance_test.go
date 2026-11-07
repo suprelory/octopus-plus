@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/db"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/notify"
-	"github.com/bestruirui/octopus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/notify"
+	"github.com/suprelory/octopus-plus/internal/op"
 )
 
 func createExternalBalanceFixture(t *testing.T, ctx context.Context, sourceURL, externalURL string) (*model.Site, *model.SiteAccount, *model.SiteAccount) {

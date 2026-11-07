@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
-	anthropic "github.com/bestruirui/octopus/polywire/outbound/anthropic"
-	openai "github.com/bestruirui/octopus/polywire/outbound/openai"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	anthropic "github.com/suprelory/octopus-plus/polywire/outbound/anthropic"
+	openai "github.com/suprelory/octopus-plus/polywire/outbound/openai"
 )
 
 func decodeChunks(wire []byte, chunk, limit int) ([]SourceEvent, error) {

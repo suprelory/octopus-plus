@@ -3,7 +3,7 @@ package openai
 import (
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func responseProgressEvent(event ResponsesStreamEvent, base model.StreamEvent) model.StreamEvent {

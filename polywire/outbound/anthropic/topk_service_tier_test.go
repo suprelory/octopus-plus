@@ -5,8 +5,8 @@ import (
 
 	"github.com/samber/lo"
 
-	"github.com/bestruirui/octopus/polywire/model"
-	anthropicModel "github.com/bestruirui/octopus/polywire/protocol/anthropic"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	anthropicModel "github.com/suprelory/octopus-plus/polywire/protocol/anthropic"
 )
 
 // TestConvertToAnthropicRequestForwardsTopKAndServiceTier covers A-H3: the

@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	anthropicInbound "github.com/bestruirui/octopus/polywire/inbound/anthropic"
-	openaiInbound "github.com/bestruirui/octopus/polywire/inbound/openai"
-	"github.com/bestruirui/octopus/polywire/model"
-	anthropicOutbound "github.com/bestruirui/octopus/polywire/outbound/anthropic"
-	geminiOutbound "github.com/bestruirui/octopus/polywire/outbound/gemini"
-	openaiOutbound "github.com/bestruirui/octopus/polywire/outbound/openai"
+	anthropicInbound "github.com/suprelory/octopus-plus/polywire/inbound/anthropic"
+	openaiInbound "github.com/suprelory/octopus-plus/polywire/inbound/openai"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	anthropicOutbound "github.com/suprelory/octopus-plus/polywire/outbound/anthropic"
+	geminiOutbound "github.com/suprelory/octopus-plus/polywire/outbound/gemini"
+	openaiOutbound "github.com/suprelory/octopus-plus/polywire/outbound/openai"
 )
 
 func TestCrossProtocolRequestGolden(t *testing.T) {

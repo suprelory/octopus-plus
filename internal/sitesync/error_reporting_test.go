@@ -12,9 +12,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/apperror"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/apperror"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
 )
 
 func siteErrorTestServer(t *testing.T, status int, contentType, body string) *httptest.Server {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 func (ra *relayAttempt) recordSuccessfulWSAffinity(pc *pooledConn) {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/helper"
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/helper"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 const (

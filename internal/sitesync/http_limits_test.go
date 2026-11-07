@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 // readSiteResponseBody must reject a body past the cap instead of buffering it.

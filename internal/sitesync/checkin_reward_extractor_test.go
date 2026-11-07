@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func TestExtractCheckinRewardColdStart(t *testing.T) {

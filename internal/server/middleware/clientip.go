@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	clientipresolver "github.com/bestruirui/octopus/internal/clientip"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/utils/log"
 	"github.com/gin-gonic/gin"
+	clientipresolver "github.com/suprelory/octopus-plus/internal/clientip"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 var activeClientIPResolver atomic.Pointer[clientipresolver.Resolver]

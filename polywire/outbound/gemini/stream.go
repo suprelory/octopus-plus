@@ -5,7 +5,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func (o *MessagesOutbound) nextReasoningIndex(candidateIndex int) int {

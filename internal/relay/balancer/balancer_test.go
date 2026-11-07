@@ -3,7 +3,7 @@ package balancer
 import (
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func TestGetBalancerFallsBackForRemovedRandomMode(t *testing.T) {

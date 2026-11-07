@@ -1,8 +1,8 @@
 package relay
 
 import (
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/relay/balancer"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/relay/balancer"
 )
 
 // selectAndReserveRelayKey skips circuit-broken keys while preserving the

@@ -3,8 +3,8 @@ package op
 import (
 	"fmt"
 
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 // validateChannelReference validates channels before creating route bindings.

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/apperror"
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/apperror"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func TestSyncManagementPlatformDiscoversNewAPIUserID(t *testing.T) {

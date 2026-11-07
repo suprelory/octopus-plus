@@ -3,11 +3,11 @@
 package polywire
 
 import (
-	"github.com/bestruirui/octopus/polywire/compat"
-	"github.com/bestruirui/octopus/polywire/config"
-	"github.com/bestruirui/octopus/polywire/inbound"
-	"github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	"github.com/suprelory/octopus-plus/polywire/compat"
+	"github.com/suprelory/octopus-plus/polywire/config"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 // Config defines the services shared by an Engine's adapters.

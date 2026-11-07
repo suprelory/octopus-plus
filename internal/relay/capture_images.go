@@ -6,9 +6,9 @@ import (
 	"mime/multipart"
 	"net/http"
 
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/relay/bodycache"
-	"github.com/bestruirui/octopus/internal/relay/capture"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/relay/bodycache"
+	"github.com/suprelory/octopus-plus/internal/relay/capture"
 )
 
 type capturedFormPart struct {

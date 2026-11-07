@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/conf"
-	"github.com/bestruirui/octopus/internal/model"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/suprelory/octopus-plus/internal/conf"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func sessionTestUser(t *testing.T) model.User {

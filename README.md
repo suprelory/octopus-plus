@@ -57,7 +57,7 @@ Outbound Transformer
 
 后端入口为 `main.go`，启动流程依次初始化配置、数据库、缓存、HTTP 服务和后台任务。前端使用 Next.js 静态导出，生产构建后嵌入 Go 二进制的 `static/out` 目录。
 
-协议转换由 [Polywire](polywire/README.md) 提供，模块路径为 `github.com/bestruirui/octopus/polywire`。根模块通过 `replace => ./polywire` 使用工作区内的代码。`internal/transformer` 负责注入日志、token 估算和进程内签名缓存，并记录能力决策统计；路由、降级策略、重试、连接管理和计费仍由 Octopus 负责。
+协议转换由 [Polywire](polywire/README.md) 提供，模块路径为 `github.com/suprelory/octopus-plus/polywire`。根模块通过 `replace => ./polywire` 使用工作区内的代码。`internal/transformer` 负责注入日志、token 估算和进程内签名缓存，并记录能力决策统计；路由、降级策略、重试、连接管理和计费仍由 Octopus 负责。
 
 协议转换优先选择能够无损保留请求语义的渠道。未知顶层字段、Responses 原生工具与输入项，以及 Anthropic MCP、容器和服务端工具等语义无法由其他协议完整表达时，会优先尝试可保留这些语义的渠道；没有可用的保留渠道时，允许有损转换以维持可用性，并在运行日志中记录具体损失。严格降级策略也允许仅涉及这些语义的回退，其他语义损失仍遵循严格策略。同协议恢复仍校验所需的原始数据，缺失或损坏的数据不会被标记为无损恢复。
 
@@ -65,12 +65,12 @@ Outbound Transformer
 
 ### Docker Compose
 
-仓库中的 `compose.yaml` 使用 `suprelory/octopus` 镜像，并把宿主机目录挂载到容器的 `/app/data`。
+仓库中的 `compose.yaml` 使用 `ghcr.io/suprelory/octopus-plus:latest` 镜像，并把宿主机目录挂载到容器的 `/app/data`。默认镜像基于 Debian；Alpine 版本使用 `latest-alpine` 标签。
 
 ```yaml
 services:
   octopus:
-    image: suprelory/octopus
+    image: ghcr.io/suprelory/octopus-plus:latest
     environment:
       - OCTOPUS_ADMIN_PASSWORD=${OCTOPUS_ADMIN_PASSWORD:?set OCTOPUS_ADMIN_PASSWORD}
     ports:
@@ -300,6 +300,8 @@ python -m unittest discover -s scripts -p 'test_*.py'
 ## 发布签名与自更新
 
 GitHub Actions 的 `release` 工作流统一负责版本发布：推送版本标签后，先检查该标签的确切提交，检查通过后构建产物、生成更新说明并发布。`dev` 与 `master` 的分支合并单独管理。
+
+容器镜像发布到 GitHub Container Registry（GHCR），使用 GitHub Actions 自动提供的 `GITHUB_TOKEN` 和工作流声明的 `packages: write` 权限。首次发布后，在 GitHub Packages 中将 `octopus-plus` 包的可见性设为 Public，才能免登录拉取；私有包需要先登录 `ghcr.io`。镜像标签包括 `latest`、版本号，以及对应的 `-alpine` 标签。
 
 修复发布工作流后，可以在 Actions 中手动运行 `release`，选择包含修复的工作流分支，并在 `tag` 中填写已有版本标签（如 `v1.0.1`）。检查和构建仍固定到该标签对应的提交。若旧流程已创建只有更新说明、没有附件的 Release，会保留说明并补上传产物；已有附件的 Release 会拒绝覆盖。
 

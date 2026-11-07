@@ -1,8 +1,8 @@
 package relay
 
 import (
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/relay/capture"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/relay/capture"
 )
 
 func (t *relayCapture) startWSClient(raw []byte) {

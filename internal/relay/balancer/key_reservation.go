@@ -3,7 +3,7 @@ package balancer
 import (
 	"sync"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 // keyReservationStore tracks only process-local in-flight work. Persisted key

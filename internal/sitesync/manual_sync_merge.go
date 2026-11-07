@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func buildManualSyncTokens(account *model.SiteAccount, sections manualSyncSections) []model.SiteToken {

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
 	"github.com/samber/lo"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestConvertInputFromMessagesGeneratesFunctionCallIDAndItemReference(t *testing.T) {

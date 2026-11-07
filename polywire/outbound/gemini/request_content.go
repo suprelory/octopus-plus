@@ -3,7 +3,7 @@ package gemini
 import (
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // geminiInlineDataMaxBytes is the decoded-size ceiling Gemini enforces

@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/conf"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/utils/log"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/suprelory/octopus-plus/internal/conf"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 var (

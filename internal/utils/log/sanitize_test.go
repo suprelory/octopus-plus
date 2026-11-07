@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/apperror"
+	"github.com/suprelory/octopus-plus/internal/apperror"
 )
 
 func TestSafeErrorRetainsCauseWithoutCredentialValues(t *testing.T) {

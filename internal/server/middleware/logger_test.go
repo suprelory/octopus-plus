@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/apperror"
-	"github.com/bestruirui/octopus/internal/server/resp"
-	"github.com/bestruirui/octopus/internal/utils/log"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/apperror"
+	"github.com/suprelory/octopus-plus/internal/server/resp"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )

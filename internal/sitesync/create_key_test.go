@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
 )
 
 func TestCreateAccountTokenCreatesManagedKeyAndSyncsAccount(t *testing.T) {

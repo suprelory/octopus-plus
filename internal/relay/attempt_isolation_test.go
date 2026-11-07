@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/transformer"
-	"github.com/bestruirui/octopus/polywire/inbound"
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/internal/transformer"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestNewAttemptRelayRequestIsolatesMutableState(t *testing.T) {

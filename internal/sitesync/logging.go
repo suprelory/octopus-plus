@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/apperror"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/internal/apperror"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 func SyncAccountWithTrigger(ctx context.Context, accountID int, trigger string) (*model.SiteSyncResult, error) {

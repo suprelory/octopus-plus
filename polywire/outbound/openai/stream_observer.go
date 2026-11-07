@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 type StreamUpstreamError struct {

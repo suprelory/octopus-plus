@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/utils/log"
-	"github.com/bestruirui/octopus/internal/utils/safe"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/internal/utils/safe"
 )
 
 // ErrEmptyUpstreamStream marks 200 SSE streams that ended without forwarding

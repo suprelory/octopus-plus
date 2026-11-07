@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
-	wire "github.com/bestruirui/octopus/polywire/protocol/anthropic"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	wire "github.com/suprelory/octopus-plus/polywire/protocol/anthropic"
 )
 
 func parseSourceEvent(source model.SourceEvent) (model.SourceEvent, wire.StreamEvent, error) {

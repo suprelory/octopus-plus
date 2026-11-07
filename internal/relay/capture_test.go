@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/polywire/inbound"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
 )
 
 func TestHTTPLogCapturesEachAttemptAndDeliveredResponse(t *testing.T) {

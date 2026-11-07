@@ -5,8 +5,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/db"
-	"github.com/bestruirui/octopus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/op"
 )
 
 func TestPasswordChangeRevokesSessions(t *testing.T) {

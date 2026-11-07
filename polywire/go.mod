@@ -1,4 +1,4 @@
-module github.com/bestruirui/octopus/polywire
+module github.com/suprelory/octopus-plus/polywire
 
 go 1.25.0
 

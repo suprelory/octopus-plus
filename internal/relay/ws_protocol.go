@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	openaiOutbound "github.com/bestruirui/octopus/polywire/outbound/openai"
+	openaiOutbound "github.com/suprelory/octopus-plus/polywire/outbound/openai"
 )
 
 func validateWSResponseCreatePayload(payload []byte) error {

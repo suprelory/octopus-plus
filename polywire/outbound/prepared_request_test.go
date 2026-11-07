@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/config"
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/config"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestPreparedRequestMatchesFreshBuildAndIsolatesAttempts(t *testing.T) {

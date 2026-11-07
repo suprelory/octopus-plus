@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/relay/balancer"
-	"github.com/bestruirui/octopus/polywire/outbound"
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/relay/balancer"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 func TestBestEffortWarmupUpstreamWSOnlyPrimesPool(t *testing.T) {

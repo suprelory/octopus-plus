@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bestruirui/octopus/polywire/internal/dataurl"
-	"github.com/bestruirui/octopus/polywire/model"
 	"github.com/samber/lo"
+	"github.com/suprelory/octopus-plus/polywire/internal/dataurl"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func (i *ResponseInbound) TransformResponse(ctx context.Context, response *model.InternalLLMResponse) ([]byte, error) {

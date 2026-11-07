@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/transformer"
-	"github.com/bestruirui/octopus/polywire/inbound"
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/transformer"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 func TestForwardViaWSPassthroughNormalizesPayloadAndRecordsMetrics(t *testing.T) {

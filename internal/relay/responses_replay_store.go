@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/relay/balancer"
-	"github.com/bestruirui/octopus/internal/utils/log"
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/internal/relay/balancer"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
 )
 
 const (

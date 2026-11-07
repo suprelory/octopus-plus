@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // O-H1: the inbound chat parser must populate the new 2025 Chat fields from

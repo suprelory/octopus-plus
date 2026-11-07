@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // G-C4: when Gemini streams multiple chunks, each carrying its own Thought /

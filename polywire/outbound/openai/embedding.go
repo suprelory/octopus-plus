@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/bestruirui/octopus/polywire/httpio"
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/httpio"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 type EmbeddingOutbound struct{}

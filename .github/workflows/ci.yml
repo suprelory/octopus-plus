@@ -80,8 +80,8 @@ jobs:
           cp polywire/examples/convert/main.go "$consumer/main.go"
           cd "$consumer"
           go mod init example.com/polywire-consumer
-          go mod edit -require=github.com/bestruirui/octopus/polywire@v0.0.0
-          go mod edit -replace="github.com/bestruirui/octopus/polywire=$GITHUB_WORKSPACE/polywire"
+          go mod edit -require=github.com/suprelory/octopus-plus/polywire@v0.0.0
+          go mod edit -replace="github.com/suprelory/octopus-plus/polywire=$GITHUB_WORKSPACE/polywire"
           go mod tidy
           go run .
 

@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/inbound/anthropic"
-	"github.com/bestruirui/octopus/polywire/inbound/openai"
-	"github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound/gemini"
-	openaiOutbound "github.com/bestruirui/octopus/polywire/outbound/openai"
+	"github.com/suprelory/octopus-plus/polywire/inbound/anthropic"
+	"github.com/suprelory/octopus-plus/polywire/inbound/openai"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound/gemini"
+	openaiOutbound "github.com/suprelory/octopus-plus/polywire/outbound/openai"
 )
 
 func BenchmarkCrossProtocolTransform(b *testing.B) {

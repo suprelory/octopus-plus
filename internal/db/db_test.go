@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
 	"github.com/glebarez/sqlite"
+	"github.com/suprelory/octopus-plus/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )

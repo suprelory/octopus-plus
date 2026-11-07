@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 const relayLogStreamTokenTTL = 30 * time.Second

@@ -3,8 +3,8 @@ package cmd
 import (
 	"os"
 
-	"github.com/bestruirui/octopus/internal/conf"
 	"github.com/spf13/cobra"
+	"github.com/suprelory/octopus-plus/internal/conf"
 )
 
 var rootCmd = &cobra.Command{

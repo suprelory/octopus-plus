@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestResponsesReplayStateKey(t *testing.T) {

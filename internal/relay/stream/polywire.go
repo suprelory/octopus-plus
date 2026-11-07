@@ -3,7 +3,7 @@ package stream
 import (
 	"io"
 
-	"github.com/bestruirui/octopus/polywire/streamio"
+	"github.com/suprelory/octopus-plus/polywire/streamio"
 )
 
 // Protocol framing is provided by Polywire; relay retains connection ownership,

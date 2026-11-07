@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/utils/tokenizer"
-	"github.com/bestruirui/octopus/polywire/inbound"
+	"github.com/suprelory/octopus-plus/internal/utils/tokenizer"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
 )
 
 func TestHostRetainsAnthropicTokenEstimator(t *testing.T) {

@@ -3,10 +3,10 @@ package inbound
 import (
 	"sort"
 
-	"github.com/bestruirui/octopus/polywire/config"
-	"github.com/bestruirui/octopus/polywire/inbound/anthropic"
-	"github.com/bestruirui/octopus/polywire/inbound/openai"
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/config"
+	"github.com/suprelory/octopus-plus/polywire/inbound/anthropic"
+	"github.com/suprelory/octopus-plus/polywire/inbound/openai"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 type InboundType int

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/db"
-	"github.com/bestruirui/octopus/internal/model"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func requestCheckinLogs(t *testing.T, query string) (*httptest.ResponseRecorder, model.SiteCheckinLogPage) {

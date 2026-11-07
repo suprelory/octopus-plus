@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
 	"github.com/samber/lo"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func geminiFunctionCallID(functionCall *model.GeminiFunctionCall, index int, discriminator ...string) string {

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/server/resp"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/server/resp"
 )
 
 func RequireJSON() gin.HandlerFunc {

@@ -1,6 +1,6 @@
 package anthropic
 
-import "github.com/bestruirui/octopus/polywire/model"
+import "github.com/suprelory/octopus-plus/polywire/model"
 
 // Anthropic content blocks are emitted serially. Other providers may interleave
 // tool argument deltas, so keep the active tool streaming and defer other content

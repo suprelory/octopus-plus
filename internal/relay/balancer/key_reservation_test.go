@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func TestSelectAndReserveChannelKeyDistributesConcurrentSelections(t *testing.T) {

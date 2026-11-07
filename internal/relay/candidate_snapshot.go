@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
 )
 
 // candidateSnapshot freezes the channel configuration used by one request.

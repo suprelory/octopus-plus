@@ -3,15 +3,15 @@ package relay
 import (
 	"errors"
 	"fmt"
-	"github.com/bestruirui/octopus/internal/relay/capture"
+	"github.com/suprelory/octopus-plus/internal/relay/capture"
 	"net/http"
 	"strings"
 	"time"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/relay/balancer"
-	"github.com/bestruirui/octopus/internal/relay/stream"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/relay/balancer"
+	"github.com/suprelory/octopus-plus/internal/relay/stream"
 )
 
 // attempt 统一管理一次通道尝试的完整生命周期

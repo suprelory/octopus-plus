@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
-	geminiOutbound "github.com/bestruirui/octopus/polywire/outbound/gemini"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	geminiOutbound "github.com/suprelory/octopus-plus/polywire/outbound/gemini"
 )
 
 func evaluateFeature(req *model.InternalLLMRequest, effectiveModel string, outboundType OutboundType, feature SemanticFeature, decision *CapabilityDecision) {

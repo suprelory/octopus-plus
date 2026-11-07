@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestProtocolErrorForAttemptClassifiesInterruptedStream(t *testing.T) {

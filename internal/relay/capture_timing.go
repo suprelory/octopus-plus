@@ -8,7 +8,7 @@ import (
 	"net/http/httptrace"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func (a *exchangeCapture) timing(phase string, reused bool) {

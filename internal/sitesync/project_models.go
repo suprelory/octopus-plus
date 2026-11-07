@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/helper"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	"github.com/suprelory/octopus-plus/internal/helper"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 func syncProjectedModelPrices(ctx context.Context, modelsByGroup map[string][]model.SiteModel) error {

@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/relay/stream"
-	"github.com/bestruirui/octopus/internal/transformer"
-	"github.com/bestruirui/octopus/polywire/inbound"
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/relay/stream"
+	"github.com/suprelory/octopus-plus/internal/transformer"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 // Issue #65 Bug 2: a 200 SSE stream that ends without forwarding any payload

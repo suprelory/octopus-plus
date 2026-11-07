@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // ResponseInbound implements the Inbound interface for OpenAI Responses API.

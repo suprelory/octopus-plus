@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/compat"
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/compat"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func (i *MessagesInbound) geminiSignatureScope(ctx context.Context, fallbackModel string) compat.GeminiSignatureScope {

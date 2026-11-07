@@ -1,7 +1,7 @@
 package model
 
 import (
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
 	"time"
 )
 

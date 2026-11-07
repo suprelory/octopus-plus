@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func transformOpenAIError(statusCode int, headers http.Header, body []byte) *model.ResponseError {

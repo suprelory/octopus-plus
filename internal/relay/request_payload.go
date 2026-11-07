@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/helper"
-	"github.com/bestruirui/octopus/polywire/httpio"
+	"github.com/suprelory/octopus-plus/internal/helper"
+	"github.com/suprelory/octopus-plus/polywire/httpio"
 )
 
 func (ra *relayAttempt) clientRequestHeaders() http.Header {

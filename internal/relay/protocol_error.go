@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/server/resp"
-	"github.com/bestruirui/octopus/polywire/model"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/server/resp"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func relayProtocolError(status int, code, message string) *model.ResponseError {

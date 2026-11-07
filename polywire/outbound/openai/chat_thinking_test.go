@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestChatOutbound_ThinkingParameter(t *testing.T) {

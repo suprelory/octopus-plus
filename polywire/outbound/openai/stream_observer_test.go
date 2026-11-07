@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestResponsesTerminalObservationMatchesCanonicalOutcome(t *testing.T) {

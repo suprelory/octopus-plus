@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 // Budget bounds the uncompressed bytes retained across every attempt in a request.

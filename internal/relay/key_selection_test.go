@@ -3,8 +3,8 @@ package relay
 import (
 	"testing"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/relay/balancer"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/relay/balancer"
 )
 
 func TestSelectAndReserveRelayKeyHonorsExclusionsAndReleases(t *testing.T) {

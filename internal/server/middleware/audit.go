@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/utils/log"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 const adminAuthenticatedKey = "octopus.admin_authenticated"

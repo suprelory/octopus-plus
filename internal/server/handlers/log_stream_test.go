@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/server/auth"
-	"github.com/bestruirui/octopus/internal/server/middleware"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/server/auth"
+	"github.com/suprelory/octopus-plus/internal/server/middleware"
 )
 
 func setupLogStreamHandlerTest(t *testing.T) string {

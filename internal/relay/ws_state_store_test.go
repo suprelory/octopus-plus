@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/relay/balancer"
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/relay/balancer"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestResolveWSConversationStateFallsBackToStoredState(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func PreviewManualSync(ctx context.Context, accountID int, req ManualSyncRequest) (*ManualSyncPreview, error) {

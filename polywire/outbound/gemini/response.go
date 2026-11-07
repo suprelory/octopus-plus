@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func (o *MessagesOutbound) convertGeminiToLLMResponse(geminiResp *model.GeminiGenerateContentResponse, isStream bool, streamIndexer func(candidateIndex int) int, toolIndexers ...func() int) *model.InternalLLMResponse {

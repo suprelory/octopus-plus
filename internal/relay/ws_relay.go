@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/relay/balancer"
 	"github.com/coder/websocket"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/relay/balancer"
 )
 
 type wsRelayResult struct {

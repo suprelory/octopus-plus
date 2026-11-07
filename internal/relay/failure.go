@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/relay/balancer"
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/internal/relay/balancer"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // FailureClass is the relay's stable, transport-independent error taxonomy.

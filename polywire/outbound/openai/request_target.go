@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func retargetOpenAIRequest(wire *http.Request, baseURL, key, path string) error {

@@ -3,7 +3,7 @@ package relay
 import (
 	"bytes"
 	"context"
-	"github.com/bestruirui/octopus/internal/relay/capture"
+	"github.com/suprelory/octopus-plus/internal/relay/capture"
 	"net/http"
 	"sync"
 

@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	dbmodel "github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/relay/stream"
-	"github.com/bestruirui/octopus/internal/utils/log"
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
-	openaiOutbound "github.com/bestruirui/octopus/polywire/outbound/openai"
 	"github.com/coder/websocket"
+	dbmodel "github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/relay/stream"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
+	openaiOutbound "github.com/suprelory/octopus-plus/polywire/outbound/openai"
 )
 
 type wsPassthroughStats struct {

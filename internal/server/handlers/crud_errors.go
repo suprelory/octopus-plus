@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/apperror"
+	"github.com/suprelory/octopus-plus/internal/apperror"
 )
 
 func channelError(code string, message string, err error) *apperror.Error {

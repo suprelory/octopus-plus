@@ -4,7 +4,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 // Balancer 根据负载均衡模式选择通道

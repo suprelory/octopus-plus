@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"testing"
 
-	anthropicInbound "github.com/bestruirui/octopus/polywire/inbound/anthropic"
-	openaiInbound "github.com/bestruirui/octopus/polywire/inbound/openai"
-	anthropicOutbound "github.com/bestruirui/octopus/polywire/outbound/anthropic"
-	geminiOutbound "github.com/bestruirui/octopus/polywire/outbound/gemini"
+	anthropicInbound "github.com/suprelory/octopus-plus/polywire/inbound/anthropic"
+	openaiInbound "github.com/suprelory/octopus-plus/polywire/inbound/openai"
+	anthropicOutbound "github.com/suprelory/octopus-plus/polywire/outbound/anthropic"
+	geminiOutbound "github.com/suprelory/octopus-plus/polywire/outbound/gemini"
 )
 
 func TestCrossProtocolErrorTransformation(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/clientip"
-	"github.com/bestruirui/octopus/internal/notify"
+	"github.com/suprelory/octopus-plus/internal/clientip"
+	"github.com/suprelory/octopus-plus/internal/notify"
 )
 
 type SettingKey string

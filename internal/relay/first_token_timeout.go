@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/utils/log"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 type firstTokenBudget struct {

@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/polywire/model"
-	openai "github.com/bestruirui/octopus/polywire/outbound/openai"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	openai "github.com/suprelory/octopus-plus/polywire/outbound/openai"
 )
 
 type testWSReader struct {

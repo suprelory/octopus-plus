@@ -13,12 +13,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/op"
-	"github.com/bestruirui/octopus/internal/relay/bodycache"
-	"github.com/bestruirui/octopus/internal/relay/capture"
 	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/relay/bodycache"
+	"github.com/suprelory/octopus-plus/internal/relay/capture"
 )
 
 func decodedCapture(t *testing.T, m *model.RelayMessage) string {

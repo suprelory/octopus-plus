@@ -3,7 +3,7 @@ package sitesync
 import (
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func TestResolveSiteAccountProxyPrefersAccountProxy(t *testing.T) {

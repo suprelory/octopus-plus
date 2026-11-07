@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
-	dbpkg "github.com/bestruirui/octopus/internal/db"
-	"github.com/bestruirui/octopus/internal/model"
 	"github.com/glebarez/sqlite"
+	dbpkg "github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

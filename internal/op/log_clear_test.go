@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/bestruirui/octopus/internal/db"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/utils/snowflake"
+	dbpkg "github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/utils/snowflake"
 )
 
 // RelayLogClear must not hold relayLogBuffer.flushLock across its batched deletes: the

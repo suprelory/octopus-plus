@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func inferSiteModelRouteType(item model.SiteModel) model.SiteModelRouteType {

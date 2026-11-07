@@ -3,8 +3,8 @@ package resp
 import (
 	"reflect"
 
-	"github.com/bestruirui/octopus/internal/utils/log"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 const errorDetailsKey = "octopus.response_error"

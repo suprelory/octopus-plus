@@ -22,10 +22,10 @@ readonly GIT_VERSION="${RELEASE_TAG:-$(git describe --tags --exact-match 2>/dev/
 readonly COMMIT_ID="$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
 
 # Build flags
-LDFLAGS="-X 'github.com/bestruirui/octopus/internal/conf.Version=${GIT_VERSION}' \
-         -X 'github.com/bestruirui/octopus/internal/conf.BuildTime=${BUILD_TIME}' \
-         -X 'github.com/bestruirui/octopus/internal/conf.Author=${GIT_AUTHOR}' \
-         -X 'github.com/bestruirui/octopus/internal/conf.Commit=${COMMIT_ID}' \
+LDFLAGS="-X 'github.com/suprelory/octopus-plus/internal/conf.Version=${GIT_VERSION}' \
+         -X 'github.com/suprelory/octopus-plus/internal/conf.BuildTime=${BUILD_TIME}' \
+         -X 'github.com/suprelory/octopus-plus/internal/conf.Author=${GIT_AUTHOR}' \
+         -X 'github.com/suprelory/octopus-plus/internal/conf.Commit=${COMMIT_ID}' \
          -s -w"
 
 # =============================================================================
@@ -208,7 +208,7 @@ prepare_release_signing() {
         log_error "Derived release verification public key is empty"
         return 1
     fi
-    LDFLAGS="${LDFLAGS} -X 'github.com/bestruirui/octopus/internal/update.releasePublicKey=${public_key}'"
+    LDFLAGS="${LDFLAGS} -X 'github.com/suprelory/octopus-plus/internal/update.releasePublicKey=${public_key}'"
     log_success "Release verification public key prepared"
 }
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func (i *MessagesInbound) TransformError(_ context.Context, response *model.ResponseError) (*model.ProtocolErrorResponse, error) {

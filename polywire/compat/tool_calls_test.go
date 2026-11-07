@@ -3,7 +3,7 @@ package compat
 import (
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestFixOrphanedToolCallsInsertsMissingResults(t *testing.T) {

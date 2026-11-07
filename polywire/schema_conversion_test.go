@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/inbound/openai"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	"github.com/suprelory/octopus-plus/polywire/inbound/openai"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 func TestGeminiToolAndResponseSchemasShareConversionAndLosses(t *testing.T) {

@@ -12,10 +12,10 @@ import (
 	"strings"
 	"testing"
 
-	inbound "github.com/bestruirui/octopus/polywire/inbound/anthropic"
-	openai "github.com/bestruirui/octopus/polywire/inbound/openai"
-	"github.com/bestruirui/octopus/polywire/model"
-	outbound "github.com/bestruirui/octopus/polywire/outbound/anthropic"
+	inbound "github.com/suprelory/octopus-plus/polywire/inbound/anthropic"
+	openai "github.com/suprelory/octopus-plus/polywire/inbound/openai"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	outbound "github.com/suprelory/octopus-plus/polywire/outbound/anthropic"
 )
 
 const searchPayload = `[{"type":"web_search_result","url":"https://example.com/source","title":"Source","encrypted_content":"opaque-data","page_age":null,"future":{"rank":0}}]`

@@ -1,7 +1,7 @@
 # Polywire
 
 Polywire is an independent Go module for LLM protocol conversion, extracted from
-Octopus. Module path: `github.com/bestruirui/octopus/polywire`; Go 1.25 or newer.
+Octopus. Module path: `github.com/suprelory/octopus-plus/polywire`; Go 1.25 or newer.
 It parses client requests, builds provider HTTP requests, translates responses
 and canonical stream events, and reports conversion losses. It never executes
 HTTP requests or opens WebSocket connections.
@@ -12,9 +12,9 @@ The module is developed in this repository; it has not been published as a
 separate version by this extraction. A local consumer can use:
 
 ```go
-require github.com/bestruirui/octopus/polywire v0.0.0
+require github.com/suprelory/octopus-plus/polywire v0.0.0
 
-replace github.com/bestruirui/octopus/polywire => /path/to/octopus/polywire
+replace github.com/suprelory/octopus-plus/polywire => /path/to/octopus-plus/polywire
 ```
 
 ```go

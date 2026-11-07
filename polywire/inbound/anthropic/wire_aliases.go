@@ -1,8 +1,8 @@
 package anthropic
 
 import (
-	"github.com/bestruirui/octopus/polywire/model"
-	wire "github.com/bestruirui/octopus/polywire/protocol/anthropic"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	wire "github.com/suprelory/octopus-plus/polywire/protocol/anthropic"
 )
 
 // Wire DTOs live in protocol/anthropic so inbound and outbound adapters depend

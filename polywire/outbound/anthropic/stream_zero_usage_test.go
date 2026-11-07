@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // lastUsageDelta 返回事件序列中最后一个 UsageDelta 携带的 usage（没有则返回 nil）。

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/utils/cache"
+	"github.com/suprelory/octopus-plus/internal/utils/cache"
 )
 
 type rateLimitEntry struct {

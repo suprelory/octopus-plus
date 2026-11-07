@@ -6,7 +6,7 @@ package price
 import (
 	"sync"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 var llmPriceLock sync.RWMutex

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/internal/dataurl"
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/internal/dataurl"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func prepareGeminiRequest(request *model.InternalLLMRequest, effectiveModel string) (*model.InternalLLMRequest, model.AlternationReport) {

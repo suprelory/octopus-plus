@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/transformer"
-	"github.com/bestruirui/octopus/polywire/inbound"
-	"github.com/bestruirui/octopus/polywire/outbound"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/transformer"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 func TestParseChatRequestRejectsUnsupportedChoiceCount(t *testing.T) {

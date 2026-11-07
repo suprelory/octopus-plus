@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/relay/stream"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/relay/stream"
 )
 
 // proxySSE 将上游 SSE 逐行解析 event/data/空行并透传到下游；首事件计为 FirstTokenTime；支持 FirstTokenTimeOut 切换。

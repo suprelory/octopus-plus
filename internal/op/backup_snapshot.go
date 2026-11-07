@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/bestruirui/octopus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/db"
 	"gorm.io/gorm"
 )
 

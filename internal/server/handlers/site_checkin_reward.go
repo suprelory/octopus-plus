@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/server/resp"
-	"github.com/bestruirui/octopus/internal/sitesync"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/server/resp"
+	"github.com/suprelory/octopus-plus/internal/sitesync"
 )
 
 func testCheckinRewardExtractor(c *gin.Context) {

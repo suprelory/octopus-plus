@@ -3,7 +3,7 @@ package anthropic
 import (
 	"context"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // TransformStream retains the chunk interface using the canonical event encoder.

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/inbound"
-	"github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
-	"github.com/bestruirui/octopus/polywire/streamio"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
+	"github.com/suprelory/octopus-plus/polywire/streamio"
 )
 
 func convertChatRegressionStream(t *testing.T, clientType inbound.InboundType, chunks []string) ([]byte, *model.InternalLLMResponse) {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // Issue #65: reasoning models place a reasoning item at output_index 0, so

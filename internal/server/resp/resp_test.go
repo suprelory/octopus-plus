@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/bestruirui/octopus/internal/apperror"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/apperror"
 )
 
 func TestErrorWithAppErrorUsesAppStatusAndParams(t *testing.T) {

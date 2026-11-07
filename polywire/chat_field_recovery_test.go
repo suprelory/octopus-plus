@@ -6,9 +6,9 @@ import (
 	"io"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/inbound"
-	"github.com/bestruirui/octopus/polywire/model"
-	"github.com/bestruirui/octopus/polywire/outbound"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
 func TestChatUnknownFieldsPreservedNativelyAndReportedAcrossProtocols(t *testing.T) {

@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/config"
-	"github.com/bestruirui/octopus/polywire/internal/testlog"
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/config"
+	"github.com/suprelory/octopus-plus/polywire/internal/testlog"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestLogGeminiSignatureAuditExtract(t *testing.T) {

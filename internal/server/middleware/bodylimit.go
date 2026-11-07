@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bestruirui/octopus/internal/conf"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/conf"
 )
 
 // importBodyLimitMultiplier 放宽数据导入端点的上限。这些端点上传的是数据库

@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/utils/safe"
 	"github.com/coder/websocket"
+	"github.com/suprelory/octopus-plus/internal/utils/safe"
 )
 
 const wsClientPendingMessages = 8

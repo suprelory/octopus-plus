@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/helper"
-	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/relay/bodycache"
-	"github.com/bestruirui/octopus/internal/relay/capture"
-	transformerModel "github.com/bestruirui/octopus/polywire/model"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/helper"
+	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/relay/bodycache"
+	"github.com/suprelory/octopus-plus/internal/relay/capture"
+	transformerModel "github.com/suprelory/octopus-plus/polywire/model"
 )
 
 const imagesUpstreamErrorBodyLimit = 16 * 1024

@@ -3,7 +3,7 @@ package openai
 import (
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // O-H6: an `input_file` item referenced by uploaded file id must survive the

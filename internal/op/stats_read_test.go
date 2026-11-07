@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bestruirui/octopus/internal/model"
-	cachelib "github.com/bestruirui/octopus/internal/utils/cache"
+	"github.com/suprelory/octopus-plus/internal/model"
+	cachelib "github.com/suprelory/octopus-plus/internal/utils/cache"
 )
 
 // Pause after an actual cache read so settlement can occur before the caller

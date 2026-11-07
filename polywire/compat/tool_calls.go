@@ -3,7 +3,7 @@ package compat
 import (
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // PatchAnthropicRequest applies small protocol repairs before Anthropic wire

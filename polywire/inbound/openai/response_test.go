@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bestruirui/octopus/polywire/model"
 	"github.com/samber/lo"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 func TestConvertToInternalRequestPreservesRawInputItems(t *testing.T) {

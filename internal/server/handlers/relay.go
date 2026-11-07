@@ -3,11 +3,11 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/bestruirui/octopus/internal/relay"
-	"github.com/bestruirui/octopus/internal/server/middleware"
-	"github.com/bestruirui/octopus/internal/server/router"
-	"github.com/bestruirui/octopus/polywire/inbound"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/relay"
+	"github.com/suprelory/octopus-plus/internal/server/middleware"
+	"github.com/suprelory/octopus-plus/internal/server/router"
+	"github.com/suprelory/octopus-plus/polywire/inbound"
 )
 
 func init() {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	openai "github.com/bestruirui/octopus/polywire/outbound/openai"
+	openai "github.com/suprelory/octopus-plus/polywire/outbound/openai"
 )
 
 func TestIncrementalSSEObserverHandlesSplitAndMultilineEvents(t *testing.T) {

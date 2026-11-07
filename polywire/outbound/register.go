@@ -5,11 +5,11 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/bestruirui/octopus/polywire/config"
-	"github.com/bestruirui/octopus/polywire/model"
-	outAnthropic "github.com/bestruirui/octopus/polywire/outbound/anthropic"
-	"github.com/bestruirui/octopus/polywire/outbound/gemini"
-	"github.com/bestruirui/octopus/polywire/outbound/openai"
+	"github.com/suprelory/octopus-plus/polywire/config"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	outAnthropic "github.com/suprelory/octopus-plus/polywire/outbound/anthropic"
+	"github.com/suprelory/octopus-plus/polywire/outbound/gemini"
+	"github.com/suprelory/octopus-plus/polywire/outbound/openai"
 )
 
 type OutboundType int

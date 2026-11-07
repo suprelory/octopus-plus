@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/bestruirui/octopus/polywire/model"
+	"github.com/suprelory/octopus-plus/polywire/model"
 )
 
 // FieldConversionRule declares a semantic mapping and the condition that

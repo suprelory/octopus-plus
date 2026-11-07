@@ -3,16 +3,16 @@ package relay
 import (
 	"context"
 	"fmt"
-	"github.com/bestruirui/octopus/internal/relay/capture"
+	"github.com/suprelory/octopus-plus/internal/relay/capture"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/bestruirui/octopus/polywire/model"
-	openaiOutbound "github.com/bestruirui/octopus/polywire/outbound/openai"
+	"github.com/suprelory/octopus-plus/polywire/model"
+	openaiOutbound "github.com/suprelory/octopus-plus/polywire/outbound/openai"
 
-	"github.com/bestruirui/octopus/internal/utils/log"
 	"github.com/coder/websocket"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 // wsUpstreamReader reads events from an upstream WebSocket connection.

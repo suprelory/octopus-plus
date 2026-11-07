@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/bestruirui/octopus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 var settingWriteLock sync.Mutex
