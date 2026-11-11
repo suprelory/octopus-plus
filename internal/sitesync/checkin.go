@@ -121,9 +121,21 @@ func runAccountCheckin(ctx context.Context, accountID int, trigger SiteBatchTrig
 	}
 	if pending := account.CheckinPending; pending != nil && (!siteRecord.CheckinHTTPEnabled || siteRecord.CheckinStatus == nil) &&
 		(!pending.Finished || pending.Date == time.Now().In(resolveSiteCheckinWindow(siteRecord).location).Format("2006-01-02")) {
-		result := &model.SiteCheckinResult{LogID: pending.LogID, Workflow: pending, Replayed: pending.Finished,
-			Status: model.SiteExecutionStatusFailed, Reason: "checkin_config_changed", Message: "状态查询配置已停用，本次不再提交；请核对上游结果"}
-		return persistCheckinOutcome(ctx, siteRecord, account, trigger, started, result, "", true)
+		if isManualStatusCheckin(ctx) && !pending.Submitted && pending.Status != model.SiteExecutionStatusSuccess {
+			if err := resetUnsubmittedStatusCheckin(ctx, siteRecord, account); err != nil {
+				return nil, sanitizeSiteError(err)
+			}
+		} else {
+			result := &model.SiteCheckinResult{LogID: pending.LogID, Workflow: pending,
+				Status: model.SiteExecutionStatusFailed, Reason: "checkin_config_changed", Message: "状态查询配置已停用，本次不再提交；请重新启用状态查询后手动复查"}
+			if pending.Finished {
+				result, err = replayStatusCheckin(ctx, siteRecord, account, pending)
+				if err != nil {
+					return nil, sanitizeSiteError(err)
+				}
+			}
+			return persistCheckinOutcome(ctx, siteRecord, account, trigger, started, result, "", true)
+		}
 	}
 	if trigger == SiteBatchTriggerScheduled {
 		// A manual run or an account edit may have completed after the batch
@@ -155,7 +167,7 @@ func runAccountCheckin(ctx context.Context, accountID int, trigger SiteBatchTrig
 	var balanceBefore siteBalanceFetchResult
 	var externalBalance *linkedCheckinBalance
 	if siteRecord.CheckinHTTPEnabled && account.LinkedAccountID != nil &&
-		(siteRecord.CheckinStatus == nil || account.CheckinPending == nil || (!account.CheckinPending.Submitted && !account.CheckinPending.Finished) ||
+		(siteRecord.CheckinStatus == nil || account.CheckinPending == nil || (!account.CheckinPending.Submitted && account.CheckinPending.Status != model.SiteExecutionStatusSuccess) ||
 			(account.CheckinPending.Finished && account.CheckinPending.Date != time.Now().In(resolveSiteCheckinWindow(siteRecord).location).Format("2006-01-02"))) {
 		externalBalance = prepareLinkedCheckinBalance(ctx, siteRecord, account)
 	}
@@ -330,7 +342,7 @@ func persistCheckinOutcome(ctx context.Context, siteRecord *model.Site, account 
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, siteRecord.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 			// Deleting a site during a request must not discard its actual outcome.
 			if result.Workflow != nil {
-				saved, err := updatePendingCheckinLog(tx, &entry)
+				saved, err := updateStatusCheckinLog(tx, &entry, result.Workflow)
 				if err == nil && !saved {
 					result.Replayed = true
 					result.Reward = ""
@@ -368,7 +380,7 @@ func persistCheckinOutcome(ctx context.Context, siteRecord *model.Site, account 
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				// Account deletion preserves history. Save the in-flight outcome
 				// without requiring or recreating the deleted workflow reservation.
-				saved, err = updatePendingCheckinLog(tx, &entry)
+				saved, err = updateStatusCheckinLog(tx, &entry, result.Workflow)
 				updateAccount = false
 			}
 			if err != nil {

@@ -3,6 +3,7 @@ package sitesync
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -35,25 +36,26 @@ func checkinWithStatus(ctx context.Context, site *model.Site, account *model.Sit
 	result := func(status model.SiteExecutionStatus, reason, message string) *model.SiteCheckinResult {
 		return &model.SiteCheckinResult{LogID: workflow.LogID, Status: status, Reason: reason, Message: message, Workflow: workflow}
 	}
+	manual := isManualStatusCheckin(ctx)
+	var stopped *model.SiteCheckinResult
 	if workflow.Finished {
-		r := result(workflow.Status, workflow.Reason, "本次签到已有最终记录")
-		r.Replayed = true
-		if workflow.Status == model.SiteExecutionStatusSuccess {
-			r.Reason, r.Message = model.SiteCheckinReasonAlreadyCheckedIn, "今日已签到"
+		stopped, err = replayStatusCheckin(ctx, site, account, workflow)
+		if err != nil {
+			return nil, "", err
 		}
-		return r, "", nil
-	}
-	if workflow.Fingerprint != checkinWorkflowFingerprint(site, account) {
-		return result(model.SiteExecutionStatusFailed, "checkin_config_changed", "待确认期间配置或凭据已改变，本次停止提交；请核对上游结果"), "", nil
-	}
-	if !time.Now().Before(workflow.Deadline) {
-		return result(model.SiteExecutionStatusFailed, model.SiteCheckinReasonUnconfirmed, "签到确认期限已到，结果仍未确认；本次不会重新提交"), "", nil
-	}
-	if !workflow.Submitted && workflow.Date != time.Now().In(resolveSiteCheckinWindow(site).location).Format("2006-01-02") {
-		return result(model.SiteExecutionStatusFailed, model.SiteCheckinReasonUnconfirmed, "前置检查已跨日，本次未提交；下次执行将检查今日状态"), "", nil
+		if !manual || !workflow.Submitted || workflow.Status != model.SiteExecutionStatusFailed {
+			return stopped, "", nil
+		}
+	} else {
+		stopped = statusCheckinStopResult(site, account, workflow, time.Now())
+		if stopped != nil && (!manual || !workflow.Submitted) {
+			return stopped, "", nil
+		}
 	}
 	deadline := time.Now().Add(time.Duration(config.TimeoutSeconds) * time.Second)
-	if workflow.Deadline.Before(deadline) {
+	// A manual recheck gets a bounded query window even after confirmation expired.
+	// Submitted remains set, so this path can never send another check-in request.
+	if stopped == nil && workflow.Deadline.Before(deadline) {
 		deadline = workflow.Deadline
 	}
 	runCtx, cancel := context.WithDeadline(ctx, deadline)
@@ -101,6 +103,13 @@ func checkinWithStatus(ctx context.Context, site *model.Site, account *model.Sit
 		return r
 	}
 	pending := func() *model.SiteCheckinResult {
+		if stopped != nil {
+			stopped.Message += "；本次仅复查状态，仍未确认签到成功"
+			if queryDetail != "" {
+				stopped.Message += "（" + queryDetail + "）"
+			}
+			return stopped
+		}
 		message := "签到结果待确认，后续只查询状态，不重复提交"
 		if !workflow.Submitted {
 			message = "签到前状态无法确认，暂未提交；后续重查状态"
@@ -174,12 +183,27 @@ func waitCheckinStatus(ctx context.Context, delay time.Duration) bool {
 func beginStatusCheckin(ctx context.Context, site *model.Site, account *model.SiteAccount, config *model.SiteCheckinStatusConfig) (*model.SiteCheckinPending, error) {
 	now := time.Now().UTC()
 	date := now.In(resolveSiteCheckinWindow(site).location).Format("2006-01-02")
+	if previous := account.CheckinPending; previous != nil && isManualStatusCheckin(ctx) && !previous.Submitted && previous.Status != model.SiteExecutionStatusSuccess {
+		if previous.Finished || statusCheckinStopResult(site, account, previous, now) != nil {
+			if err := resetUnsubmittedStatusCheckin(ctx, site, account); err != nil {
+				return nil, err
+			}
+		}
+	}
 	if previous := account.CheckinPending; previous != nil && (!previous.Finished || previous.Date == date) {
-		if !previous.Finished {
-			// Backups may omit history. Recreate only the pending log, retaining the
-			// reservation so a restored account never resubmits an uncertain POST.
+		recheckingFailure := isManualStatusCheckin(ctx) && previous.Submitted && previous.Finished && previous.Status == model.SiteExecutionStatusFailed
+		if !previous.Finished || recheckingFailure {
+			// Backups may omit history. Retain the reservation when recreating a log
+			// so an unfinished or failed submission can be confirmed without resending.
 			entry := model.SiteCheckinLog{ID: previous.LogID, SiteID: site.ID, AccountID: account.ID, SiteName: site.Name, AccountName: account.Name, Platform: site.Platform,
 				Source: "import", Status: model.SiteExecutionStatusPending, Reason: "pending_confirmation", Message: "继续确认签到状态", StartedAt: previous.StartedAt, FinishedAt: now}
+			if recheckingFailure {
+				original, err := replayStatusCheckin(ctx, site, account, previous)
+				if err != nil {
+					return nil, err
+				}
+				entry.Status, entry.Reason, entry.Message = original.Status, original.Reason, original.Message
+			}
 			if err := db.GetDB().WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&entry).Error; err != nil {
 				return nil, err
 			}
@@ -252,11 +276,13 @@ func persistStatusWorkflow(tx *gorm.DB, account *model.SiteAccount, result *mode
 		return false, err
 	}
 	workflow := result.Workflow
-	if current.CheckinPending == nil || current.CheckinPending.LogID != workflow.LogID || current.CheckinPending.Finished ||
+	recovering := workflow.Finished && workflow.Submitted && workflow.Status == model.SiteExecutionStatusFailed && result.Status == model.SiteExecutionStatusSuccess
+	if current.CheckinPending == nil || current.CheckinPending.LogID != workflow.LogID ||
+		(current.CheckinPending.Finished && !(recovering && current.CheckinPending.Submitted && current.CheckinPending.Status == model.SiteExecutionStatusFailed)) ||
 		(current.CheckinPending.Submitted && !workflow.Submitted) {
 		return false, nil
 	}
-	saved, err := updatePendingCheckinLog(tx, entry)
+	saved, err := updateStatusCheckinLog(tx, entry, workflow)
 	if err != nil || !saved {
 		return saved, err
 	}
@@ -269,8 +295,102 @@ func persistStatusWorkflow(tx *gorm.DB, account *model.SiteAccount, result *mode
 	return true, nil
 }
 
-func updatePendingCheckinLog(tx *gorm.DB, entry *model.SiteCheckinLog) (bool, error) {
-	updated := tx.Model(&model.SiteCheckinLog{}).Where("id = ? AND account_id = ? AND site_id = ? AND status = ?", entry.ID, entry.AccountID, entry.SiteID, model.SiteExecutionStatusPending).
+func updateStatusCheckinLog(tx *gorm.DB, entry *model.SiteCheckinLog, workflow *model.SiteCheckinPending) (bool, error) {
+	previousStatus := model.SiteExecutionStatusPending
+	if workflow.Finished && workflow.Submitted && workflow.Status == model.SiteExecutionStatusFailed && entry.Status == model.SiteExecutionStatusSuccess {
+		previousStatus = model.SiteExecutionStatusFailed
+	}
+	updated := tx.Model(&model.SiteCheckinLog{}).Where("id = ? AND account_id = ? AND site_id = ? AND status = ?", entry.ID, entry.AccountID, entry.SiteID, previousStatus).
 		Updates(map[string]any{"status": entry.Status, "reason": entry.Reason, "message": entry.Message, "reward": entry.Reward, "duration_ms": entry.DurationMs, "finished_at": entry.FinishedAt})
 	return updated.RowsAffected > 0, updated.Error
+}
+
+func isManualStatusCheckin(ctx context.Context) bool {
+	trigger, _ := ctx.Value(checkinTriggerKey{}).(SiteBatchTrigger)
+	return trigger == "" || trigger == SiteBatchTriggerManual
+}
+
+func statusCheckinStopResult(site *model.Site, account *model.SiteAccount, workflow *model.SiteCheckinPending, now time.Time) *model.SiteCheckinResult {
+	reason, message := "", ""
+	switch {
+	case workflow.Fingerprint != checkinWorkflowFingerprint(site, account):
+		reason, message = "checkin_config_changed", "待确认期间配置或凭据已改变；已提交的请求不会重复发送，可手动复查状态"
+		if !workflow.Submitted {
+			message = "签到前配置或凭据已改变，本次未提交；可手动重新检查"
+		}
+	case !now.Before(workflow.Deadline):
+		reason, message = model.SiteCheckinReasonUnconfirmed, "签到确认期限已到，结果仍未确认；本次不会重新提交，可手动复查状态"
+		if !workflow.Submitted {
+			message = "签到前状态确认已超时，本次未提交；可手动重新检查"
+		}
+	case !workflow.Submitted && workflow.Date != now.In(resolveSiteCheckinWindow(site).location).Format("2006-01-02"):
+		reason, message = model.SiteCheckinReasonUnconfirmed, "前置检查已跨日，本次未提交；下次执行将检查今日状态"
+	default:
+		return nil
+	}
+	return &model.SiteCheckinResult{LogID: workflow.LogID, Workflow: workflow, Status: model.SiteExecutionStatusFailed, Reason: reason, Message: message}
+}
+
+func replayStatusCheckin(ctx context.Context, site *model.Site, account *model.SiteAccount, workflow *model.SiteCheckinPending) (*model.SiteCheckinResult, error) {
+	result := &model.SiteCheckinResult{LogID: workflow.LogID, Workflow: workflow, Status: workflow.Status, Reason: workflow.Reason, Replayed: true}
+	if workflow.Status == model.SiteExecutionStatusSuccess {
+		result.Reason, result.Message = model.SiteCheckinReasonAlreadyCheckedIn, "今日已签到"
+		return result, nil
+	}
+	// Read the original sanitized message rather than hiding it behind a generic
+	// replay message. Older backups can contain a workflow without its history.
+	var entry model.SiteCheckinLog
+	err := db.GetDB().WithContext(ctx).Select("message").Where("id = ? AND site_id = ? AND account_id = ?", workflow.LogID, site.ID, account.ID).First(&entry).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	result.Message = entry.Message
+	if result.Message == "" && account.LastCheckinStatus == workflow.Status {
+		result.Message = account.LastCheckinMessage
+	}
+	if result.Message == "" {
+		switch workflow.Reason {
+		case "checkin_config_changed":
+			result.Message = "此前签到因配置或凭据改变而终止，请检查状态查询配置"
+		case model.SiteCheckinReasonUnconfirmed:
+			result.Message = "此前签到未能在确认期限内确认结果"
+		default:
+			result.Message = "此前签到未完成，请查看签到记录中的失败原因"
+		}
+	}
+	return result, nil
+}
+
+func resetUnsubmittedStatusCheckin(ctx context.Context, site *model.Site, account *model.SiteAccount) error {
+	previous := account.CheckinPending
+	if previous == nil || previous.Submitted || previous.Status == model.SiteExecutionStatusSuccess {
+		return fmt.Errorf("only an unsubmitted checkin can be restarted")
+	}
+	now := time.Now().UTC()
+	outcome := statusCheckinStopResult(site, account, previous, now)
+	if outcome == nil {
+		outcome = &model.SiteCheckinResult{Status: model.SiteExecutionStatusFailed, Reason: model.SiteCheckinReasonUnconfirmed, Message: "签到前检查未完成，本次未提交；已重新开始检查"}
+	}
+	old, err := json.Marshal(previous)
+	if err != nil {
+		return err
+	}
+	err = db.GetDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Compare the whole reservation so a concurrent sender cannot be cleared.
+		updated := tx.Model(&model.SiteAccount{}).Where("id = ? AND checkin_pending = ?", account.ID, string(old)).Update("checkin_pending", nil)
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected != 1 {
+			return fmt.Errorf("checkin state changed; retry to query its status")
+		}
+		entry := &model.SiteCheckinLog{ID: previous.LogID, SiteID: site.ID, AccountID: account.ID,
+			Status: outcome.Status, Reason: outcome.Reason, Message: outcome.Message, FinishedAt: now, DurationMs: now.Sub(previous.StartedAt).Milliseconds()}
+		_, err := updateStatusCheckinLog(tx, entry, previous)
+		return err
+	})
+	if err == nil {
+		account.CheckinPending = nil
+	}
+	return err
 }

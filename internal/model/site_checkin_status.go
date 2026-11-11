@@ -30,8 +30,9 @@ type SiteCheckinStatusConfig struct {
 	RewardSource          string          `json:"reward_source"`
 }
 
-// Retain the completed attempt until the next day, including its log ID, so
-// recovery and repeated manual requests cannot submit or award it twice.
+// Retain submitted attempts until the next day, including their log ID, so
+// manual status rechecks cannot submit or award them twice. An unsubmitted
+// failure may be replaced by a new attempt while keeping its historical log.
 // Neither raw responses nor credentials are stored here.
 type SiteCheckinPending struct {
 	LogID           int64               `json:"log_id,string"`

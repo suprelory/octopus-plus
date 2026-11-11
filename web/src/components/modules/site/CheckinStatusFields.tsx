@@ -111,7 +111,7 @@ export function CheckinStatusFields({ siteForm, setSiteForm }: SiteFormFieldsPro
                     <SelectTrigger aria-label="默认奖励来源"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="submit">签到响应 data.reward</SelectItem><SelectItem value="status">状态响应 data.reward</SelectItem></SelectContent>
                 </Select></label>
             </div>
-            <p className="text-xs text-muted-foreground">开启自动签到后，待确认任务随后台扫描继续查询。确认期限到达后记录结果未确认，当日不会重新提交。</p>
+            <p className="text-xs text-muted-foreground">开启自动签到后，待确认任务随后台扫描继续查询。确认超时或修正配置后，可手动再次签到：尚未提交时重新检查，已经提交时只复查状态，不重复提交。</p>
             <details className="rounded-xl border p-3">
                 <summary className="cursor-pointer">用响应样例测试判定</summary>
                 <div className="mt-3 grid gap-3">
