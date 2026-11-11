@@ -256,13 +256,9 @@ func persistStatusWorkflow(tx *gorm.DB, account *model.SiteAccount, result *mode
 		(current.CheckinPending.Submitted && !workflow.Submitted) {
 		return false, nil
 	}
-	updated := tx.Model(&model.SiteCheckinLog{}).Where("id = ? AND account_id = ? AND site_id = ? AND status = ?", entry.ID, account.ID, entry.SiteID, model.SiteExecutionStatusPending).
-		Updates(map[string]any{"status": entry.Status, "reason": entry.Reason, "message": entry.Message, "reward": entry.Reward, "duration_ms": entry.DurationMs, "finished_at": entry.FinishedAt})
-	if updated.Error != nil {
-		return false, updated.Error
-	}
-	if updated.RowsAffected == 0 {
-		return false, nil
+	saved, err := updatePendingCheckinLog(tx, entry)
+	if err != nil || !saved {
+		return saved, err
 	}
 	workflow.Finished = result.Status != model.SiteExecutionStatusPending
 	workflow.Status, workflow.Reason = result.Status, result.Reason
@@ -271,4 +267,10 @@ func persistStatusWorkflow(tx *gorm.DB, account *model.SiteAccount, result *mode
 	}
 	account.CheckinPending = workflow
 	return true, nil
+}
+
+func updatePendingCheckinLog(tx *gorm.DB, entry *model.SiteCheckinLog) (bool, error) {
+	updated := tx.Model(&model.SiteCheckinLog{}).Where("id = ? AND account_id = ? AND site_id = ? AND status = ?", entry.ID, entry.AccountID, entry.SiteID, model.SiteExecutionStatusPending).
+		Updates(map[string]any{"status": entry.Status, "reason": entry.Reason, "message": entry.Message, "reward": entry.Reward, "duration_ms": entry.DurationMs, "finished_at": entry.FinishedAt})
+	return updated.RowsAffected > 0, updated.Error
 }

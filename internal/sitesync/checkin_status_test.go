@@ -175,6 +175,16 @@ func TestStatusCheckinExpiryAndConfigChangesNeverResubmit(t *testing.T) {
 			if result == nil || result.LogID != first.LogID || result.Status == model.SiteExecutionStatusSuccess || submits.Load() != 1 {
 				t.Fatalf("unsafe recovery: %+v submits=%d", result, submits.Load())
 			}
+			if change != "midnight" {
+				saved, err := op.SiteAccountGet(account.ID, ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if saved.CheckinPending == nil || !saved.CheckinPending.Finished || saved.NextAutoCheckinAt == nil || saved.LastCheckinAt == nil ||
+					!saved.NextAutoCheckinAt.After(*saved.LastCheckinAt) || sameLocalDate(*saved.NextAutoCheckinAt, *saved.LastCheckinAt, resolveSiteCheckinWindow(site).location) {
+					t.Fatalf("finished workflow should wait until the next day: %+v", saved)
+				}
+			}
 		})
 	}
 }

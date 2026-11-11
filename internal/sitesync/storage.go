@@ -187,10 +187,11 @@ func updateAccountSyncState(ctx context.Context, accountID int, status model.Sit
 	return db.GetDB().WithContext(ctx).Model(&model.SiteAccount{}).Where("id = ?", accountID).Updates(updatePayload).Error
 }
 
-func updateAccountCheckinState(tx *gorm.DB, siteRecord *model.Site, account *model.SiteAccount, status model.SiteExecutionStatus, message string, accessToken string, now time.Time) error {
+func updateAccountCheckinState(tx *gorm.DB, siteRecord *model.Site, account *model.SiteAccount, result *model.SiteCheckinResult, accessToken string, now time.Time) error {
 	if siteRecord == nil || account == nil {
 		return fmt.Errorf("site or account is nil")
 	}
+	status, message := result.Status, result.Message
 	updatePayload := map[string]any{
 		"last_checkin_at":      &now,
 		"last_checkin_status":  status,
@@ -206,8 +207,10 @@ func updateAccountCheckinState(tx *gorm.DB, siteRecord *model.Site, account *mod
 		}
 	} else if status == model.SiteExecutionStatusSuccess {
 		successAt := now
-		if siteRecord.CheckinStatus != nil && account.CheckinPending != nil {
-			successAt = account.CheckinPending.StartedAt
+		// A completed workflow can remain on the account after switching adapters.
+		// Only the workflow that produced this result determines its success date.
+		if result.Workflow != nil {
+			successAt = result.Workflow.StartedAt
 		}
 		account.LastCheckinSuccessAt = &successAt
 		account.CheckinFailureCount = 0
@@ -222,7 +225,7 @@ func updateAccountCheckinState(tx *gorm.DB, siteRecord *model.Site, account *mod
 		var nextAt *time.Time
 		if siteRecord.Enabled && account.Enabled && account.AutoCheckin && siteRecord.ResolveCheckinCapability().Enabled {
 			nextAt = buildNextCheckinRetryAt(siteRecord, now, status, message, account.CheckinFailureCount)
-			if account.CheckinPending != nil && account.CheckinPending.Finished {
+			if result.Workflow != nil && result.Workflow.Finished {
 				nextAt = buildNextAutoCheckinAt(siteRecord, account, now)
 			}
 		}

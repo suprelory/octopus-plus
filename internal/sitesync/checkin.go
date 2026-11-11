@@ -330,8 +330,12 @@ func persistCheckinOutcome(ctx context.Context, siteRecord *model.Site, account 
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, siteRecord.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 			// Deleting a site during a request must not discard its actual outcome.
 			if result.Workflow != nil {
-				return tx.Model(&model.SiteCheckinLog{}).Where("id = ? AND status = ?", entry.ID, model.SiteExecutionStatusPending).
-					Updates(map[string]any{"status": entry.Status, "reason": entry.Reason, "message": entry.Message, "reward": entry.Reward, "finished_at": entry.FinishedAt, "duration_ms": entry.DurationMs}).Error
+				saved, err := updatePendingCheckinLog(tx, &entry)
+				if err == nil && !saved {
+					result.Replayed = true
+					result.Reward = ""
+				}
+				return err
 			}
 			return tx.Create(&entry).Error
 		} else if err != nil {
@@ -361,6 +365,12 @@ func persistCheckinOutcome(ctx context.Context, siteRecord *model.Site, account 
 		}
 		if result.Workflow != nil {
 			saved, err := persistStatusWorkflow(tx, account, result, &entry)
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				// Account deletion preserves history. Save the in-flight outcome
+				// without requiring or recreating the deleted workflow reservation.
+				saved, err = updatePendingCheckinLog(tx, &entry)
+				updateAccount = false
+			}
 			if err != nil {
 				return err
 			}
@@ -375,7 +385,7 @@ func persistCheckinOutcome(ctx context.Context, siteRecord *model.Site, account 
 		if !updateAccount {
 			return nil
 		}
-		return updateAccountCheckinState(tx, &current, account, result.Status, result.Message, accessToken, finished)
+		return updateAccountCheckinState(tx, &current, account, result, accessToken, finished)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("persist checkin outcome: %w", err)
