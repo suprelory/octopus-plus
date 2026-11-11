@@ -100,9 +100,14 @@ jobs:
 
   frontend:
     name: frontend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    container:
+      # Keep this version aligned with @playwright/test in web/package.json.
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --ipc=host
     defaults:
       run:
+        shell: bash
         working-directory: web
     steps:
       - name: Checkout
@@ -133,9 +138,6 @@ jobs:
 
       - name: Typecheck
         run: pnpm exec tsc --noEmit
-
-      - name: Install browser
-        run: pnpm exec playwright install --with-deps chromium
 
       - name: Browser regression tests
         id: browser_tests
