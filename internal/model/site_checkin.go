@@ -55,6 +55,7 @@ type SiteCheckinStats struct {
 	SuccessCount       int                    `json:"success_count"`
 	FailedCount        int                    `json:"failed_count"`
 	SkippedCount       int                    `json:"skipped_count"`
+	PendingCount       int                    `json:"pending_count"`
 	InvalidRewardCount int                    `json:"invalid_reward_count"`
 	UnknownRewardCount int                    `json:"unknown_reward_count"`
 	Timezone           string                 `json:"timezone"`
@@ -69,4 +70,5 @@ type SiteCheckinSiteStats struct {
 	SuccessCount int     `json:"success_count"`
 	FailedCount  int     `json:"failed_count"`
 	SkippedCount int     `json:"skipped_count"`
+	PendingCount int     `json:"pending_count"`
 }

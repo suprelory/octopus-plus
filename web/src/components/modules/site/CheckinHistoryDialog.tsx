@@ -81,7 +81,7 @@ export function CheckinHistoryDialog({ sites, onOpenChange, batchJobID }: {
           <HistorySelect label={t('account')} value={accountID} onChange={value => { setAccountID(value); resetPage(); }}
             options={[{ value: 'all', label: t('allAccounts') }, ...accounts]} />
           <HistorySelect label={t('status')} value={status} onChange={value => { setStatus(value); resetPage(); }}
-            options={[{ value: 'all', label: t('allStatuses') }, ...['success', 'failed', 'skipped'].map(value => ({ value, label: t('statuses.' + value) }))]} />
+            options={[{ value: 'all', label: t('allStatuses') }, { value: 'pending', label: '待确认' }, ...['success', 'failed', 'skipped'].map(value => ({ value, label: t('statuses.' + value) }))]} />
           <HistorySelect label={t('source')} value={source} onChange={value => { setSource(value); resetPage(); }}
             options={[{ value: 'all', label: t('allSources') }, ...['manual', 'scheduled'].map(value => ({ value, label: t('sources.' + value) }))]} />
           <label className="grid min-w-0 gap-1.5 text-sm">
@@ -107,7 +107,7 @@ export function CheckinHistoryDialog({ sites, onOpenChange, batchJobID }: {
                   <tr key={entry.id} className="border-t border-border/60 align-top">
                     <td className="whitespace-nowrap px-2 py-3 text-xs">{formatDateTime(entry.finished_at)}</td>
                     <td className="max-w-40 break-words px-2 py-3"><span className="font-medium">{entry.site_name}</span><span className="block text-xs text-muted-foreground">{entry.account_name}</span></td>
-                    <td className="px-2 py-3"><Badge variant={entry.status === 'failed' ? 'destructive' : 'outline'}>{t('statuses.' + entry.status)}</Badge></td>
+                    <td className="px-2 py-3"><Badge variant={entry.status === 'failed' ? 'destructive' : 'outline'}>{entry.status === 'pending' ? '待确认' : t('statuses.' + entry.status)}</Badge></td>
                     <td className="whitespace-nowrap px-2 py-3 text-xs">{t.has('sources.' + entry.source) ? t('sources.' + entry.source) : entry.source}</td>
                     <td className="min-w-44 max-w-80 break-words px-2 py-3">
                       {t.has('reasons.' + entry.reason) ? <span className="block font-medium">{t('reasons.' + entry.reason)}</span> : null}

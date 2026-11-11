@@ -212,6 +212,10 @@ func SiteUpdate(req *model.SiteUpdateRequest, ctx context.Context) (*model.Site,
 		merged.CheckinRewardExtractor = *req.CheckinRewardExtractor
 		selectFields = append(selectFields, "checkin_reward_extractor")
 	}
+	if req.CheckinStatusSet {
+		merged.CheckinStatus = req.CheckinStatus
+		selectFields = append(selectFields, "checkin_status")
+	}
 	if req.CheckinTimezone != nil {
 		merged.CheckinTimezone = *req.CheckinTimezone
 		selectFields = append(selectFields, "checkin_timezone")
@@ -307,6 +311,9 @@ func SiteUpdate(req *model.SiteUpdateRequest, ctx context.Context) (*model.Site,
 	}
 	if req.CheckinRewardExtractor != nil {
 		updates.CheckinRewardExtractor = merged.CheckinRewardExtractor
+	}
+	if req.CheckinStatusSet {
+		updates.CheckinStatus = merged.CheckinStatus
 	}
 	if req.CheckinTimezone != nil {
 		updates.CheckinTimezone = merged.CheckinTimezone

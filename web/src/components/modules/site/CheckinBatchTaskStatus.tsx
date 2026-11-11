@@ -35,6 +35,7 @@ export function CheckinBatchTaskStatus({ compact = false }: { compact?: boolean 
     { label: t('success'), value: String(task.success) },
     { label: t('failed'), value: String(task.failed + task.partial) },
     { label: t('skipped'), value: String(task.skipped) },
+    ...(task.pending ? [{ label: '本轮待确认', value: String(task.pending) }] : []),
   ];
 
   return (

@@ -22,6 +22,10 @@ type linkedCheckinBalance struct {
 
 // Failure to query the destination account must not prevent an external sign-in.
 func prepareLinkedCheckinBalance(ctx context.Context, site *model.Site, account *model.SiteAccount) *linkedCheckinBalance {
+	return resolveLinkedCheckinBalance(ctx, site, account, true)
+}
+
+func resolveLinkedCheckinBalance(ctx context.Context, site *model.Site, account *model.SiteAccount, captureBefore bool) *linkedCheckinBalance {
 	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	sourceSite, source, err := op.SiteCheckinBalanceAccount(site, account, queryCtx)
@@ -54,8 +58,11 @@ func prepareLinkedCheckinBalance(ctx context.Context, site *model.Site, account 
 			logSiteDataWarning(sourceSite, source, token, "linked_balance", "token_save_failed", saveErr)
 		}
 	}
-	return &linkedCheckinBalance{site: sourceSite, account: source, token: token,
-		before: fetchAccountBalanceBeforeCheckin(queryCtx, sourceSite, source, token)}
+	balance := &linkedCheckinBalance{site: sourceSite, account: source, token: token}
+	if captureBefore {
+		balance.before = fetchAccountBalanceBeforeCheckin(queryCtx, sourceSite, source, token)
+	}
+	return balance
 }
 
 func mirrorCheckinBalance(ctx context.Context, site *model.Site, account *model.SiteAccount, balance siteBalanceFetchResult) {
@@ -90,7 +97,7 @@ func fetchAccountBalanceBeforeCheckin(ctx context.Context, siteRecord *model.Sit
 // Keep the committed check-in outcome even if refreshing or saving its reward
 // fails. Only fill a missing reward once, before consumers receive the result.
 func fillCheckinRewardFromBalance(ctx context.Context, result *model.SiteCheckinResult, before, after siteBalanceFetchResult) {
-	if result == nil || result.Status != model.SiteExecutionStatusSuccess || result.Reason != model.SiteCheckinReasonCheckedIn ||
+	if result == nil || result.SkipBalanceReward || result.Status != model.SiteExecutionStatusSuccess || result.Reason != model.SiteCheckinReasonCheckedIn ||
 		strings.TrimSpace(result.Reward) != "" || !before.ok || !after.ok {
 		return
 	}

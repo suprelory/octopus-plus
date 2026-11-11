@@ -139,6 +139,8 @@ func siteCheckinStatsAt(ctx context.Context, filter SiteCheckinLogFilter, now ti
 				stats.FailedCount++
 			case model.SiteExecutionStatusSkipped:
 				stats.SkippedCount++
+			case model.SiteExecutionStatusPending:
+				stats.PendingCount++
 			}
 			siteStats := bySite[entry.SiteID]
 			if siteStats == nil {
@@ -154,6 +156,8 @@ func siteCheckinStatsAt(ctx context.Context, filter SiteCheckinLogFilter, now ti
 				siteStats.FailedCount++
 			case model.SiteExecutionStatusSkipped:
 				siteStats.SkippedCount++
+			case model.SiteExecutionStatusPending:
+				siteStats.PendingCount++
 			}
 
 			if entry.Status != model.SiteExecutionStatusSuccess || entry.Reason == model.SiteCheckinReasonAlreadyCheckedIn {

@@ -149,6 +149,7 @@ export type Site = {
   checkin_http_body?: string;
   checkin_http_headers?: CustomHeader[] | null;
   checkin_reward_extractor?: string;
+  checkin_status?: SiteCheckinStatusConfig | null;
   checkin_timezone: string;
   checkin_window_start: string;
   checkin_window_end: string;
@@ -296,6 +297,25 @@ export type SiteManualSyncPreview = {
 export type SiteManualSyncApplyResult = {
   preview: SiteManualSyncPreview;
   sync_result: SiteSyncResult;
+};
+
+export type SiteCheckinStatusConfig = {
+  method: 'GET' | 'POST';
+  path: string;
+  body: string;
+  headers: CustomHeader[];
+  skip_precheck: boolean;
+  checked_path: string;
+  checked_value: boolean | number | string;
+  unchecked_value: boolean | number | string;
+  date_path: string;
+  code: string;
+  initial_delay_ms: number;
+  poll_interval_ms: number;
+  max_attempts: number;
+  timeout_seconds: number;
+  confirm_timeout_minutes: number;
+  reward_source: 'submit' | 'status';
 };
 
 export type SiteCheckinResult = {

@@ -21,7 +21,7 @@ func listSiteCheckinLogs(c *gin.Context) {
 		Source: c.Query("source"),
 	}
 	switch filter.Status {
-	case "", model.SiteExecutionStatusSuccess, model.SiteExecutionStatusFailed, model.SiteExecutionStatusSkipped:
+	case "", model.SiteExecutionStatusSuccess, model.SiteExecutionStatusFailed, model.SiteExecutionStatusSkipped, model.SiteExecutionStatusPending:
 	default:
 		resp.InvalidParam(c)
 		return

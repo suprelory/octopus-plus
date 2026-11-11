@@ -65,6 +65,7 @@ export function CheckinStatsPanel({ sites }: { sites: Site[] }) {
                     </div>)}
                 </dl>
                 <p className="text-xs text-muted-foreground">{t('counts', { total: stats.total_count, success: stats.success_count, failed: stats.failed_count, skipped: stats.skipped_count })}</p>
+                {stats.pending_count ? <p className="text-xs text-muted-foreground">待确认 {stats.pending_count} 次，尚未计入收益</p> : null}
                 {stats.total_count === 0 ? <p className="text-sm text-muted-foreground">{t('empty')}</p> : null}
                 {stats.invalid_reward_count > 0 || stats.unknown_reward_count > 0
                     ? <p className="text-xs text-amber-700 dark:text-amber-300">{t('excluded', { invalid: stats.invalid_reward_count, unknown: stats.unknown_reward_count })}</p> : null}

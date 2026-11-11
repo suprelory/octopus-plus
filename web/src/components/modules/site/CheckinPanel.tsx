@@ -26,6 +26,7 @@ const FILTERS: Array<{ key: CheckinFilterStatus; label: string }> = [
   { key: "all", label: "全部" },
   { key: "success", label: "成功" },
   { key: "failed", label: "签到失败" },
+  { key: "pending", label: "待确认" },
   { key: "idle", label: "未执行" },
   { key: "disabled", label: "禁用" },
 ];

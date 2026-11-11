@@ -125,6 +125,11 @@ func initializeSchema(db *gorm.DB) error {
 }
 
 func ensureSiteCheckinBatchJobSchema(db *gorm.DB) error {
+	if !db.Migrator().HasColumn(&model.SiteCheckinBatchJob{}, "Pending") {
+		if err := db.Migrator().AddColumn(&model.SiteCheckinBatchJob{}, "Pending"); err != nil {
+			return fmt.Errorf("add checkin batch pending count: %w", err)
+		}
+	}
 	if !db.Migrator().HasColumn(&model.SiteCheckinLog{}, "BatchJobID") {
 		if err := db.Migrator().AddColumn(&model.SiteCheckinLog{}, "BatchJobID"); err != nil {
 			return fmt.Errorf("add site checkin log batch job id: %w", err)
@@ -160,12 +165,17 @@ func ensureSiteCheckinBatchJobSchema(db *gorm.DB) error {
 }
 
 func ensureSiteCheckinHTTPColumns(db *gorm.DB) error {
-	for _, column := range []string{"CheckinHTTPEnabled", "CheckinHTTPMethod", "CheckinHTTPPath", "CheckinHTTPBody", "CheckinHTTPHeaders", "CheckinRewardExtractor"} {
+	for _, column := range []string{"CheckinHTTPEnabled", "CheckinHTTPMethod", "CheckinHTTPPath", "CheckinHTTPBody", "CheckinHTTPHeaders", "CheckinRewardExtractor", "CheckinStatus"} {
 		if db.Migrator().HasColumn(&model.Site{}, column) {
 			continue
 		}
 		if err := db.Migrator().AddColumn(&model.Site{}, column); err != nil {
 			return fmt.Errorf("add site column %s: %w", column, err)
+		}
+	}
+	if !db.Migrator().HasColumn(&model.SiteAccount{}, "CheckinPending") {
+		if err := db.Migrator().AddColumn(&model.SiteAccount{}, "CheckinPending"); err != nil {
+			return fmt.Errorf("add checkin pending state: %w", err)
 		}
 	}
 	return nil

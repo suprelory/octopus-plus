@@ -10,6 +10,7 @@ import { useSiteCheckinDefaults } from '@/api/endpoints/site-checkin';
 import type { SiteCheckinMode } from '@/api/endpoints/site';
 import type { SiteFormFieldsProps } from './site-form';
 import { CheckinRewardExtractorField } from './CheckinRewardExtractorField';
+import { CheckinStatusFields } from './CheckinStatusFields';
 
 export function SiteCheckinFields({ siteForm, setSiteForm }: SiteFormFieldsProps) {
     const t = useTranslations('siteCheckinCapability');
@@ -118,6 +119,7 @@ export function SiteCheckinFields({ siteForm, setSiteForm }: SiteFormFieldsProps
                                 />
                             </label>
                         ) : null}
+                        <CheckinStatusFields siteForm={siteForm} setSiteForm={setSiteForm} />
                         <CheckinRewardExtractorField siteForm={siteForm} setSiteForm={setSiteForm} />
                     </div>
                 ) : null}

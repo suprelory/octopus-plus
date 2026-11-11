@@ -109,6 +109,16 @@ func buildNextAutoCheckinAt(siteRecord *model.Site, account *model.SiteAccount, 
 
 	window := resolveSiteCheckinWindow(siteRecord)
 	localNow := now.In(window.location)
+	if pending := account.CheckinPending; pending != nil {
+		if !pending.Finished {
+			next := now.Add(10 * time.Minute)
+			return &next
+		}
+		if pending.Date == localNow.Format("2006-01-02") && pending.Status != model.SiteExecutionStatusSuccess {
+			next, _ := checkinWindowBounds(window, localDateStart(localNow, window.location).AddDate(0, 0, 1))
+			return &next
+		}
+	}
 	targetDate := localDateStart(localNow, window.location)
 	if lastSuccess := effectiveLastCheckinSuccessAt(account); lastSuccess != nil {
 		targetDate = localDateStart(*lastSuccess, window.location).AddDate(0, 0, checkinIntervalDays(account))
@@ -162,6 +172,16 @@ func ensureAccountCheckinSchedule(ctx context.Context, siteRecord *model.Site, a
 			account.NextAutoCheckinAt = nil
 		}
 		return nil, nil
+	}
+	if siteRecord.CheckinStatus != nil && account.CheckinPending != nil && !account.CheckinPending.Finished {
+		if account.NextAutoCheckinAt != nil {
+			return account.NextAutoCheckinAt, nil
+		}
+		next := now
+		if err := persistNextAutoCheckinAt(ctx, account.ID, &next); err != nil {
+			return nil, err
+		}
+		return &next, nil
 	}
 
 	if nextAt := account.NextAutoCheckinAt; nextAt != nil && !nextAt.IsZero() && checkinTimeWithinWindow(siteRecord, *nextAt) {

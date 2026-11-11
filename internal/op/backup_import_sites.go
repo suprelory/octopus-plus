@@ -91,9 +91,30 @@ func (s *dbImportState) importAccounts() error {
 	accountIDMap := s.accountIDs
 	pendingSources := make(map[int]int)
 	pendingLinkedAccounts := make(map[int]int)
+	pendingWorkflows := make(map[int]string)
 	// 5. SiteAccounts (remap site_id, dedup by site_id+name)
 	for i := range dump.SiteAccounts {
 		account := dump.SiteAccounts[i]
+		expectedWorkflowFingerprint := ""
+		if account.CheckinPending != nil {
+			for _, originalSite := range dump.Sites {
+				if originalSite.ID != account.SiteID || account.CheckinPending.Fingerprint != originalSite.CheckinWorkflowFingerprint(&account) {
+					continue
+				}
+				expectedSite, expectedAccount := originalSite, account
+				remapProxyConfigID(&expectedSite.ProxyMode, &expectedSite.ProxyConfigID, proxyConfigIDMap)
+				remapProxyConfigID(&expectedAccount.ProxyMode, &expectedAccount.ProxyConfigID, proxyConfigIDMap)
+				if expectedSite.LinkedSiteID != nil {
+					if mapped, ok := siteIDMap[*expectedSite.LinkedSiteID]; ok {
+						expectedSite.LinkedSiteID = &mapped
+					} else {
+						expectedSite.LinkedSiteID = nil
+					}
+				}
+				expectedWorkflowFingerprint = expectedSite.CheckinWorkflowFingerprint(&expectedAccount)
+				break
+			}
+		}
 		oldID := account.ID
 		account.ID = 0
 		sourceAccountID := account.CheckinSourceAccountID
@@ -140,6 +161,9 @@ func (s *dbImportState) importAccounts() error {
 			pendingLinkedAccounts[account.ID] = *linkedAccountID
 		}
 		res.RowsAffected["site_accounts"]++
+		if expectedWorkflowFingerprint != "" {
+			pendingWorkflows[account.ID] = expectedWorkflowFingerprint
+		}
 	}
 	for accountID, oldSourceID := range pendingSources {
 		if sourceID, ok := accountIDMap[oldSourceID]; ok && sourceID != accountID {
@@ -153,6 +177,23 @@ func (s *dbImportState) importAccounts() error {
 			if err := tx.Model(&model.SiteAccount{}).Where("id = ?", accountID).Update("linked_account_id", linkedID).Error; err != nil {
 				return fmt.Errorf("import linked checkin accounts: %w", err)
 			}
+		}
+	}
+	for accountID, expected := range pendingWorkflows {
+		var account model.SiteAccount
+		if err := tx.First(&account, accountID).Error; err != nil {
+			return err
+		}
+		var site model.Site
+		if err := tx.First(&site, account.SiteID).Error; err != nil {
+			return err
+		}
+		if site.CheckinWorkflowFingerprint(&account) != expected {
+			continue
+		}
+		account.CheckinPending.Fingerprint = expected
+		if err := tx.Model(&account).Select("checkin_pending").Updates(&account).Error; err != nil {
+			return err
 		}
 	}
 	return nil

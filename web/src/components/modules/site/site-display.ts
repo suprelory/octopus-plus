@@ -40,6 +40,8 @@ export function statusLabel(status: string) {
   switch (status) {
     case "partial":
       return "部分成功";
+    case "pending":
+      return "待确认";
     case "success":
       return "成功";
     case "failed":
@@ -93,6 +95,7 @@ export function statusDotClass(status: string) {
     case "success":
       return "bg-emerald-500";
     case "partial":
+    case "pending":
       return "bg-amber-500";
     case "failed":
       return "bg-destructive";

@@ -13,6 +13,7 @@ export type SiteCheckinBatchJob = {
   attempted: number;
   success: number;
   partial: number;
+  pending?: number;
   failed: number;
   skipped: number;
   warnings: number;

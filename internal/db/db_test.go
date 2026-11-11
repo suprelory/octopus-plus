@@ -190,13 +190,19 @@ func TestInitializeSchemaAddsCustomHTTPCheckinColumnsToExistingSites(t *testing.
 	if err := gormDB.Exec("INSERT INTO sites (id, name) VALUES (7, 'legacy')").Error; err != nil {
 		t.Fatal(err)
 	}
+	if err := gormDB.Exec("CREATE TABLE site_accounts (id integer PRIMARY KEY, site_id integer, name text, access_token text, credential_type text)").Error; err != nil {
+		t.Fatal(err)
+	}
 	if err := initializeSchema(gormDB); err != nil {
 		t.Fatalf("upgrade existing schema: %v", err)
 	}
-	for _, column := range []string{"checkin_http_enabled", "checkin_http_method", "checkin_http_path", "checkin_http_body", "checkin_http_headers", "checkin_reward_extractor"} {
+	for _, column := range []string{"checkin_http_enabled", "checkin_http_method", "checkin_http_path", "checkin_http_body", "checkin_http_headers", "checkin_reward_extractor", "checkin_status"} {
 		if !gormDB.Migrator().HasColumn(&model.Site{}, column) {
 			t.Errorf("missing migrated site column %s", column)
 		}
+	}
+	if !gormDB.Migrator().HasColumn(&model.SiteAccount{}, "CheckinPending") {
+		t.Fatal("missing pending workflow migration")
 	}
 	var name string
 	if err := gormDB.Raw("SELECT name FROM sites WHERE id = 7").Scan(&name).Error; err != nil || name != "legacy" {

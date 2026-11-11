@@ -22,6 +22,7 @@ func TestCheckinRewardExtractorPreview(t *testing.T) {
 	}{
 		{"reward", `{"code":"return response.data.amount;","response":{"data":{"amount":0.25}}}`, "0.25", 200, true},
 		{"zero", `{"code":"return response.reward;","response":{"reward":0}}`, "0", 200, true},
+		{"status response", `{"code":"return responses.status.data.reward;","response":null,"status_response":{"data":{"reward":1.5}}}`, "1.5", 200, true},
 		{"missing", `{"code":"return null;","response":{}}`, "", 200, false},
 		{"missing code", `{"response":{}}`, "", 400, false},
 		{"missing response", `{"code":"return 1;"}`, "", 400, false},
@@ -74,5 +75,40 @@ func TestCheckinRewardPreviewRequiresAuthentication(t *testing.T) {
 	engine.ServeHTTP(w, request)
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("unauthenticated preview accepted: %d", w.Code)
+	}
+}
+
+func TestCheckinStatusRulePreviewAndAuthentication(t *testing.T) {
+	setupSiteHandlerTestDB(t)
+	for _, tc := range []struct {
+		body, state string
+		status      int
+	}{
+		{`{"config":{"path":"/status","checked_path":"data.done"},"http_status":200,"date":"2026-11-11","response":{"data":{"done":true}}}`, "checked_in", 200},
+		{`{"config":{"path":"/status","checked_path":"data.done"},"http_status":200,"date":"2026-11-11","response":{}}`, "unknown", 200},
+		{`{"config":{"path":"/status","code":"throw response.secret"},"http_status":200,"date":"2026-11-11","response":{"secret":"private-response-value"}}`, "", 400},
+		{`{"config":{"path":"https://external.example/status","checked_path":"done"},"http_status":200,"date":"2026-11-11","response":{}}`, "", 400},
+	} {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/site/checkin-status/test", strings.NewReader(tc.body))
+		testCheckinStatusRule(c)
+		if w.Code != tc.status || strings.Contains(w.Body.String(), "private-response-value") {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+		if tc.state != "" && !strings.Contains(w.Body.String(), tc.state) {
+			t.Fatalf("missing state: %s", w.Body.String())
+		}
+	}
+	var logs int64
+	if err := db.GetDB().Model(&model.SiteCheckinLog{}).Count(&logs).Error; err != nil || logs != 0 {
+		t.Fatal("preview created execution records")
+	}
+	engine := gin.New()
+	engine.POST("/api/v1/site/checkin-status/test", middleware.Auth(), middleware.RequireJSON(), testCheckinStatusRule)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/site/checkin-status/test", strings.NewReader(`{}`)))
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated status preview accepted: %d", w.Code)
 	}
 }

@@ -198,10 +198,20 @@ func updateAccountCheckinState(tx *gorm.DB, siteRecord *model.Site, account *mod
 	}
 	account.LastCheckinAt = &now
 	account.LastCheckinStatus = status
-	if status == model.SiteExecutionStatusSuccess {
-		account.LastCheckinSuccessAt = &now
+	if status == model.SiteExecutionStatusPending {
+		next := now.Add(10 * time.Minute)
+		updatePayload["next_auto_checkin_at"] = &next
+		if !account.AutoCheckin || !account.Enabled || !siteRecord.Enabled {
+			updatePayload["next_auto_checkin_at"] = nil
+		}
+	} else if status == model.SiteExecutionStatusSuccess {
+		successAt := now
+		if siteRecord.CheckinStatus != nil && account.CheckinPending != nil {
+			successAt = account.CheckinPending.StartedAt
+		}
+		account.LastCheckinSuccessAt = &successAt
 		account.CheckinFailureCount = 0
-		updatePayload["last_checkin_success_at"] = &now
+		updatePayload["last_checkin_success_at"] = &successAt
 		updatePayload["checkin_failure_count"] = 0
 		nextAt := buildNextAutoCheckinAt(siteRecord, account, now)
 		account.NextAutoCheckinAt = nextAt
@@ -212,6 +222,9 @@ func updateAccountCheckinState(tx *gorm.DB, siteRecord *model.Site, account *mod
 		var nextAt *time.Time
 		if siteRecord.Enabled && account.Enabled && account.AutoCheckin && siteRecord.ResolveCheckinCapability().Enabled {
 			nextAt = buildNextCheckinRetryAt(siteRecord, now, status, message, account.CheckinFailureCount)
+			if account.CheckinPending != nil && account.CheckinPending.Finished {
+				nextAt = buildNextAutoCheckinAt(siteRecord, account, now)
+			}
 		}
 		account.NextAutoCheckinAt = nextAt
 		updatePayload["next_auto_checkin_at"] = nextAt

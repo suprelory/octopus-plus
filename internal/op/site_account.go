@@ -43,6 +43,7 @@ func SiteAccountCreate(account *model.SiteAccount, ctx context.Context) error {
 		return err
 	}
 	account.CheckinSourceAccountID = nil
+	account.CheckinPending = nil // Execution state is owned by the server.
 	var site model.Site
 	if err := db.GetDB().WithContext(ctx).First(&site, account.SiteID).Error; err != nil {
 		return fmt.Errorf("load account site: %w", err)

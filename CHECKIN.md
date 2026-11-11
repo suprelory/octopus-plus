@@ -60,7 +60,68 @@ return quota == null ? null : Number(quota) / 500000;
 
 “测试提取”仅运行填写的代码和 JSON 响应样例，不发送签到或余额请求，也不保存配置。对应接口为管理员认证的 `POST /api/v1/site/checkin-reward/test`：请求 `{"code":"return response.data.reward;","response":{"data":{"reward":0.1}}}`，返回 `{"reward":"0.1","found":true}`；无结果时 `found` 为 `false`。
 
-提取器只支持同步 JavaScript，不提供网络、文件、账号凭据或模块导入能力。每次使用独立的 WASM 运行环境，限制 16 KiB 代码、1 MiB JSON 输入、16 MiB JavaScript 内存和 250 毫秒执行时间；排队与首次初始化另有 5 秒上限。配置随站点备份保存，恢复时也会重映射余额账号关联。
+提取器只支持同步 JavaScript，不提供网络、文件、账号凭据或模块导入能力。每次使用独立的 WASM 运行环境，限制 16 KiB 代码、1 MiB JSON 输入、16 MiB JavaScript 内存和 250 毫秒执行时间；排队上限为 5 秒，首次 WASM 初始化上限为 30 秒，均受调用方总超时限制。配置随站点备份保存，恢复时也会重映射余额账号关联。
+
+## 使用独立接口确认签到结果
+
+当 `/api/checkin` 只提交操作、需要 `/api/checkin/status` 查询结果时，在自定义 HTTP 配置中开启“通过状态接口确认签到”。原有签到请求配置继续用于提交；状态查询单独配置 GET / POST、站内路径、JSON 请求体和 Header。状态查询使用同一账号的 Cookie 和代理、站点公共 Header，不继承签到专属 Header。请求体与专属 Header 仍支持 `{{cookie}}`、`{{username}}`；状态路径和 JSON 请求体还支持 `{{checkin_date}}`，其值按站点时区在本次执行开始时固定。
+
+站点接口新增可选 `checkin_status` 对象，省略时沿用已有值，更新为 `null` 时关闭状态查询。创建未提供此字段的站点继续按签到响应判定。示例：
+
+```json
+{
+  "checkin_http_enabled": true,
+  "checkin_http_method": "POST",
+  "checkin_http_path": "/api/checkin",
+  "checkin_status": {
+    "method": "GET",
+    "path": "/api/checkin/status",
+    "body": "",
+    "headers": [],
+    "skip_precheck": false,
+    "checked_path": "data.checked_in",
+    "checked_value": true,
+    "unchecked_value": false,
+    "date_path": "",
+    "code": "",
+    "initial_delay_ms": 0,
+    "poll_interval_ms": 2000,
+    "max_attempts": 3,
+    "timeout_seconds": 30,
+    "confirm_timeout_minutes": 60,
+    "reward_source": "status"
+  }
+}
+```
+
+字段匹配要求状态接口返回 2xx JSON，并严格匹配字段值及类型。`true` 与字符串 `"true"` 不等价；字段缺失、类型不符、`success: false`、非 JSON、HTTP 错误均为“无法确认”。点分路径支持数组下标，如 `data.records.0.checked_in`。可选 `date_path` 必须匹配本次 `YYYY-MM-DD` 日期；没有日期字段或 JavaScript 规则时，跨日后的“今日状态”不能确认前一天的签到。
+
+复杂格式可填写 `code`（函数体），优先于字段匹配；输入 `response` 为状态响应 JSON，`context.httpStatus` 为 HTTP 状态，`context.checkinDate` 为本次目标签到日期。只接受 `checked_in`、`not_checked_in`、`unknown` 三个字符串，异常、无效返回值和超时均不提交新签到。非 2xx 或非 JSON 响应不会运行代码。示例：
+
+```javascript
+if (response.code !== 0 || response.data?.date !== context.checkinDate) return "unknown";
+if (response.data.checked_in === true) return "checked_in";
+if (response.data.checked_in === false) return "not_checked_in";
+return "unknown";
+```
+
+默认执行流程：
+
+1. 查询签到前状态。已签到则直接记录成功但不计奖励；无法确认则保存为 `pending / pending_confirmation`，暂不提交。
+2. 确认未签到后，先把本次执行和提交标记写入数据库，再发送一次签到请求。该标记写入后，即使进程退出或请求超时，恢复时也只查询状态。
+3. 按配置等待并查询状态，以状态接口的业务结果为最终依据。签到接口的 2xx、“已受理”或错误状态均不能单独确定本次结果。
+4. 暂未确认时保留待确认状态，不增加失败次数、不计收益、不发送结果通知。开启自动签到的账号随后台扫描继续查询；也可手动点击继续确认。关闭自动签到的账号需要手动继续。
+5. 确认成功后更新原有那一条日志、刷新余额并发送一次结果通知。达到确认期限后记为 `failed / unconfirmed_checkin`；本次不自动重新提交，当日再次点击复用最终结果。待确认期间修改请求配置、Cookie、代理或关闭状态接口，会终止原执行；已提交的操作仍不会重发。
+
+默认每轮最多查询 3 次、间隔 2 秒、整轮最多 30 秒，确认期限 60 分钟。查询次数最多 5 次，首次等待和间隔最多 10 秒，整轮最多 120 秒，确认期限最多 24 小时。恢复查询允许在签到时间窗口之外执行，新的签到仍遵循时间窗口。批次展示的“本轮待确认”是该批次结束时的计数，最新结果以账号状态和签到记录为准。
+
+`skip_precheck: true` 可跳过前置检查，但无法证明本次新增签到，因此后续只记“今日已签到”，不计奖励。默认前置检查确认未签到且提交后确认已签到时，才提取本次奖励；同一账号、同一天的执行复用同一条日志，重复点击与恢复查询不会重复累计。
+
+`reward_source` 可选 `submit`（默认，签到响应的 `data.reward`）或 `status`（状态响应的 `data.reward`）。奖励代码中 `response` 继续代表签到响应，另可通过 `responses.submit`、`responses.status` 读取两个响应，例如 `return responses.status?.data?.amount ?? null;`。未保存原始响应正文，恢复查询时 `responses.submit` 为 `null`，需要奖励的站点应优先使用状态响应。恢复确认不再通过旧余额快照计算奖励；当轮立即确认仍可沿用余额差补记。
+
+“用响应样例测试判定”只运行 JSON 样例，不请求上游、不提交签到、不保存配置。管理员接口为 `POST /api/v1/site/checkin-status/test`，请求包含 `config`、`http_status`、`date`、`response`，返回 `{"state":"checked_in"}` 等状态。奖励预览接口可额外提供 `status_response` 以测试两个响应的提取代码。状态代码沿用奖励代码的 WASM 隔离及资源限制。
+
+配置、待确认阶段和提交标记随备份保存。恢复会重映射配置引用；不包含历史日志的备份也能重建待确认记录。配置已变化的执行不会套用新规则重发签到。数据库升级自动添加配置、进度和批次待确认计数字段。
 
 ## 通知设置
 

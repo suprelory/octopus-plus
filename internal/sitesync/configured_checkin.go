@@ -18,6 +18,23 @@ import (
 const siteCheckinResponseLimit = 1 << 20
 
 func checkinConfiguredHTTP(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount) (*model.SiteCheckinResult, string, error) {
+	if siteRecord.CheckinStatus != nil {
+		return checkinWithStatus(ctx, siteRecord, account)
+	}
+	response, token, err := requestConfiguredCheckinHTTP(ctx, siteRecord, account)
+	if err != nil {
+		return nil, token, err
+	}
+	return interpretConfiguredCheckinResponse(ctx, siteRecord, response)
+}
+
+type configuredCheckinResponse struct {
+	StatusCode int
+	Header     http.Header
+	Body       []byte
+}
+
+func requestConfiguredCheckinHTTP(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount) (*configuredCheckinResponse, string, error) {
 	// External check-ins have their own browser session. Never resolve a
 	// platform token (or log in) for this request.
 	const token = ""
@@ -93,6 +110,12 @@ func checkinConfiguredHTTP(ctx context.Context, siteRecord *model.Site, account 
 	if len(responseBody) > siteCheckinResponseLimit {
 		return nil, token, fmt.Errorf("checkin response exceeds 1 MiB")
 	}
+	return &configuredCheckinResponse{StatusCode: resp.StatusCode, Header: resp.Header.Clone(), Body: responseBody}, token, nil
+}
+
+func interpretConfiguredCheckinResponse(ctx context.Context, siteRecord *model.Site, resp *configuredCheckinResponse) (*model.SiteCheckinResult, string, error) {
+	const token = ""
+	responseBody := resp.Body
 	payload, isJSON := parseSiteJSONMap(responseBody)
 	message := ""
 	if isJSON {

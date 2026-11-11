@@ -37,6 +37,11 @@ func ExtractCheckinReward(ctx context.Context, code string, response json.RawMes
 	if err := model.ValidateCheckinRewardExtractor(code); err != nil {
 		return "", err
 	}
+	return runCheckinRewardScript(ctx, code, response)
+}
+
+// Internal wrappers only add validated function bodies and JSON arguments.
+func runCheckinRewardScript(ctx context.Context, code string, response json.RawMessage) (reward string, err error) {
 	if len(response) > siteCheckinResponseLimit || !json.Valid(response) {
 		return "", errors.New("reward extractor response must be valid JSON no larger than 1 MiB")
 	}

@@ -25,6 +25,7 @@ type SiteCheckinBatchJob struct {
 	Attempted          int                       `json:"attempted" gorm:"not null;default:0"`
 	Success            int                       `json:"success" gorm:"not null;default:0"`
 	Partial            int                       `json:"partial" gorm:"not null;default:0"`
+	Pending            int                       `json:"pending" gorm:"not null;default:0"`
 	Failed             int                       `json:"failed" gorm:"not null;default:0"`
 	Skipped            int                       `json:"skipped" gorm:"not null;default:0"`
 	Warnings           int                       `json:"warnings" gorm:"not null;default:0"`

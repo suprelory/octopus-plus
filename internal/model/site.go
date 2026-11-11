@@ -53,6 +53,7 @@ const (
 	SiteExecutionStatusPartial SiteExecutionStatus = "partial"
 	SiteExecutionStatusFailed  SiteExecutionStatus = "failed"
 	SiteExecutionStatusSkipped SiteExecutionStatus = "skipped"
+	SiteExecutionStatusPending SiteExecutionStatus = "pending"
 )
 
 const (
@@ -72,40 +73,41 @@ const (
 )
 
 type Site struct {
-	ID                             int                `json:"id" gorm:"primaryKey"`
-	Name                           string             `json:"name" gorm:"not null;uniqueIndex:idx_sites_kind_name,priority:2"`
-	Kind                           SiteKind           `json:"kind" gorm:"size:16;not null;default:'relay';uniqueIndex:idx_sites_kind_name,priority:1"`
-	LinkedSiteID                   *int               `json:"linked_site_id"`
-	Platform                       SitePlatform       `json:"platform" gorm:"type:varchar(32);not null"`
-	BaseURL                        string             `json:"base_url" gorm:"not null"`
-	Enabled                        bool               `json:"enabled" gorm:"default:true"`
-	EnabledSet                     bool               `json:"-" gorm:"-"`
-	ProxyMode                      ProxyUsageMode     `json:"proxy_mode" gorm:"type:varchar(16);not null;default:'direct'"`
-	ProxyConfigID                  *int               `json:"proxy_config_id"`
-	ExternalCheckinURL             *string            `json:"external_checkin_url"`
-	CheckinMode                    SiteCheckinMode    `json:"checkin_mode" gorm:"size:16;not null;default:'auto'"`
-	CheckinVerificationStatus      SiteCheckinSupport `json:"checkin_verification_status" gorm:"size:16;not null;default:'unknown'"`
-	CheckinVerificationFingerprint string             `json:"checkin_verification_fingerprint" gorm:"size:64"`
-	CheckinVerifiedAt              *time.Time         `json:"checkin_verified_at"`
-	CheckinHTTPEnabled             bool               `json:"checkin_http_enabled" gorm:"default:false"`
-	CheckinHTTPMethod              string             `json:"checkin_http_method" gorm:"size:8;not null;default:'POST'"`
-	CheckinHTTPPath                string             `json:"checkin_http_path" gorm:"type:text"`
-	CheckinHTTPBody                string             `json:"checkin_http_body" gorm:"type:text"`
-	CheckinHTTPHeaders             []CustomHeader     `json:"checkin_http_headers" gorm:"type:text;serializer:json"`
-	CheckinRewardExtractor         string             `json:"checkin_reward_extractor" gorm:"type:text"`
-	CheckinTimezone                string             `json:"checkin_timezone" gorm:"size:64;not null;default:'Asia/Shanghai'"`
-	CheckinWindowStart             string             `json:"checkin_window_start" gorm:"size:5;not null;default:'00:00'"`
-	CheckinWindowEnd               string             `json:"checkin_window_end" gorm:"size:5;not null;default:'23:59'"`
-	IsPinned                       bool               `json:"is_pinned" gorm:"default:false"`
-	SortOrder                      int                `json:"sort_order" gorm:"default:0"`
-	GlobalWeight                   float64            `json:"global_weight" gorm:"default:1"`
-	CustomHeader                   []CustomHeader     `json:"custom_header" gorm:"serializer:json"`
-	RouteBaseURLs                  []SiteRouteBaseURL `json:"route_base_urls" gorm:"serializer:json"`
-	DefaultRouteType               SiteModelRouteType `json:"default_route_type" gorm:"type:varchar(32);not null;default:''"`
-	Tags                           []string           `json:"tags" gorm:"serializer:json"`
-	Archived                       bool               `json:"archived" gorm:"default:false;index"`
-	ArchivedAt                     *time.Time         `json:"archived_at"`
-	Accounts                       []SiteAccount      `json:"accounts,omitempty" gorm:"foreignKey:SiteID"`
+	ID                             int                      `json:"id" gorm:"primaryKey"`
+	Name                           string                   `json:"name" gorm:"not null;uniqueIndex:idx_sites_kind_name,priority:2"`
+	Kind                           SiteKind                 `json:"kind" gorm:"size:16;not null;default:'relay';uniqueIndex:idx_sites_kind_name,priority:1"`
+	LinkedSiteID                   *int                     `json:"linked_site_id"`
+	Platform                       SitePlatform             `json:"platform" gorm:"type:varchar(32);not null"`
+	BaseURL                        string                   `json:"base_url" gorm:"not null"`
+	Enabled                        bool                     `json:"enabled" gorm:"default:true"`
+	EnabledSet                     bool                     `json:"-" gorm:"-"`
+	ProxyMode                      ProxyUsageMode           `json:"proxy_mode" gorm:"type:varchar(16);not null;default:'direct'"`
+	ProxyConfigID                  *int                     `json:"proxy_config_id"`
+	ExternalCheckinURL             *string                  `json:"external_checkin_url"`
+	CheckinMode                    SiteCheckinMode          `json:"checkin_mode" gorm:"size:16;not null;default:'auto'"`
+	CheckinVerificationStatus      SiteCheckinSupport       `json:"checkin_verification_status" gorm:"size:16;not null;default:'unknown'"`
+	CheckinVerificationFingerprint string                   `json:"checkin_verification_fingerprint" gorm:"size:64"`
+	CheckinVerifiedAt              *time.Time               `json:"checkin_verified_at"`
+	CheckinHTTPEnabled             bool                     `json:"checkin_http_enabled" gorm:"default:false"`
+	CheckinHTTPMethod              string                   `json:"checkin_http_method" gorm:"size:8;not null;default:'POST'"`
+	CheckinHTTPPath                string                   `json:"checkin_http_path" gorm:"type:text"`
+	CheckinHTTPBody                string                   `json:"checkin_http_body" gorm:"type:text"`
+	CheckinHTTPHeaders             []CustomHeader           `json:"checkin_http_headers" gorm:"type:text;serializer:json"`
+	CheckinRewardExtractor         string                   `json:"checkin_reward_extractor" gorm:"type:text"`
+	CheckinStatus                  *SiteCheckinStatusConfig `json:"checkin_status" gorm:"type:text;serializer:json"`
+	CheckinTimezone                string                   `json:"checkin_timezone" gorm:"size:64;not null;default:'Asia/Shanghai'"`
+	CheckinWindowStart             string                   `json:"checkin_window_start" gorm:"size:5;not null;default:'00:00'"`
+	CheckinWindowEnd               string                   `json:"checkin_window_end" gorm:"size:5;not null;default:'23:59'"`
+	IsPinned                       bool                     `json:"is_pinned" gorm:"default:false"`
+	SortOrder                      int                      `json:"sort_order" gorm:"default:0"`
+	GlobalWeight                   float64                  `json:"global_weight" gorm:"default:1"`
+	CustomHeader                   []CustomHeader           `json:"custom_header" gorm:"serializer:json"`
+	RouteBaseURLs                  []SiteRouteBaseURL       `json:"route_base_urls" gorm:"serializer:json"`
+	DefaultRouteType               SiteModelRouteType       `json:"default_route_type" gorm:"type:varchar(32);not null;default:''"`
+	Tags                           []string                 `json:"tags" gorm:"serializer:json"`
+	Archived                       bool                     `json:"archived" gorm:"default:false;index"`
+	ArchivedAt                     *time.Time               `json:"archived_at"`
+	Accounts                       []SiteAccount            `json:"accounts,omitempty" gorm:"foreignKey:SiteID"`
 }
 
 func (s *Site) IsCheckinOnly() bool {
@@ -162,6 +164,7 @@ type SiteAccount struct {
 	LastCheckinAt              *time.Time           `json:"last_checkin_at"`
 	LastCheckinSuccessAt       *time.Time           `json:"last_checkin_success_at"`
 	CheckinFailureCount        int                  `json:"checkin_failure_count" gorm:"default:0"`
+	CheckinPending             *SiteCheckinPending  `json:"checkin_pending,omitempty" gorm:"type:text;serializer:json"`
 	LastSyncStatus             SiteExecutionStatus  `json:"last_sync_status" gorm:"type:varchar(16);default:'idle'"`
 	LastCheckinStatus          SiteExecutionStatus  `json:"last_checkin_status" gorm:"type:varchar(16);default:'idle'"`
 	LastSyncMessage            string               `json:"last_sync_message"`

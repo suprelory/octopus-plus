@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
@@ -28,6 +29,13 @@ func TestCheckinBackupRemapsLinkedAccountAndPreservesCookie(t *testing.T) {
 		{ID: 1, SiteID: 1, Name: "Source", CredentialType: model.SiteCredentialTypeAccessToken, AccessToken: "source-token"},
 		{ID: 3, SiteID: 3, Name: "Cookie", CredentialType: model.SiteCredentialTypeCookie, Cookie: "session=backup-cookie", LinkedAccountID: &sourceID},
 	}}
+	dump.Sites[2].CheckinStatus = &model.SiteCheckinStatusConfig{Path: "/status", CheckedPath: "data.done"}
+	if err := dump.Sites[2].Validate(); err != nil {
+		t.Fatal(err)
+	}
+	dump.SiteAccounts[2].Normalize()
+	dump.SiteAccounts[2].CheckinPending = &model.SiteCheckinPending{LogID: 456, Date: "2026-11-11", Submitted: true,
+		StartedAt: time.Now(), Deadline: time.Now().Add(time.Hour), Fingerprint: dump.Sites[2].CheckinWorkflowFingerprint(&dump.SiteAccounts[2])}
 	if _, err := DBImportIncremental(ctx, dump); err != nil {
 		t.Fatal(err)
 	}
@@ -53,6 +61,9 @@ func TestCheckinBackupRemapsLinkedAccountAndPreservesCookie(t *testing.T) {
 	if err != nil || external.CheckinRewardExtractor != "return response.data?.amount ?? null;" {
 		t.Fatalf("extractor lost in backup: %+v, %v", external, err)
 	}
+	if external.CheckinStatus == nil || cookie.CheckinPending == nil || cookie.CheckinPending.Fingerprint != external.CheckinWorkflowFingerprint(&cookie) {
+		t.Fatal("pending workflow not remapped with linked subscription")
+	}
 	_, balanceAccount, err := SiteCheckinBalanceAccount(external, &cookie, ctx)
 	if err != nil || balanceAccount.ID != source.ID {
 		t.Fatalf("external balance link not remapped: %+v, %v", balanceAccount, err)
@@ -73,6 +84,62 @@ func TestCheckinBackupRemapsLinkedAccountAndPreservesCookie(t *testing.T) {
 	savedCookie, err := SiteAccountGet(cookie.ID, ctx)
 	if err != nil || savedCookie.LinkedAccountID != nil || savedCookie.CredentialType != model.SiteCredentialTypeCookie || savedCookie.Cookie != "session=backup-cookie" {
 		t.Fatal("deleting the balance source changed cookie credentials")
+	}
+}
+
+func TestCheckinStatusConfigurationAndPendingBackup(t *testing.T) {
+	ctx := setupBackupTestDB(t)
+	site := &model.Site{Name: "Status", Kind: model.SiteKindCheckin, Platform: model.SitePlatformAPI, BaseURL: "https://status.example", CheckinHTTPEnabled: true, CheckinHTTPPath: "/checkin"}
+	if err := SiteCreate(site, ctx); err != nil {
+		t.Fatal(err)
+	}
+	var request model.SiteUpdateRequest
+	if err := json.Unmarshal([]byte(`{"id":1,"checkin_status":{"path":"/status","checked_path":"data.done"}}`), &request); err != nil {
+		t.Fatal(err)
+	}
+	request.ID = site.ID
+	saved, err := SiteUpdate(&request, ctx)
+	if err != nil || saved.CheckinStatus == nil || saved.CheckinStatus.MaxAttempts != 3 {
+		t.Fatalf("config not saved: %+v %v", saved, err)
+	}
+	account := &model.SiteAccount{SiteID: site.ID, Name: "Pending", CredentialType: model.SiteCredentialTypeCookie, Cookie: "session=backup", Enabled: true}
+	if err := SiteAccountCreate(account, ctx); err != nil {
+		t.Fatal(err)
+	}
+	account.CheckinPending = &model.SiteCheckinPending{LogID: 123, Date: "2026-11-11", Submitted: true, BeforeUnchecked: true, StartedAt: time.Now(), Deadline: time.Now().Add(time.Hour), Fingerprint: saved.CheckinWorkflowFingerprint(account)}
+	if err := db.GetDB().Model(account).Select("checkin_pending").Updates(account).Error; err != nil {
+		t.Fatal(err)
+	}
+	dump, err := DBExportAll(ctx, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Import into a fresh DB with occupied IDs so both site/account IDs change.
+	ctx = setupBackupTestDB(t)
+	occupied := &model.Site{Name: "Occupied", Platform: model.SitePlatformAPI, BaseURL: "https://occupied.example"}
+	if err := SiteCreate(occupied, ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := SiteAccountCreate(&model.SiteAccount{SiteID: occupied.ID, Name: "Occupied", CredentialType: model.SiteCredentialTypeAPIKey, APIKey: "key"}, ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DBImportIncremental(ctx, dump); err != nil {
+		t.Fatal(err)
+	}
+	var restored model.SiteAccount
+	if err := db.GetDB().Where("name = ?", "Pending").First(&restored).Error; err != nil {
+		t.Fatal(err)
+	}
+	restoredSite, _ := SiteGet(restored.SiteID, ctx)
+	if restored.ID == account.ID || restored.CheckinPending == nil || !restored.CheckinPending.Submitted || restored.CheckinPending.LogID != 123 || restored.CheckinPending.Fingerprint != restoredSite.CheckinWorkflowFingerprint(&restored) {
+		t.Fatalf("pending workflow not restored safely: %+v", restored)
+	}
+	if _, err := SiteUpdate(&model.SiteUpdateRequest{ID: restoredSite.ID, CheckinStatusSet: true}, ctx); err != nil {
+		t.Fatal(err)
+	}
+	cleared, _ := SiteGet(restoredSite.ID, ctx)
+	if cleared.CheckinStatus != nil {
+		t.Fatal("status config not cleared")
 	}
 }
 

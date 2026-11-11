@@ -74,6 +74,7 @@ type SiteBatchProgress struct {
 	Attempted          int
 	Success            int
 	Partial            int
+	Pending            int
 	Failed             int
 	Skipped            int
 	Warnings           int
@@ -93,6 +94,7 @@ type SiteBatchSummary struct {
 	Attempted    int
 	Success      int
 	Partial      int
+	Pending      int
 	Failed       int
 	Skipped      int
 	Warnings     int
@@ -177,7 +179,7 @@ func (s *SiteBatchSummary) progress() SiteBatchProgress {
 	return SiteBatchProgress{
 		TaskID: s.taskID, Phase: s.Phase, Trigger: s.Trigger,
 		Total: s.Total, Attempted: s.Attempted, Success: s.Success,
-		Partial: s.Partial, Failed: s.Failed, Skipped: s.Skipped,
+		Partial: s.Partial, Pending: s.Pending, Failed: s.Failed, Skipped: s.Skipped,
 		Warnings: s.Warnings, Canceled: s.Canceled, CancelReason: s.CancelReason,
 		CurrentSiteID: s.currentSiteID, CurrentSiteName: s.currentSiteName,
 		CurrentAccountID: s.currentAccountID, CurrentAccountName: s.currentAccountName,
@@ -214,6 +216,8 @@ func (s *SiteBatchSummary) recordResult(siteID int, platform model.SitePlatform,
 	switch status {
 	case model.SiteExecutionStatusSuccess:
 		s.Success++
+	case model.SiteExecutionStatusPending:
+		s.Pending++
 	case model.SiteExecutionStatusPartial:
 		s.Partial++
 	case model.SiteExecutionStatusSkipped:
@@ -311,6 +315,7 @@ func (s *SiteBatchSummary) logFields(failureGroups, warningGroups, skipGroups []
 		"attempted", s.Attempted,
 		"success", s.Success,
 		"partial", s.Partial,
+		"pending", s.Pending,
 		"failed", s.Failed,
 		"skipped", s.Skipped,
 		"warnings", s.Warnings,

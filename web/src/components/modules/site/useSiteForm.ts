@@ -175,6 +175,7 @@ export function useSiteForm({ site, onOpenChange, onCreated, kind = 'relay' }: {
                 checkin_http_body: siteForm.checkin_http_body,
                 checkin_http_headers: trimHeaders(siteForm.checkin_http_headers),
                 checkin_reward_extractor: siteForm.checkin_reward_extractor.trim(),
+                checkin_status: siteForm.checkin_status ? { ...siteForm.checkin_status, headers: trimHeaders(siteForm.checkin_status.headers ?? []) } : null,
                 checkin_timezone: siteForm.checkin_timezone.trim(),
                 checkin_window_start: siteForm.checkin_window_start,
                 checkin_window_end: siteForm.checkin_window_end,

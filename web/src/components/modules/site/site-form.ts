@@ -1,6 +1,7 @@
 import { Site as SiteRecord, SitePlatform, type CustomHeader, type SiteRouteBaseURL, type SiteCheckinMode, type SiteKind } from '@/api/endpoints/site';
 import type { ProxyMode } from '@/api/endpoints/proxy-pool';
 import type { Dispatch, SetStateAction } from 'react';
+import type { SiteCheckinStatusConfig } from '@/api/endpoints/site-types';
 
 export type SiteFormState = {
     name: string;
@@ -19,6 +20,7 @@ export type SiteFormState = {
     checkin_http_body: string;
     checkin_http_headers: CustomHeader[];
     checkin_reward_extractor: string;
+    checkin_status: SiteCheckinStatusConfig | null;
     checkin_timezone: string;
     checkin_window_start: string;
     checkin_window_end: string;
@@ -75,6 +77,7 @@ export function createEmptySiteForm(kind: SiteKind = 'relay'): SiteFormState {
         checkin_http_body: '',
         checkin_http_headers: [],
         checkin_reward_extractor: '',
+        checkin_status: null,
         checkin_timezone: 'Asia/Shanghai',
         checkin_window_start: '00:00',
         checkin_window_end: '23:59',
@@ -106,6 +109,7 @@ export function createSiteForm(site: SiteRecord): SiteFormState {
         checkin_http_body: site.checkin_http_body ?? '',
         checkin_http_headers: (site.checkin_http_headers ?? []).map((item) => ({ ...item })),
         checkin_reward_extractor: site.checkin_reward_extractor ?? '',
+        checkin_status: site.checkin_status ? structuredClone(site.checkin_status) : null,
         checkin_timezone: site.checkin_timezone || 'Asia/Shanghai',
         checkin_window_start: site.checkin_window_start || '00:00',
         checkin_window_end: site.checkin_window_end || '23:59',

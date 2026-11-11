@@ -217,6 +217,11 @@ func (s *Site) Validate() error {
 	if err := ValidateCheckinRewardExtractor(s.CheckinRewardExtractor); err != nil {
 		return err
 	}
+	if s.CheckinStatus != nil {
+		if err := s.CheckinStatus.Validate(); err != nil {
+			return err
+		}
+	}
 	if s.CheckinHTTPEnabled {
 		if s.CheckinHTTPMethod != http.MethodGet && s.CheckinHTTPMethod != http.MethodPost {
 			return fmt.Errorf("site checkin HTTP method must be GET or POST")

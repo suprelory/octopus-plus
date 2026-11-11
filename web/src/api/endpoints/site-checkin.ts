@@ -1,10 +1,18 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiClient } from '../client';
 import type { SiteCheckinDefaults, SitePlatform } from './site-types';
+import type { SiteCheckinStatusConfig } from './site-types';
+
+export function useTestCheckinStatusRule() {
+  return useMutation({
+    mutationFn: (request: { config: SiteCheckinStatusConfig; http_status: number; date: string; response: unknown }) =>
+      apiClient.post<{ state: 'checked_in' | 'not_checked_in' | 'unknown' }>('/api/v1/site/checkin-status/test', request),
+  });
+}
 
 export function useTestCheckinRewardExtractor() {
   return useMutation({
-    mutationFn: (request: { code: string; response: unknown }) =>
+    mutationFn: (request: { code: string; response: unknown; status_response?: unknown }) =>
       apiClient.post<{ reward: string; found: boolean }>('/api/v1/site/checkin-reward/test', request),
   });
 }
@@ -25,7 +33,7 @@ export type SiteCheckinLog = {
   account_name: string;
   platform: string;
   source: string;
-  status: 'success' | 'failed' | 'skipped';
+  status: 'success' | 'failed' | 'skipped' | 'pending';
   reason: string;
   message: string;
   reward: string;
@@ -47,6 +55,7 @@ export type SiteCheckinSiteStats = {
   success_count: number;
   failed_count: number;
   skipped_count: number;
+  pending_count?: number;
 };
 
 export type SiteCheckinStats = {
@@ -58,6 +67,7 @@ export type SiteCheckinStats = {
   success_count: number;
   failed_count: number;
   skipped_count: number;
+  pending_count?: number;
   invalid_reward_count: number;
   unknown_reward_count: number;
   timezone: string;

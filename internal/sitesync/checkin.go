@@ -79,6 +79,7 @@ func checkinAccountWithTrigger(ctx context.Context, accountID int, trigger SiteB
 }
 
 func runAccountCheckin(ctx context.Context, accountID int, trigger SiteBatchTrigger, allowVerify bool) (*model.SiteCheckinResult, error) {
+	ctx = context.WithValue(ctx, checkinTriggerKey{}, trigger)
 	started := time.Now()
 	acquired := acquireAccountCheckin(accountID)
 	if acquired {
@@ -118,6 +119,12 @@ func runAccountCheckin(ctx context.Context, accountID int, trigger SiteBatchTrig
 	if result := checkinCapabilitySkip(siteRecord, allowVerify); result != nil {
 		return persistCheckinOutcome(ctx, siteRecord, account, trigger, started, result, "", false)
 	}
+	if pending := account.CheckinPending; pending != nil && (!siteRecord.CheckinHTTPEnabled || siteRecord.CheckinStatus == nil) &&
+		(!pending.Finished || pending.Date == time.Now().In(resolveSiteCheckinWindow(siteRecord).location).Format("2006-01-02")) {
+		result := &model.SiteCheckinResult{LogID: pending.LogID, Workflow: pending, Replayed: pending.Finished,
+			Status: model.SiteExecutionStatusFailed, Reason: "checkin_config_changed", Message: "状态查询配置已停用，本次不再提交；请核对上游结果"}
+		return persistCheckinOutcome(ctx, siteRecord, account, trigger, started, result, "", true)
+	}
 	if trigger == SiteBatchTriggerScheduled {
 		// A manual run or an account edit may have completed after the batch
 		// selected its work. Recheck eligibility while holding the account guard.
@@ -147,7 +154,9 @@ func runAccountCheckin(ctx context.Context, accountID int, trigger SiteBatchTrig
 	var accessToken string
 	var balanceBefore siteBalanceFetchResult
 	var externalBalance *linkedCheckinBalance
-	if siteRecord.CheckinHTTPEnabled && account.LinkedAccountID != nil {
+	if siteRecord.CheckinHTTPEnabled && account.LinkedAccountID != nil &&
+		(siteRecord.CheckinStatus == nil || account.CheckinPending == nil || (!account.CheckinPending.Submitted && !account.CheckinPending.Finished) ||
+			(account.CheckinPending.Finished && account.CheckinPending.Date != time.Now().In(resolveSiteCheckinWindow(siteRecord).location).Format("2006-01-02"))) {
 		externalBalance = prepareLinkedCheckinBalance(ctx, siteRecord, account)
 	}
 	if runErr == nil {
@@ -198,7 +207,10 @@ func runAccountCheckin(ctx context.Context, accountID int, trigger SiteBatchTrig
 		return nil, sanitizeSiteError(err)
 	}
 	var balance siteBalanceFetchResult
-	if result.Status == model.SiteExecutionStatusSuccess {
+	if result.Status == model.SiteExecutionStatusSuccess && !result.Replayed {
+		if siteRecord.CheckinHTTPEnabled && account.LinkedAccountID != nil && externalBalance == nil {
+			externalBalance = resolveLinkedCheckinBalance(ctx, siteRecord, account, false)
+		}
 		if !siteRecord.CheckinHTTPEnabled {
 			balanceSite := *siteRecord
 			balanceSite.ID = executionAccount.SiteID
@@ -213,7 +225,9 @@ func runAccountCheckin(ctx context.Context, accountID int, trigger SiteBatchTrig
 		}
 		fillCheckinRewardFromBalance(ctx, result, balanceBefore, balance)
 	}
-	checkinNotifications.notify(siteRecord, account, result, balance, trigger)
+	if !result.Replayed {
+		checkinNotifications.notify(siteRecord, account, result, balance, trigger)
+	}
 	if runErr != nil {
 		safeErr := sanitizeSiteError(runErr)
 		params := apperror.Params(safeErr)
@@ -284,6 +298,11 @@ func checkinRewardString(value any) string {
 func persistCheckinOutcome(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, trigger SiteBatchTrigger, started time.Time, result *model.SiteCheckinResult, accessToken string, updateAccount bool) (*model.SiteCheckinResult, error) {
 	finished := time.Now()
 	result.SiteID, result.AccountID = siteRecord.ID, account.ID
+	if result.Replayed {
+		capability := siteRecord.ResolveCheckinCapability()
+		result.Capability = &capability
+		return result, nil
+	}
 	result.Message = sanitizeCheckinText(result.Message, account, accessToken, siteRecord)
 	result.Reward = sanitizeCheckinText(result.Reward, account, accessToken, siteRecord)
 	if result.Status != model.SiteExecutionStatusSuccess || result.Reason == model.SiteCheckinReasonAlreadyCheckedIn {
@@ -296,6 +315,10 @@ func persistCheckinOutcome(ctx context.Context, siteRecord *model.Site, account 
 		Message: result.Message, Reward: result.Reward, DurationMs: finished.Sub(started).Milliseconds(),
 		StartedAt: started.UTC(), FinishedAt: finished.UTC(), BatchJobID: siteBatchTaskID(ctx),
 	}
+	if result.Workflow != nil {
+		entry.ID, entry.StartedAt = result.Workflow.LogID, result.Workflow.StartedAt
+		entry.DurationMs = finished.Sub(entry.StartedAt).Milliseconds()
+	}
 	// A client disconnect or a batch deadline must not discard an upstream
 	// outcome that has already happened. Bound this final database write alone.
 	persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -306,6 +329,10 @@ func persistCheckinOutcome(ctx context.Context, siteRecord *model.Site, account 
 		var current model.Site
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, siteRecord.ID).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 			// Deleting a site during a request must not discard its actual outcome.
+			if result.Workflow != nil {
+				return tx.Model(&model.SiteCheckinLog{}).Where("id = ? AND status = ?", entry.ID, model.SiteExecutionStatusPending).
+					Updates(map[string]any{"status": entry.Status, "reason": entry.Reason, "message": entry.Message, "reward": entry.Reward, "finished_at": entry.FinishedAt, "duration_ms": entry.DurationMs}).Error
+			}
 			return tx.Create(&entry).Error
 		} else if err != nil {
 			return err
@@ -332,7 +359,17 @@ func persistCheckinOutcome(ctx context.Context, siteRecord *model.Site, account 
 				return err
 			}
 		}
-		if err := tx.Create(&entry).Error; err != nil {
+		if result.Workflow != nil {
+			saved, err := persistStatusWorkflow(tx, account, result, &entry)
+			if err != nil {
+				return err
+			}
+			if !saved {
+				result.Replayed = true
+				result.Reward = ""
+				return nil
+			}
+		} else if err := tx.Create(&entry).Error; err != nil {
 			return err
 		}
 		if !updateAccount {
@@ -356,6 +393,17 @@ func sanitizeCheckinText(value string, account *model.SiteAccount, resolvedToken
 		for _, header := range append(append([]model.CustomHeader(nil), site.CustomHeader...), site.CheckinHTTPHeaders...) {
 			if isSensitiveCheckinField(header.HeaderKey) {
 				secrets = append(secrets, header.HeaderValue, expandCheckinHTTPTemplate(header.HeaderValue, account, resolvedToken))
+			}
+		}
+		if site.CheckinStatus != nil {
+			for _, header := range site.CheckinStatus.Headers {
+				if isSensitiveCheckinField(header.HeaderKey) {
+					secrets = append(secrets, header.HeaderValue, expandCheckinHTTPTemplate(header.HeaderValue, account, resolvedToken))
+				}
+			}
+			var statusBody any
+			if json.Unmarshal([]byte(expandCheckinHTTPBodyTemplate(site.CheckinStatus.Body, account, resolvedToken)), &statusBody) == nil {
+				secrets = appendSensitiveCheckinJSONValues(secrets, statusBody, false)
 			}
 		}
 		var requestBody any

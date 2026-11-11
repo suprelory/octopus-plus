@@ -13,6 +13,7 @@ export type CheckinFilterStatus =
   | "all"
   | "success"
   | "failed"
+  | "pending"
   | "sync_failed"
   | "idle"
   | "disabled";
@@ -100,6 +101,8 @@ export function deriveCheckinStatus(
   // Manual results count too; auto_checkin only controls pending membership.
   const pendingStatus = account.auto_checkin ? "idle" : null;
 
+  if (account.last_checkin_status === "pending") return "pending";
+
   if (happenedToday(account.last_checkin_success_at, now, site.checkin_timezone)) {
     return "success";
   }
@@ -110,7 +113,8 @@ export function deriveCheckinStatus(
 
   switch (normalizeExecutionStatus(account.last_checkin_status)) {
     case "success":
-      return "success";
+      // A confirmation received today can belong to an earlier check-in date.
+      return account.last_checkin_success_at ? pendingStatus : "success";
     case "failed":
     case "skipped":
       return "failed";
