@@ -25,12 +25,14 @@ export type SiteAccountFormState = {
     checkin_random_window_minutes: number;
 };
 
-export function defaultCredentialType(): SiteCredentialType {
-    return SiteCredentialType.AccessToken;
+export function defaultCredentialType(platform?: SitePlatform): SiteCredentialType {
+    return platform === SitePlatform.AgentRouter ? SiteCredentialType.UsernamePassword : SiteCredentialType.AccessToken;
 }
 
 export function credentialOptions(platform: SitePlatform) {
     switch (platform) {
+        case SitePlatform.AgentRouter:
+            return [SiteCredentialType.UsernamePassword, SiteCredentialType.AccessToken, SiteCredentialType.APIKey];
         case SitePlatform.Sub2API:
             return [SiteCredentialType.AccessToken, SiteCredentialType.APIKey];
         case SitePlatform.API:
@@ -50,7 +52,7 @@ export function createEmptyAccountForm(site: SiteRecord): SiteAccountFormState {
         name: '',
         credential_type: site.kind === 'checkin'
             ? (site.checkin_http_enabled && !site.checkin_use_subscription_token ? SiteCredentialType.Cookie : SiteCredentialType.LinkedAccount)
-            : defaultCredentialType(),
+            : defaultCredentialType(site.platform),
         username: '',
         password: '',
         access_token: '',

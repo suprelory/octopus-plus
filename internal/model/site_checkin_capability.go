@@ -20,9 +20,10 @@ const (
 	SiteCheckinSupportSupported   SiteCheckinSupport = "supported"
 	SiteCheckinSupportUnsupported SiteCheckinSupport = "unsupported"
 
-	SiteCheckinAdapterManagement SiteCheckinAdapter = "management"
-	SiteCheckinAdapterAnyRouter  SiteCheckinAdapter = "anyrouter"
-	SiteCheckinAdapterHTTP       SiteCheckinAdapter = "http"
+	SiteCheckinAdapterManagement  SiteCheckinAdapter = "management"
+	SiteCheckinAdapterAnyRouter   SiteCheckinAdapter = "anyrouter"
+	SiteCheckinAdapterAgentRouter SiteCheckinAdapter = "agentrouter"
+	SiteCheckinAdapterHTTP        SiteCheckinAdapter = "http"
 )
 
 type SiteCheckinDefaults struct {
@@ -40,6 +41,8 @@ func PlatformCheckinDefaults(platform SitePlatform) SiteCheckinDefaults {
 		return SiteCheckinDefaults{Enabled: true, HasBuiltin: true, Adapter: SiteCheckinAdapterManagement}
 	case SitePlatformAnyRouter:
 		return SiteCheckinDefaults{Enabled: true, HasBuiltin: true, Adapter: SiteCheckinAdapterAnyRouter}
+	case SitePlatformAgentRouter:
+		return SiteCheckinDefaults{Enabled: true, HasBuiltin: true, Adapter: SiteCheckinAdapterAgentRouter}
 	case SitePlatformDoneHub:
 		return SiteCheckinDefaults{HasBuiltin: true, Adapter: SiteCheckinAdapterManagement}
 	default:
@@ -49,7 +52,7 @@ func PlatformCheckinDefaults(platform SitePlatform) SiteCheckinDefaults {
 
 func AllPlatformCheckinDefaults() map[SitePlatform]SiteCheckinDefaults {
 	result := make(map[SitePlatform]SiteCheckinDefaults)
-	for _, platform := range []SitePlatform{SitePlatformNewAPI, SitePlatformOneAPI, SitePlatformOneHub, SitePlatformAnyRouter, SitePlatformDoneHub, SitePlatformSub2API, SitePlatformAPI} {
+	for _, platform := range []SitePlatform{SitePlatformNewAPI, SitePlatformOneAPI, SitePlatformOneHub, SitePlatformAnyRouter, SitePlatformAgentRouter, SitePlatformDoneHub, SitePlatformSub2API, SitePlatformAPI} {
 		result[platform] = PlatformCheckinDefaults(platform)
 	}
 	return result

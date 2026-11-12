@@ -25,7 +25,7 @@ func syncAnyRouter(ctx context.Context, siteRecord *model.Site, account *model.S
 	if err != nil {
 		return nil, err
 	}
-	if len(tokens) == 0 && account.CredentialType == model.SiteCredentialTypeAccessToken && strings.TrimSpace(account.AccessToken) != "" {
+	if len(tokens) == 0 && siteRecord.Platform != model.SitePlatformAgentRouter && account.CredentialType == model.SiteCredentialTypeAccessToken && strings.TrimSpace(account.AccessToken) != "" {
 		tokens = append(tokens, model.SiteToken{
 			Name:      "default",
 			Token:     strings.TrimSpace(account.AccessToken),

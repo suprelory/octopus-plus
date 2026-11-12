@@ -26,6 +26,9 @@ func SiteCheckinLinkedAccount(site *model.Site, account *model.SiteAccount, ctx 
 	if source.CredentialType != model.SiteCredentialTypeAccessToken && source.CredentialType != model.SiteCredentialTypeUsernamePassword {
 		return nil, fmt.Errorf("platform checkin requires a subscription account with an access token or username and password")
 	}
+	if site.Platform == model.SitePlatformAgentRouter && (source.CredentialType != model.SiteCredentialTypeUsernamePassword || strings.TrimSpace(source.Username) == "" || strings.TrimSpace(source.Password) == "") {
+		return nil, fmt.Errorf("AgentRouter checkin requires a subscription account with a username/email and password")
+	}
 	return source, nil
 }
 
@@ -67,7 +70,7 @@ func SiteCheckinBalanceAccount(site *model.Site, account *model.SiteAccount, ctx
 	}
 	if site.CheckinHTTPEnabled {
 		switch sourceSite.Platform {
-		case model.SitePlatformNewAPI, model.SitePlatformAnyRouter, model.SitePlatformOneAPI, model.SitePlatformOneHub, model.SitePlatformDoneHub:
+		case model.SitePlatformNewAPI, model.SitePlatformAnyRouter, model.SitePlatformAgentRouter, model.SitePlatformOneAPI, model.SitePlatformOneHub, model.SitePlatformDoneHub:
 			if source.CredentialType != model.SiteCredentialTypeAccessToken && source.CredentialType != model.SiteCredentialTypeUsernamePassword {
 				return nil, nil, fmt.Errorf("balance queries require a subscription account with an access token or username and password")
 			}
@@ -109,6 +112,9 @@ func validateSiteAccountCredentials(site *model.Site, account *model.SiteAccount
 	}
 	if account.CredentialType == model.SiteCredentialTypeCookie {
 		return fmt.Errorf("configure custom HTTP checkin to use a checkin site cookie")
+	}
+	if site.Platform == model.SitePlatformAgentRouter && (account.CredentialType != model.SiteCredentialTypeUsernamePassword || strings.TrimSpace(account.Username) == "" || strings.TrimSpace(account.Password) == "") {
+		return fmt.Errorf("AgentRouter checkin requires a username/email and password")
 	}
 	return nil
 }

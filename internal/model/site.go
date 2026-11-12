@@ -9,13 +9,14 @@ import (
 type SitePlatform string
 
 const (
-	SitePlatformNewAPI    SitePlatform = "new-api"
-	SitePlatformAnyRouter SitePlatform = "anyrouter"
-	SitePlatformOneAPI    SitePlatform = "one-api"
-	SitePlatformOneHub    SitePlatform = "one-hub"
-	SitePlatformDoneHub   SitePlatform = "done-hub"
-	SitePlatformSub2API   SitePlatform = "sub2api"
-	SitePlatformAPI       SitePlatform = "api"
+	SitePlatformNewAPI      SitePlatform = "new-api"
+	SitePlatformAnyRouter   SitePlatform = "anyrouter"
+	SitePlatformAgentRouter SitePlatform = "agentrouter"
+	SitePlatformOneAPI      SitePlatform = "one-api"
+	SitePlatformOneHub      SitePlatform = "one-hub"
+	SitePlatformDoneHub     SitePlatform = "done-hub"
+	SitePlatformSub2API     SitePlatform = "sub2api"
+	SitePlatformAPI         SitePlatform = "api"
 )
 
 type SiteCredentialType string

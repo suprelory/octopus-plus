@@ -16,6 +16,8 @@ var urlPlatformHints = []struct {
 	platform         model.SitePlatform
 	defaultRouteType model.SiteModelRouteType
 }{
+	{"agentrouter.org", model.SitePlatformAgentRouter, ""},
+	{"air-outer.com", model.SitePlatformAgentRouter, ""},
 	{"api.openai.com", model.SitePlatformAPI, model.SiteModelRouteTypeOpenAIChat},
 	{"api.anthropic.com", model.SitePlatformAPI, model.SiteModelRouteTypeAnthropic},
 	{"anthropic.com/v1", model.SitePlatformAPI, model.SiteModelRouteTypeAnthropic},
@@ -28,6 +30,9 @@ var titlePlatformHints = []struct {
 	platform model.SitePlatform
 }{
 	{"anyrouter", model.SitePlatformAnyRouter},
+	{"agentrouter", model.SitePlatformAgentRouter},
+	{"agent router", model.SitePlatformAgentRouter},
+	{"air-outer", model.SitePlatformAgentRouter},
 	{"done hub", model.SitePlatformDoneHub},
 	{"donehub", model.SitePlatformDoneHub},
 	{"one hub", model.SitePlatformOneHub},

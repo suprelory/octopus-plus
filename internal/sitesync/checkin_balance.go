@@ -42,6 +42,9 @@ func resolveLinkedCheckinBalance(ctx context.Context, site *model.Site, account 
 	}
 	var token string
 	switch sourceSite.Platform {
+	case model.SitePlatformAgentRouter:
+		// A balance-only query must not trigger another login/check-in.
+		token = strings.TrimSpace(source.AccessToken)
 	case model.SitePlatformAnyRouter:
 		token, err = resolveAnyRouterManagedAccessToken(queryCtx, sourceSite, source)
 	case model.SitePlatformNewAPI, model.SitePlatformOneAPI, model.SitePlatformOneHub, model.SitePlatformDoneHub:

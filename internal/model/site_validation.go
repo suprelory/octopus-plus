@@ -65,7 +65,7 @@ func NormalizeSiteGroupName(groupKey string, name string) string {
 
 func (p SitePlatform) Validate() error {
 	switch p {
-	case SitePlatformNewAPI, SitePlatformAnyRouter, SitePlatformOneAPI, SitePlatformOneHub, SitePlatformDoneHub,
+	case SitePlatformNewAPI, SitePlatformAnyRouter, SitePlatformAgentRouter, SitePlatformOneAPI, SitePlatformOneHub, SitePlatformDoneHub,
 		SitePlatformSub2API, SitePlatformAPI:
 		return nil
 	default:

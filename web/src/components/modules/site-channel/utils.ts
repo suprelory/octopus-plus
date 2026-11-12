@@ -117,6 +117,8 @@ export function platformLabel(platform: SiteChannelCard['platform']) {
             return 'New API';
         case 'anyrouter':
             return 'AnyRouter';
+        case 'agentrouter':
+            return 'AgentRouter';
         case 'one-api':
             return 'One API';
         case 'one-hub':

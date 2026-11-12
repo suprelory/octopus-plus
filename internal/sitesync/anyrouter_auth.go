@@ -23,6 +23,13 @@ func resolveAnyRouterManagedAccessToken(ctx context.Context, siteRecord *model.S
 	if account.CredentialType != model.SiteCredentialTypeUsernamePassword {
 		return "", fmt.Errorf("managed access token is not available for credential type %s", account.CredentialType)
 	}
+	if siteRecord.Platform == model.SitePlatformAgentRouter {
+		_, token, err := loginAgentRouter(ctx, siteRecord, account)
+		if err == nil && token == "" {
+			err = newSiteLoginTokenMissingError()
+		}
+		return token, err
+	}
 
 	payload, cookieHeader, err := anyRouterRequestJSONWithCookies(
 		ctx,

@@ -184,12 +184,12 @@ func runAccountCheckin(ctx context.Context, accountID int, trigger SiteBatchTrig
 			balanceBefore = fetchAccountBalanceBeforeCheckin(ctx, siteRecord, executionAccount, token)
 			// A challenge blocks this site's requests, including the check-in.
 			// Preserve the batch's existing stop/backoff behavior after one hit.
-			if IsCloudflareProtectionError(balanceBefore.err) || (siteRecord.Platform == model.SitePlatformAnyRouter && anyRouterRequestMustStop(balanceBefore.err)) {
+			if stopBalanceProbe(siteRecord, balanceBefore.err) {
 				return balanceBefore.err
 			}
 			return nil
 		})
-		if executionAccount != account && siteRecord.Platform != model.SitePlatformAnyRouter && accessToken != "" && accessToken != originalToken {
+		if executionAccount != account && !usesRouterSession(siteRecord.Platform) && accessToken != "" && accessToken != originalToken {
 			persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			saveErr := db.GetDB().WithContext(persistCtx).Model(&model.SiteAccount{}).
 				Where("id = ? AND access_token = ?", executionAccount.ID, originalToken).

@@ -61,6 +61,8 @@ func syncAccountState(ctx context.Context, siteRecord *model.Site, account *mode
 	switch siteRecord.Platform {
 	case model.SitePlatformAnyRouter:
 		return syncAnyRouter(ctx, siteRecord, account)
+	case model.SitePlatformAgentRouter:
+		return syncAgentRouter(ctx, siteRecord, account)
 	case model.SitePlatformNewAPI, model.SitePlatformOneAPI, model.SitePlatformOneHub, model.SitePlatformDoneHub:
 		return syncManagementPlatform(ctx, siteRecord, account)
 	case model.SitePlatformSub2API:
@@ -81,6 +83,10 @@ func checkinAccountState(ctx context.Context, siteRecord *model.Site, account *m
 		return checkinConfiguredHTTP(ctx, siteRecord, account)
 	case model.SiteCheckinAdapterAnyRouter:
 		return checkinAnyRouter(ctx, siteRecord, account, beforeCheckin)
+	case model.SiteCheckinAdapterAgentRouter:
+		// Login itself triggers check-in; a balance read after login is not a
+		// pre-check-in snapshot and must not be used to estimate the reward.
+		return checkinAgentRouter(ctx, siteRecord, account)
 	case model.SiteCheckinAdapterManagement:
 		accessToken, err := resolveManagedAccessToken(ctx, siteRecord, account)
 		if err != nil {

@@ -55,7 +55,7 @@ func parseManualAccountBalanceMap(platform model.SitePlatform, payload map[strin
 	quota, hasQuota := manualFloatFromMap(payload, "quota")
 	usedQuota, hasUsedQuota := manualFloatFromMap(payload, "used_quota", "usedQuota")
 	if hasQuota {
-		quotaIsRemaining := platform == model.SitePlatformNewAPI || platform == model.SitePlatformAnyRouter || platform == model.SitePlatformDoneHub
+		quotaIsRemaining := platform == model.SitePlatformNewAPI || usesRouterSession(platform) || platform == model.SitePlatformDoneHub
 		value := quota
 		if !quotaIsRemaining && hasUsedQuota {
 			value = math.Max(quota-usedQuota, 0)

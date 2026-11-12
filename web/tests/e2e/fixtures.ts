@@ -144,6 +144,7 @@ export async function mockApp(page: Page, nav: NavItem, options: {
             '/api/v1/site/checkin-capabilities': {
                 'new-api': { enabled: true, has_builtin: true }, 'one-api': { enabled: true, has_builtin: true },
                 'one-hub': { enabled: true, has_builtin: true }, 'anyrouter': { enabled: true, has_builtin: true },
+                'agentrouter': { enabled: true, has_builtin: true },
                 'done-hub': { enabled: false, has_builtin: true }, 'sub2api': { enabled: false, has_builtin: false },
                 'api': { enabled: false, has_builtin: false },
             },

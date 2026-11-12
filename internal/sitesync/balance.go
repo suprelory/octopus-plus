@@ -96,6 +96,7 @@ func fetchSiteAccountBalanceResult(ctx context.Context, siteRecord *model.Site, 
 		return fetchManagementQuotaBalanceResult(ctx, siteRecord, account, accessToken, userID, false, includeIncomeLogs)
 	case model.SitePlatformNewAPI,
 		model.SitePlatformAnyRouter,
+		model.SitePlatformAgentRouter,
 		model.SitePlatformDoneHub:
 		return fetchManagementQuotaBalanceResult(ctx, siteRecord, account, accessToken, userID, true, includeIncomeLogs)
 	case model.SitePlatformSub2API:
@@ -200,25 +201,29 @@ func fetchManagementQuotaBalanceResult(ctx context.Context, siteRecord *model.Si
 	}
 
 	var balance, balanceUsed float64
+	quotaPerUnit := siteBalanceQuotaPerUSD
+	if siteRecord.Platform == model.SitePlatformAgentRouter {
+		quotaPerUnit = agentRouterQuotaPerUnit(ctx, siteRecord, account)
+	}
 	if quotaIsRemaining {
-		balance = quota / siteBalanceQuotaPerUSD
-		balanceUsed = used / siteBalanceQuotaPerUSD
+		balance = quota / quotaPerUnit
+		balanceUsed = used / quotaPerUnit
 	} else {
 		remaining := quota - used
 		if remaining < 0 {
 			remaining = 0
 		}
-		balance = remaining / siteBalanceQuotaPerUSD
-		balanceUsed = used / siteBalanceQuotaPerUSD
+		balance = remaining / quotaPerUnit
+		balanceUsed = used / quotaPerUnit
 	}
 
 	todayIncome, todayIncomeKnown := balanceJSONNumber(data["today_income"])
 	if todayIncomeKnown {
-		todayIncome /= siteBalanceQuotaPerUSD
+		todayIncome /= quotaPerUnit
 	}
 
 	if includeIncomeLogs && !todayIncomeKnown && supportsTodayIncomeLogFallback(siteRecord.Platform) {
-		if fallback, ok := fetchTodayIncomeFromLogs(ctx, siteRecord, account, accessToken, userID); ok {
+		if fallback, ok := fetchTodayIncomeFromLogsWithQuota(ctx, siteRecord, account, accessToken, userID, quotaPerUnit); ok {
 			todayIncome = fallback
 			todayIncomeKnown = true
 		}
@@ -231,13 +236,14 @@ func fetchManagementQuotaBalanceResult(ctx context.Context, siteRecord *model.Si
 }
 
 func stopBalanceProbe(site *model.Site, err error) bool {
-	return IsCloudflareProtectionError(err) || (site.Platform == model.SitePlatformAnyRouter && anyRouterRequestMustStop(err))
+	return IsCloudflareProtectionError(err) || (usesRouterSession(site.Platform) && anyRouterRequestMustStop(err))
 }
 
 func supportsTodayIncomeLogFallback(platform model.SitePlatform) bool {
 	switch platform {
 	case model.SitePlatformNewAPI,
 		model.SitePlatformAnyRouter,
+		model.SitePlatformAgentRouter,
 		model.SitePlatformOneAPI:
 		return true
 	default:
@@ -246,6 +252,10 @@ func supportsTodayIncomeLogFallback(platform model.SitePlatform) bool {
 }
 
 func fetchTodayIncomeFromLogs(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string, userID int) (float64, bool) {
+	return fetchTodayIncomeFromLogsWithQuota(ctx, siteRecord, account, accessToken, userID, siteBalanceQuotaPerUSD)
+}
+
+func fetchTodayIncomeFromLogsWithQuota(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string, userID int, quotaPerUnit float64) (float64, bool) {
 	if strings.TrimSpace(accessToken) == "" {
 		return 0, false
 	}
@@ -282,7 +292,7 @@ func fetchTodayIncomeFromLogs(ctx context.Context, siteRecord *model.Site, accou
 			for _, item := range items {
 				quotaRaw := jsonFloat(item["quota"])
 				if quotaRaw > 0 {
-					total += quotaRaw / siteBalanceQuotaPerUSD
+					total += quotaRaw / quotaPerUnit
 					continue
 				}
 				total += parseIncomeFromLogContent(jsonString(item["content"]))

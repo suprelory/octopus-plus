@@ -99,7 +99,7 @@ export function AccountCredentialFields({ accountForm, setAccountForm, currentPl
                                             : '',
                                     platform_user_id:
                                         nextType === SiteCredentialType.AccessToken &&
-                                        (currentPlatform === SitePlatform.NewAPI || currentPlatform === SitePlatform.AnyRouter)
+                                        (currentPlatform === SitePlatform.NewAPI || currentPlatform === SitePlatform.AnyRouter || currentPlatform === SitePlatform.AgentRouter)
                                             ? current.platform_user_id
                                             : '',
                                 };
@@ -119,6 +119,10 @@ export function AccountCredentialFields({ accountForm, setAccountForm, currentPl
                     </Select>
                 </label>
             </div>
+
+            {currentPlatform === SitePlatform.AgentRouter && accountForm.credential_type !== SiteCredentialType.Cookie ? (
+                <p className="text-xs text-muted-foreground">AgentRouter 通过用户名／邮箱和密码登录触发每日签到。自动签到需关联用户名 / 密码账号；仅有 Access Token 或 API Key 无法触发签到。第三方登录账号需先在站点绑定邮箱并设置密码。使用账号密码同步订阅时也会触发登录签到。</p>
+            ) : null}
 
             <AnimatedFormSection>
                 <AnimatePresence initial={false} mode="popLayout">
@@ -151,8 +155,8 @@ export function AccountCredentialFields({ accountForm, setAccountForm, currentPl
                                     {linkedAccounts.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <p className="text-xs text-muted-foreground">{useSubscriptionToken ? '签到和状态查询使用此订阅账号的最新 Access Token 进行 Bearer 鉴权；令牌更新后自动生效，无需填写 Cookie。' : '平台签到使用此订阅账号的最新 Access Token、用户 ID 或登录凭据。'}</p>
-                            {linkedAccounts.length === 0 ? <p className="text-xs text-amber-600">{useSubscriptionToken ? '请先关联 Sub2API 订阅站，并为订阅站添加 Access Token 账号。' : '请先在签到站点设置中关联订阅站，并为订阅站添加 Access Token 或用户名 / 密码账号。'}</p> : null}
+                            <p className="text-xs text-muted-foreground">{useSubscriptionToken ? '签到和状态查询使用此订阅账号的最新 Access Token 进行 Bearer 鉴权；令牌更新后自动生效，无需填写 Cookie。' : currentPlatform === SitePlatform.AgentRouter ? '使用此订阅账号的用户名／邮箱和密码登录，确认当日签到。' : '平台签到使用此订阅账号的最新 Access Token、用户 ID 或登录凭据。'}</p>
+                            {linkedAccounts.length === 0 ? <p className="text-xs text-amber-600">{useSubscriptionToken ? '请先关联 Sub2API 订阅站，并为订阅站添加 Access Token 账号。' : currentPlatform === SitePlatform.AgentRouter ? '请先关联 AgentRouter 订阅站，并为订阅站添加用户名 / 密码账号。' : '请先在签到站点设置中关联订阅站，并为订阅站添加 Access Token 或用户名 / 密码账号。'}</p> : null}
                         </div>
                     ) : accountForm.credential_type === SiteCredentialType.UsernamePassword ? (
                         <motion.div
@@ -270,7 +274,7 @@ export function AccountCredentialFields({ accountForm, setAccountForm, currentPl
                                     </div>
                                 ) : null}
 
-                                {currentPlatform === SitePlatform.NewAPI || currentPlatform === SitePlatform.AnyRouter ? (
+                                {currentPlatform === SitePlatform.NewAPI || currentPlatform === SitePlatform.AnyRouter || currentPlatform === SitePlatform.AgentRouter ? (
                                     <label className="grid gap-2 text-sm">
                                         <span className="font-medium">Platform User ID</span>
                                         <Input
@@ -290,7 +294,7 @@ export function AccountCredentialFields({ accountForm, setAccountForm, currentPl
                                             required={currentPlatform === SitePlatform.NewAPI}
                                         />
                                         <span className="text-xs text-muted-foreground">
-                                            {currentPlatform === SitePlatform.AnyRouter
+                                            {currentPlatform === SitePlatform.AnyRouter || currentPlatform === SitePlatform.AgentRouter
                                                 ? '可选：填写浏览器请求头中的 New-API-User，减少身份探测；留空时尝试从登录凭据获取。'
                                                 : 'New API 站点同步 token、分组和签到时需要用户 ID。导入数据会尽量自动填充该值。'}
                                         </span>

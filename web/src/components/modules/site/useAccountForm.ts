@@ -56,7 +56,8 @@ export function useAccountForm({ site, account, onOpenChange }: {
             ? site.checkin_http_enabled ? [useSubscriptionToken ? SiteCredentialType.LinkedAccount : SiteCredentialType.Cookie]
                 : site.linked_site_id || !account || account.credential_type === SiteCredentialType.LinkedAccount
                     ? [SiteCredentialType.LinkedAccount]
-                    : credentialOptions(currentPlatform).filter((type) => type !== SiteCredentialType.APIKey)
+                    : credentialOptions(currentPlatform).filter((type) => currentPlatform === SitePlatform.AgentRouter
+                        ? type === SiteCredentialType.UsernamePassword : type !== SiteCredentialType.APIKey)
             : credentialOptions(currentPlatform),
         [currentPlatform, site, account, useSubscriptionToken],
     );
@@ -69,6 +70,9 @@ export function useAccountForm({ site, account, onOpenChange }: {
         }
         if (site?.checkin_http_enabled && linkedSite?.platform === SitePlatform.API) return [];
         return (linkedSite?.accounts ?? []).filter((item) => {
+            if (!site?.checkin_http_enabled && linkedSite?.platform === SitePlatform.AgentRouter) {
+                return item.credential_type === SiteCredentialType.UsernamePassword;
+            }
             if (site?.checkin_http_enabled && linkedSite?.platform === SitePlatform.Sub2API) {
                 return item.credential_type === SiteCredentialType.AccessToken || item.credential_type === SiteCredentialType.APIKey;
             }
@@ -138,7 +142,7 @@ export function useAccountForm({ site, account, onOpenChange }: {
             }
 
             const shouldIncludePlatformUserID =
-                (currentPlatform === SitePlatform.NewAPI || currentPlatform === SitePlatform.AnyRouter) &&
+                (currentPlatform === SitePlatform.NewAPI || currentPlatform === SitePlatform.AnyRouter || currentPlatform === SitePlatform.AgentRouter) &&
                 accountForm.credential_type === SiteCredentialType.AccessToken;
             const platformUserIDInput = shouldIncludePlatformUserID
                 ? accountForm.platform_user_id.trim()

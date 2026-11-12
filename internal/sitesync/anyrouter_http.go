@@ -60,9 +60,12 @@ func anyRouterRequestJSONWithCookies(ctx context.Context, siteRecord *model.Site
 	mergedHeaders.Set("User-Agent", anyRouterUserAgent)
 	mergedHeaders.Set("Accept", "application/json, text/plain, */*")
 	mergedHeaders.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-	if siteRecord.Platform == model.SitePlatformAnyRouter {
+	if usesRouterSession(siteRecord.Platform) {
 		mergedHeaders.Set("Origin", session.origin)
 		mergedHeaders.Set("Referer", strings.TrimRight(siteRecord.BaseURL, "/")+"/console")
+		if siteRecord.Platform == model.SitePlatformAgentRouter {
+			mergedHeaders.Set("Referer", strings.TrimRight(siteRecord.BaseURL, "/")+"/login")
+		}
 	}
 	if len(payloadBytes) > 0 {
 		mergedHeaders.Set("Content-Type", "application/json")

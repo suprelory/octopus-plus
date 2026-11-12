@@ -24,7 +24,7 @@ func CreateAccountToken(ctx context.Context, accountID int, req model.SiteChanne
 	name := strings.TrimSpace(req.Name)
 
 	switch siteRecord.Platform {
-	case model.SitePlatformAnyRouter:
+	case model.SitePlatformAnyRouter, model.SitePlatformAgentRouter:
 		if err := createAnyRouterToken(ctx, siteRecord, account, groupKey, name); err != nil {
 			return nil, err
 		}
@@ -81,6 +81,7 @@ func createAnyRouterToken(ctx context.Context, siteRecord *model.Site, account *
 	if account.CredentialType == model.SiteCredentialTypeAPIKey {
 		return fmt.Errorf("API key credential account does not support quick site key creation")
 	}
+	ctx = withAnyRouterSession(ctx, siteRecord, account)
 
 	accessToken, err := resolveAnyRouterManagedAccessToken(ctx, siteRecord, account)
 	if err != nil {

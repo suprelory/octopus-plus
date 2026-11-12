@@ -35,22 +35,24 @@ type importedAccountInput struct {
 }
 
 var supportedImportPlatforms = map[string]model.SitePlatform{
-	"new-api":   model.SitePlatformNewAPI,
-	"newapi":    model.SitePlatformNewAPI,
-	"one-api":   model.SitePlatformOneAPI,
-	"oneapi":    model.SitePlatformOneAPI,
-	"anyrouter": model.SitePlatformAnyRouter,
-	"one-hub":   model.SitePlatformOneHub,
-	"onehub":    model.SitePlatformOneHub,
-	"done-hub":  model.SitePlatformDoneHub,
-	"donehub":   model.SitePlatformDoneHub,
-	"sub2api":   model.SitePlatformSub2API,
-	"openai":    model.SitePlatformAPI,
-	"anthropic": model.SitePlatformAPI,
-	"claude":    model.SitePlatformAPI,
-	"google":    model.SitePlatformAPI,
-	"gemini":    model.SitePlatformAPI,
-	"api":       model.SitePlatformAPI,
+	"new-api":      model.SitePlatformNewAPI,
+	"newapi":       model.SitePlatformNewAPI,
+	"one-api":      model.SitePlatformOneAPI,
+	"oneapi":       model.SitePlatformOneAPI,
+	"anyrouter":    model.SitePlatformAnyRouter,
+	"agentrouter":  model.SitePlatformAgentRouter,
+	"agent-router": model.SitePlatformAgentRouter,
+	"one-hub":      model.SitePlatformOneHub,
+	"onehub":       model.SitePlatformOneHub,
+	"done-hub":     model.SitePlatformDoneHub,
+	"donehub":      model.SitePlatformDoneHub,
+	"sub2api":      model.SitePlatformSub2API,
+	"openai":       model.SitePlatformAPI,
+	"anthropic":    model.SitePlatformAPI,
+	"claude":       model.SitePlatformAPI,
+	"google":       model.SitePlatformAPI,
+	"gemini":       model.SitePlatformAPI,
+	"api":          model.SitePlatformAPI,
 }
 
 var unsupportedImportHints = []string{
@@ -136,6 +138,8 @@ func detectSupportedPlatform(values ...any) (model.SitePlatform, bool) {
 	}
 
 	switch {
+	case strings.Contains(combined, "agentrouter"), strings.Contains(combined, "agent-router"), strings.Contains(combined, "air-outer.com"):
+		return model.SitePlatformAgentRouter, false
 	case strings.Contains(combined, "api.openai.com"):
 		return model.SitePlatformAPI, false
 	case strings.Contains(combined, "api.anthropic.com"), strings.Contains(combined, "anthropic.com/v1"):

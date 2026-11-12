@@ -51,7 +51,7 @@ Sub2API 订阅账号更新凭据、凭据类型或账号代理时，API 请求�
 
 平台签到成功或上游返回“今日已签到”后，会尝试刷新账户余额、累计用量和今日收入；绑定订阅账号时，前后余额均读取该订阅账号，更新订阅账号余额，并在签到账号展示该余额。刷新复用现有的平台接口、凭据及签到代理设置，最多等待 10 秒。接口失败、缺失字段或无效数字会保留对应旧值；真实的零余额会正常保存。刷新发生在签到日志提交后，仅可补齐缺失奖励，不改变签到状态；刷新或补记失败均不会使已成功的签到变为失败。
 
-自定义 HTTP 签到选择“余额账号”后也遵循上述余额差规则，查询实际关联订阅站的接口。Cookie 模式下，订阅站登录得到的新 token 只保存到订阅账号，余额账号失效、登录失败或余额查询失败均不影响外站签到。Sub2API 订阅令牌模式使用所选订阅账号进行签到和余额查询，余额查询失败仍不改变签到结果。未选择余额账号时跳过前后余额查询，仍可直接提取响应奖励。余额查询复用 NewAPI、AnyRouter、OneAPI、OneHub、DoneHub 和 Sub2API 的现有实现，无需配置新的余额请求。
+自定义 HTTP 签到选择“余额账号”后也遵循上述余额差规则，查询实际关联订阅站的接口。Cookie 模式下，订阅站登录得到的新 token 只保存到订阅账号，余额账号失效、登录失败或余额查询失败均不影响外站签到。Sub2API 订阅令牌模式使用所选订阅账号进行签到和余额查询，余额查询失败仍不改变签到结果。未选择余额账号时跳过前后余额查询，仍可直接提取响应奖励。余额查询复用 NewAPI、AnyRouter、AgentRouter、OneAPI、OneHub、DoneHub 和 Sub2API 的现有实现，无需配置新的余额请求。
 
 ## 自定义 HTTP 奖励提取代码
 
@@ -249,6 +249,7 @@ Webhook 接收端应返回 2xx；Bark、Server酱和 Telegram 还会检查业务
 | --- | --- | --- |
 | NewAPI、OneAPI、OneHub | 启用 | POST /api/user/checkin |
 | AnyRouter | 启用 | Cookie 会话优先 POST /api/user/sign_in；Bearer 使用 /api/user/checkin，明确的接口或鉴权不匹配时回退 |
+| AgentRouter | 启用 | POST /api/user/login，使用用户名／邮箱和密码登录触发签到，并检查 checked_in 或当日签到日志 |
 | DoneHub | 关闭 | 可手动验证或显式启用 POST /api/user/checkin |
 | Sub2API、API | 关闭 | 需配置自定义 HTTP 接口 |
 
@@ -264,6 +265,12 @@ AnyRouter 订阅账号可以在 Access Token 中填写完整的 `session=...` Co
 
 AnyRouter 内置签到接受明确的 `success: true`、数值 `ret: 1` 或 `code: 0`；同时出现多个状态字段时必须一致。“今日已签到”继续视为成功且不计奖励。HTML、空响应、状态字段缺失或冲突不能确认成功。遇到限流、服务错误、网络错误或不明响应时停止本轮接口回退，沿用失败重试机制。自动签到仍按用户设置的站点时区和时间窗口每日调度，不附加平台冷却规则。
 
+AgentRouter 通过登录触发签到，不请求 `/api/user/checkin` 或 `/api/user/sign_in`。先创建 AgentRouter 订阅站及用户名／邮箱和密码账号，再创建关联该订阅站的签到站，选择对应账号并启用自动签到。仅有 Access Token 或 API Key 的账号可用于订阅同步，但无法执行内置签到；第三方登录账号需先在站点绑定邮箱并设置密码。用户名密码订阅同步也会触发登录签到，签到任务仍按用户设置的每日时间窗口执行。
+
+AgentRouter 必须返回布尔值 `success: true` 和用户数据。`data.checked_in: true` 确认当日签到，`GET /api/log/self/` 用于补充确认；日志必须同时为 `type=4`、包含签到成功内容，并处于站点配置时区的当日且不晚于当前时间。登录成功但缺少明确签到标记及有效日志时记录 `unconfirmed_checkin`；无法解析的 HTML、超时、限流、服务错误不会在本轮重复提交登录。日志查询失败不会推翻已明确确认的签到。
+
+登录返回的 Cookie、用户 ID 和后续响应更新的会话在同一账号操作中复用，并保存回订阅账号。签到后的余额来自 `/api/user/self`，按 `/api/status` 的有效正数 `quota_per_unit` 换算，无法取得时回退到 500000；余额查询失败保留签到成功和原有余额。登录已经触发签到，因此不采集登录后的“签到前余额”，也不把余额、固定额度或不明确的重复登录当作本次奖励。AgentRouter 作为自定义 HTTP 签到的余额账号时只使用已保存会话查询，不额外登录触发签到。
+
 验证只影响当前站点。在默认模式下，确认支持会开启该站点签到，确认不可用会停止自动任务并清空待执行时间；仍可手动重试验证。无法判断的响应不会覆盖以前的明确证据。站点响应及单账号签到结果包含是否启用、是否可验证、策略来源、支持状态和最后验证时间。
 
 证据绑定平台、站点 URL、自定义签到方法 / 路径 / 请求体 / 请求头、站点请求头和代理选择。修改这些配置后旧证据失效，修改前已发出的请求也不能为新配置写入验证结果。模式或时间窗口调整不改变证据。配置和证据随站点备份保存；新建和更新接口不接受客户端伪造的验证结果。
@@ -274,7 +281,7 @@ AnyRouter 内置签到接受明确的 `success: true`、数值 `ret: 1` 或 `cod
 
 签到响应不成功且提示包含 “Turnstile”（不区分大小写）时，Octopus 从站点公开的 `/api/status` 读取 `turnstile_site_key`，以站点根地址作为页面地址提交求解，再把 token 作为 `turnstile` 查询参数重新提交签到。两个平台都启用时先使用 Cloudflare Solver，失败后使用 SolverQ；未填写令牌的平台不参与。token 只能使用一次，每次签到单独求解。重试成功后，奖励、余额刷新和通知沿用正常的签到流程。
 
-求解只用于 NewAPI、OneAPI、OneHub、DoneHub 的内置签到，包括使用关联订阅账号的签到；不用于用户名密码账号登录时的 Turnstile 校验、自定义 HTTP 签到和 AnyRouter。Cloudflare 5 秒盾质询仍记录为 `cloudflare_protection` 并按原规则退避，不调用求解平台。
+求解只用于 NewAPI、OneAPI、OneHub、DoneHub 的内置签到，包括使用关联订阅账号的签到；不用于用户名密码账号登录时的 Turnstile 校验、自定义 HTTP 签到、AnyRouter 和 AgentRouter。Cloudflare 5 秒盾质询仍记录为 `cloudflare_protection` 并按原规则退避，不调用求解平台。
 
 总开关关闭时不请求 `/api/status` 和求解平台，Turnstile 提示与以前一样记录为失败。开启后，没有可用平台、`/api/status` 返回错误状态码或非 JSON 内容、站点未提供 site key、求解失败或站点拒绝求解所得的 token 时，签到记录为 `failed / upstream_business_error`，并在原提示后附加原因，例如 `Turnstile token is empty (Turnstile solver: solving failed: Cloudflare Solver: ERROR_ZERO_BALANCE)`。附加的原因由固定说明、平台名称和错误码或 HTTP 状态码组成，不包含令牌、token、平台的错误描述或原始响应。读取 `/api/status` 或重试签到时出现的网络错误、超时和 Cloudflare 质询仍按原有原因记录；重试签到出错时，错误信息里的 token 替换为 `[redacted]`。
 

@@ -80,6 +80,7 @@ function getManualSyncEndpointHints(
   switch (platform) {
     case SitePlatform.NewAPI:
     case SitePlatform.AnyRouter:
+    case SitePlatform.AgentRouter:
       return {
         ...managementHints,
         model:

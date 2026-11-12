@@ -45,7 +45,7 @@ func newAnyRouterSession(site *model.Site, account *model.SiteAccount) *anyRoute
 }
 
 func withAnyRouterSession(ctx context.Context, site *model.Site, account *model.SiteAccount) context.Context {
-	if site == nil || site.Platform != model.SitePlatformAnyRouter {
+	if site == nil || !usesRouterSession(site.Platform) {
 		return ctx
 	}
 	if anyRouterSessionFromContext(ctx, site, account) != nil {
@@ -90,7 +90,7 @@ func (s *anyRouterSession) persist(ctx context.Context, site *model.Site, origin
 		Where("id = ? AND credential_version = ? AND access_token = ?", original.ID, original.CredentialVersion, original.AccessToken).
 		Updates(updates).Error
 	if err != nil {
-		log.Warnf("could not save AnyRouter session for account %d: %v", original.ID, err)
+		log.Warnf("could not save router session for account %d: %v", original.ID, err)
 	}
 }
 
@@ -192,6 +192,10 @@ func rememberAnyRouterCookieAuth(ctx context.Context, site *model.Site, account 
 type anyRouterSessionTransport struct {
 	base    http.RoundTripper
 	session *anyRouterSession
+}
+
+func usesRouterSession(platform model.SitePlatform) bool {
+	return platform == model.SitePlatformAnyRouter || platform == model.SitePlatformAgentRouter
 }
 
 func (t anyRouterSessionTransport) RoundTrip(request *http.Request) (*http.Response, error) {
