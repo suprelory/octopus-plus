@@ -100,6 +100,9 @@ func siteBatchReason(err error) SiteBatchReason {
 		return SiteBatchReasonLoginFailed
 	case CodeSiteAuthAccessTokenRequired:
 		return SiteBatchReasonAccessTokenRequired
+	case sub2APIRefreshMissing, sub2APISessionInvalid, sub2APISessionBinding, sub2APISessionInactive,
+		sub2APISessionChanged, sub2APISessionSaveFailed, sub2APIRefreshTransient, sub2APIRefreshRejected:
+		return SiteBatchReason(strings.TrimPrefix(code, "site.sub2api."))
 	case CodeSiteAuthDirectTokenRequired, apperror.CodeSiteSub2APIAPIKeyRequired, apperror.CodeSiteSub2APIModelAPIKeyRequired:
 		return SiteBatchReasonDirectTokenRequired
 	case CodeSiteSyncUnsupportedPlatform:

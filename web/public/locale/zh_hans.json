@@ -235,7 +235,16 @@
             "context_deadline_exceeded": "执行超时",
             "database_error": "记录保存失败",
             "internal_error": "内部错误",
-            "unknown": "未知原因"
+            "unknown": "未知原因",
+            "refresh_missing": "缺少 Refresh Token，无法自动续期",
+            "session_invalid": "登录会话或 Refresh Token 已失效",
+            "session_binding_mismatch": "会话出口 IP 或 User-Agent 不匹配",
+            "account_inactive": "订阅账号不可用",
+            "credentials_changed": "订阅账号凭据已变更",
+            "session_save_failed": "登录凭据保存失败",
+            "refresh_unavailable": "令牌刷新暂时不可用",
+            "refresh_rejected": "站点拒绝刷新令牌",
+            "checkin_auth_recovered": "凭据已更新，需确认签到结果"
         }
     },
     "workspace": {

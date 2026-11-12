@@ -168,3 +168,32 @@ func TestSub2APICheckinInvalidRefreshPreservesSubmittedWorkflow(t *testing.T) {
 		t.Fatalf("repaired session resubmitted the checkin: %+v %v submits=%d", next, err, submits.Load())
 	}
 }
+
+func TestSub2APICheckinMissingRefreshIsActionableBeforeSubmission(t *testing.T) {
+	ctx := setupProjectTestDB(t)
+	var submits, refreshes atomic.Int32
+	subscription := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/auth/refresh" {
+			refreshes.Add(1)
+		}
+		_, _ = w.Write([]byte(`{"code":0,"data":{"balance":10}}`))
+	}))
+	defer subscription.Close()
+	checkin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/daily" {
+			submits.Add(1)
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"reason":"TOKEN_EXPIRED","message":"expired"}`))
+	}))
+	defer checkin.Close()
+	site, account, _ := subscriptionTokenCheckinFixture(t, ctx, subscription.URL, checkin.URL)
+	config := &model.SiteCheckinStatusConfig{Path: "/status", CheckedPath: "data.checked_in", MaxAttempts: 1}
+	if _, err := op.SiteUpdate(&model.SiteUpdateRequest{ID: site.ID, CheckinStatus: config, CheckinStatusSet: true}, ctx); err != nil {
+		t.Fatal(err)
+	}
+	result, _ := CheckinAccount(ctx, account.ID)
+	if result == nil || result.Status != model.SiteExecutionStatusFailed || result.Reason != "refresh_missing" || !strings.Contains(result.Message, "Refresh Token") || submits.Load() != 0 || refreshes.Load() != 0 {
+		t.Fatalf("missing refresh token was hidden or checkin was submitted: %+v submits=%d refreshes=%d", result, submits.Load(), refreshes.Load())
+	}
+}

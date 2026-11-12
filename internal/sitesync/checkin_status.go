@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/suprelory/octopus-plus/internal/apperror"
 	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/utils/snowflake"
@@ -129,7 +128,7 @@ func checkinWithStatus(ctx context.Context, site *model.Site, account *model.Sit
 	authFailure := func(err error) *model.SiteCheckinResult {
 		queryDetail = configuredCheckinAuthDetail(runCtx, err)
 		if !workflow.Submitted && !transientSub2APICheckinAuthError(err) {
-			return result(model.SiteExecutionStatusFailed, firstNonEmptyString(apperror.Code(err), "checkin_auth_failed"), "签到前鉴权失败，未提交："+queryDetail)
+			return result(model.SiteExecutionStatusFailed, string(siteBatchReason(err)), "签到前鉴权失败，未提交："+queryDetail)
 		}
 		return pending()
 	}

@@ -235,7 +235,16 @@
             "context_deadline_exceeded": "Execution timed out",
             "database_error": "Could not save result",
             "internal_error": "Internal error",
-            "unknown": "Unknown reason"
+            "unknown": "Unknown reason",
+            "refresh_missing": "Refresh token required for automatic renewal",
+            "session_invalid": "Login session or refresh token is no longer valid",
+            "session_binding_mismatch": "Session IP or User-Agent does not match",
+            "account_inactive": "Subscription account unavailable",
+            "credentials_changed": "Subscription credentials changed",
+            "session_save_failed": "Could not save login credentials",
+            "refresh_unavailable": "Token refresh temporarily unavailable",
+            "refresh_rejected": "Site rejected token refresh",
+            "checkin_auth_recovered": "Credentials updated; confirm the check-in result"
         }
     },
     "workspace": {
