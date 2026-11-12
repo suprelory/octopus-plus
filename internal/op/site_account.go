@@ -162,8 +162,16 @@ func SiteAccountUpdate(req *model.SiteAccountUpdateRequest, ctx context.Context)
 		merged.LinkedAccountID = req.LinkedAccountID
 		selectFields = append(selectFields, "linked_account_id")
 	}
-	if req.TokenExpiresAt != nil {
-		merged.TokenExpiresAt = *req.TokenExpiresAt
+	accessTokenChanged := req.AccessToken != nil &&
+		model.NormalizeSiteAccessToken(account.AccessToken) != model.NormalizeSiteAccessToken(merged.AccessToken)
+	writeTokenExpiry := req.TokenExpiresAt != nil || accessTokenChanged
+	if writeTokenExpiry {
+		// An expiry hint belongs to its access token. A replacement without an
+		// explicit expiry must not inherit the previous token's deadline.
+		merged.TokenExpiresAt = 0
+		if req.TokenExpiresAt != nil {
+			merged.TokenExpiresAt = *req.TokenExpiresAt
+		}
 		selectFields = append(selectFields, "token_expires_at")
 	}
 	if req.PlatformUserIDSet {
@@ -247,7 +255,7 @@ func SiteAccountUpdate(req *model.SiteAccountUpdateRequest, ctx context.Context)
 	if req.LinkedAccountIDSet {
 		updates.LinkedAccountID = merged.LinkedAccountID
 	}
-	if req.TokenExpiresAt != nil {
+	if writeTokenExpiry {
 		updates.TokenExpiresAt = merged.TokenExpiresAt
 	}
 	if req.PlatformUserIDSet {

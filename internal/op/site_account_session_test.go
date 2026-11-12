@@ -78,3 +78,55 @@ func TestSub2APIImportPreservesRefreshStateForSameSession(t *testing.T) {
 		t.Fatalf("replacement session retained previous refresh state: %v", err)
 	}
 }
+
+func TestSub2APIAccountReplacementResetsOnlyStaleExpiry(t *testing.T) {
+	stringPtr := func(value string) *string { return &value }
+	oldExpiry := time.Now().Add(-time.Minute).UnixMilli()
+	newExpiry := time.Now().Add(time.Hour).UnixMilli()
+	zero := int64(0)
+	for _, tc := range []struct {
+		name       string
+		oldAccess  string
+		access     *string
+		refresh    *string
+		expiry     *int64
+		wantExpiry int64
+	}{
+		{"replacement_without_expiry", "old-access", stringPtr("new-access"), nil, nil, 0},
+		{"replacement_with_explicit_expiry", "old-access", stringPtr("new-access"), nil, &newExpiry, newExpiry},
+		{"replacement_with_explicit_zero", "old-access", stringPtr("new-access"), nil, &zero, 0},
+		{"same_access", "old-access", stringPtr("old-access"), nil, nil, oldExpiry},
+		{"whitespace_only", "old-access", stringPtr("  old-access  "), nil, nil, oldExpiry},
+		{"add_bearer_prefix", "old-access", stringPtr("Bearer old-access"), nil, nil, oldExpiry},
+		{"remove_bearer_prefix", "Bearer old-access", stringPtr("old-access"), nil, nil, oldExpiry},
+		{"bearer_case_only", "Bearer old-access", stringPtr("bearer old-access"), nil, nil, oldExpiry},
+		{"refresh_only", "old-access", nil, stringPtr("rt_replacement"), nil, oldExpiry},
+		{"name_only", "old-access", nil, nil, nil, oldExpiry},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := setupSiteOpTestDB(t)
+			site := &model.Site{Name: "Sub2API expiry", Platform: model.SitePlatformSub2API, BaseURL: "https://example.com"}
+			if err := SiteCreate(site, ctx); err != nil {
+				t.Fatal(err)
+			}
+			account := &model.SiteAccount{SiteID: site.ID, Name: "Session", CredentialType: model.SiteCredentialTypeAccessToken,
+				AccessToken: tc.oldAccess, RefreshToken: "rt_old", TokenExpiresAt: oldExpiry}
+			if err := SiteAccountCreate(account, ctx); err != nil {
+				t.Fatal(err)
+			}
+			name := "Edited session"
+			updated, err := SiteAccountUpdate(&model.SiteAccountUpdateRequest{ID: account.ID, Name: &name,
+				AccessToken: tc.access, RefreshToken: tc.refresh, TokenExpiresAt: tc.expiry, CredentialVersion: &account.CredentialVersion}, ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			saved, err := SiteAccountGet(account.ID, ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if updated.TokenExpiresAt != tc.wantExpiry || saved.TokenExpiresAt != tc.wantExpiry {
+				t.Fatalf("expiry after account edit: response=%d stored=%d want=%d", updated.TokenExpiresAt, saved.TokenExpiresAt, tc.wantExpiry)
+			}
+		})
+	}
+}
