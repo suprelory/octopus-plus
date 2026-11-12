@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/suprelory/octopus-plus/internal/apperror"
 	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/utils/snowflake"
@@ -61,14 +62,20 @@ func checkinWithStatus(ctx context.Context, site *model.Site, account *model.Sit
 	runCtx, cancel := context.WithDeadline(ctx, deadline)
 	defer cancel()
 	queryDetail := ""
+	var queryAuthErr error
 	query := func() (*configuredCheckinResponse, string, error) {
 		querySite := *site
 		querySite.CheckinHTTPMethod, querySite.CheckinHTTPPath = config.Method, strings.ReplaceAll(config.Path, "{{checkin_date}}", workflow.Date)
 		querySite.CheckinHTTPBody = strings.ReplaceAll(config.Body, "{{checkin_date}}", workflow.Date)
 		querySite.CheckinHTTPHeaders = config.Headers
-		response, _, err := requestConfiguredCheckinHTTP(runCtx, &querySite, account, token)
+		response, currentToken, err := requestConfiguredCheckinQuery(runCtx, &querySite, account, token)
+		token = currentToken
 		if err != nil {
 			queryDetail = "状态查询请求失败或超时"
+			if auth := configuredCheckinAuth(runCtx); auth != nil {
+				queryAuthErr = auth.err
+				queryDetail = "状态查询失败：" + configuredCheckinAuthDetail(runCtx, err)
+			}
 			return nil, checkinStateUnknown, err
 		}
 		queryDetail = "状态响应没有匹配到已签到或未签到条件"
@@ -119,11 +126,24 @@ func checkinWithStatus(ctx context.Context, site *model.Site, account *model.Sit
 		}
 		return result(model.SiteExecutionStatusPending, "pending_confirmation", message)
 	}
+	authFailure := func(err error) *model.SiteCheckinResult {
+		queryDetail = configuredCheckinAuthDetail(runCtx, err)
+		if !workflow.Submitted && !transientSub2APICheckinAuthError(err) {
+			return result(model.SiteExecutionStatusFailed, firstNonEmptyString(apperror.Code(err), "checkin_auth_failed"), "签到前鉴权失败，未提交："+queryDetail)
+		}
+		return pending()
+	}
+	if auth := configuredCheckinAuth(runCtx); auth != nil && auth.err != nil {
+		return authFailure(auth.err), token, nil
+	}
 	resumed := workflow.Submitted
 	var submit *configuredCheckinResponse
 	if !workflow.Submitted {
 		if !config.SkipPrecheck {
 			response, state, _ := query()
+			if queryAuthErr != nil {
+				return authFailure(queryAuthErr), token, nil
+			}
 			if state == checkinStateChecked {
 				return confirm(response, nil, false), "", nil
 			}
@@ -156,6 +176,9 @@ func checkinWithStatus(ctx context.Context, site *model.Site, account *model.Sit
 			break
 		}
 		response, state, _ := query()
+		if queryAuthErr != nil {
+			return authFailure(queryAuthErr), token, nil
+		}
 		if state == checkinStateChecked {
 			return confirm(response, submit, resumed), "", nil
 		}

@@ -71,7 +71,7 @@ func TestCustomCheckinUsesLatestSubscriptionTokenWithoutCopyingIt(t *testing.T) 
 	for _, token := range []string{"subscription-token-one", "subscription-token-two"} {
 		wantToken.Store(token)
 		storedToken := "Bearer " + token
-		if _, err := op.SiteAccountUpdate(&model.SiteAccountUpdateRequest{ID: source.ID, AccessToken: &storedToken}, ctx); err != nil {
+		if _, err := updateSub2APITestAccount(&model.SiteAccountUpdateRequest{ID: source.ID, AccessToken: &storedToken}, ctx); err != nil {
 			t.Fatal(err)
 		}
 		result, err := CheckinAccount(ctx, account.ID)
@@ -113,7 +113,7 @@ func TestCustomCheckinRefreshesSubscriptionSessionOnItsOwnSite(t *testing.T) {
 		if r.URL.Path == "/api/v1/auth/refresh" {
 			refreshes.Add(1)
 			var body map[string]string
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body["refresh_token"] != "subscription-refresh-one" || r.Header.Get("Authorization") != "Bearer subscription-token-one" {
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body["refresh_token"] != "subscription-refresh-one" || r.Header.Get("Authorization") != "" || r.Header.Get("Cookie") != "" {
 				t.Errorf("invalid session refresh: %v %v", body, err)
 			}
 			_, _ = w.Write([]byte(`{"code":0,"data":{"access_token":"subscription-token-refreshed","refresh_token":"subscription-refresh-two","expires_in":3600}}`))
@@ -136,7 +136,7 @@ func TestCustomCheckinRefreshesSubscriptionSessionOnItsOwnSite(t *testing.T) {
 	defer checkin.Close()
 	_, account, source := subscriptionTokenCheckinFixture(t, ctx, subscription.URL, checkin.URL)
 	refresh, expiresAt := "subscription-refresh-one", time.Now().Add(time.Minute).UnixMilli()
-	if _, err := op.SiteAccountUpdate(&model.SiteAccountUpdateRequest{ID: source.ID, RefreshToken: &refresh, TokenExpiresAt: &expiresAt}, ctx); err != nil {
+	if _, err := updateSub2APITestAccount(&model.SiteAccountUpdateRequest{ID: source.ID, RefreshToken: &refresh, TokenExpiresAt: &expiresAt}, ctx); err != nil {
 		t.Fatal(err)
 	}
 	result, err := CheckinAccount(ctx, account.ID)
@@ -191,7 +191,7 @@ func TestSubscriptionTokenStatusRecheckUsesUpdatedTokenWithoutResubmitting(t *te
 	}
 	token := "subscription-token-two"
 	wantToken.Store(token)
-	if _, err := op.SiteAccountUpdate(&model.SiteAccountUpdateRequest{ID: source.ID, AccessToken: &token}, ctx); err != nil {
+	if _, err := updateSub2APITestAccount(&model.SiteAccountUpdateRequest{ID: source.ID, AccessToken: &token}, ctx); err != nil {
 		t.Fatal(err)
 	}
 	confirmed.Store(true)

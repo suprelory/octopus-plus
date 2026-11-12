@@ -10,11 +10,15 @@ import (
 )
 
 func fetchSub2APITokens(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string) ([]model.SiteToken, error) {
+	ctx = withSub2APIRecoveryBudget(ctx)
 	endpoints := []string{"/api/v1/keys?page=1&page_size=100", "/api/v1/api-keys?page=1&page_size=100", "/api/v1/keys", "/api/v1/api-keys"}
 	var firstErr error
 	for _, endpoint := range endpoints {
-		payload, err := requestJSON(ctx, siteRecord, "GET", buildSiteURL(siteRecord.BaseURL, endpoint), nil, map[string]string{"Authorization": ensureBearer(accessToken)}, account)
+		payload, err := requestSub2APIJSON(ctx, siteRecord, "GET", endpoint, nil, account, accessToken)
 		if err != nil {
+			if status, _ := sub2APIUpstreamErrorDetails(err); status == 401 || status == 403 || strings.HasPrefix(apperror.Code(err), "site.sub2api.") {
+				return nil, err
+			}
 			if firstErr == nil {
 				firstErr = err
 			}
@@ -40,6 +44,7 @@ func fetchSub2APITokens(ctx context.Context, siteRecord *model.Site, account *mo
 }
 
 func fetchSub2APIGroups(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string, tokens []model.SiteToken) ([]model.SiteUserGroup, error) {
+	ctx = withSub2APIRecoveryBudget(ctx)
 	inferredGroups := inferSub2APIGroupsFromTokens(tokens)
 
 	endpoints := []string{
@@ -51,8 +56,11 @@ func fetchSub2APIGroups(ctx context.Context, siteRecord *model.Site, account *mo
 	}
 	var firstErr error
 	for _, endpoint := range endpoints {
-		payload, err := requestJSON(ctx, siteRecord, "GET", buildSiteURL(siteRecord.BaseURL, endpoint), nil, map[string]string{"Authorization": ensureBearer(accessToken)}, account)
+		payload, err := requestSub2APIJSON(ctx, siteRecord, "GET", endpoint, nil, account, accessToken)
 		if err != nil {
+			if status, _ := sub2APIUpstreamErrorDetails(err); status == 401 || status == 403 || strings.HasPrefix(apperror.Code(err), "site.sub2api.") {
+				return nil, err
+			}
 			if firstErr == nil {
 				firstErr = err
 			}

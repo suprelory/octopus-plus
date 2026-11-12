@@ -70,6 +70,7 @@ type SiteAccountUpdateRequest struct {
 	LinkedAccountID            *int                `json:"linked_account_id,omitempty"`
 	LinkedAccountIDSet         bool                `json:"-"`
 	TokenExpiresAt             *int64              `json:"token_expires_at,omitempty"`
+	CredentialVersion          *int64              `json:"credential_version,omitempty"`
 	PlatformUserID             *int                `json:"platform_user_id,omitempty"`
 	PlatformUserIDSet          bool                `json:"-"`
 	ProxyMode                  *ProxyUsageMode     `json:"proxy_mode,omitempty"`

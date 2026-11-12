@@ -15,7 +15,12 @@ import (
 const (
 	CodeSiteNameExists         = "site.name_exists"
 	CodeSiteArchivedNameExists = "site.archived_name_exists"
+	CodeSiteCredentialConflict = "site.account.credential_conflict"
 )
+
+func siteCredentialConflictError() *apperror.Error {
+	return apperror.New(CodeSiteCredentialConflict, "账号凭据已更新或缺少凭据版本，请刷新页面并重新打开编辑窗口后再保存").WithStatus(http.StatusConflict)
+}
 
 // Resolve name conflicts after the write has rolled back, including concurrent
 // creates. Other unique constraints and database errors keep their original error.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from '@/components/common/Toast';
 import { useSettingStore } from '@/stores/setting';
@@ -17,6 +17,7 @@ import { translateSiteMessage } from './site-message';
 import {
     type SiteAccountFormState,
     createAccountForm,
+    createAccountUpdatePayload,
     createEmptyAccountForm,
     credentialOptions,
     parseTokenExpiresAtInput,
@@ -46,6 +47,7 @@ export function useAccountForm({ site, account, onOpenChange }: {
         if (site) return createEmptyAccountForm(site);
         return null;
     });
+    const initialAccountForm = useRef(account ? createAccountForm(account) : accountForm);
 
     const currentPlatform = site?.platform ?? SitePlatform.NewAPI;
     const useSubscriptionToken = site?.kind === 'checkin' && !!site.checkin_http_enabled && !!site.checkin_use_subscription_token;
@@ -187,7 +189,7 @@ export function useAccountForm({ site, account, onOpenChange }: {
             const isAccessToken =
                 accountForm.credential_type === SiteCredentialType.AccessToken;
 
-            if (accountForm.proxy_mode === 'pool' && !accountForm.proxy_config_id) {
+            if (!useSubscriptionToken && accountForm.proxy_mode === 'pool' && !accountForm.proxy_config_id) {
                 toast.error(tProxy('selectRequired'));
                 return;
             }
@@ -225,7 +227,9 @@ export function useAccountForm({ site, account, onOpenChange }: {
 
             try {
                 if (account) {
-                    await updateSiteAccount.mutateAsync({ id: account.id, ...payload });
+                    await updateSiteAccount.mutateAsync(createAccountUpdatePayload(
+                        { id: account.id, ...payload }, accountForm, initialAccountForm.current ?? accountForm,
+                    ));
                     toast.success('站点账号已更新');
                 } else {
                     await createSiteAccount.mutateAsync(payload);

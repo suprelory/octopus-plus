@@ -20,7 +20,7 @@ var manualSyncFingerprintKey = func() []byte {
 	return fallback[:]
 }()
 
-func buildManualSyncFingerprint(accountID int, mode string, format string, sections manualSyncSections) string {
+func buildManualSyncFingerprint(accountID int, mode string, format string, sections manualSyncSections, credentialVersions ...int64) string {
 	tokens := cloneSiteTokens(sections.tokens)
 	sort.Slice(tokens, func(i, j int) bool {
 		if tokens[i].GroupKey != tokens[j].GroupKey {
@@ -39,19 +39,20 @@ func buildManualSyncFingerprint(accountID int, mode string, format string, secti
 	}
 	sortSiteModels(models)
 	payload := struct {
-		AccountID      int                   `json:"account_id"`
-		Mode           string                `json:"mode"`
-		Format         string                `json:"format"`
-		TokensProvided bool                  `json:"tokens_provided"`
-		GroupsProvided bool                  `json:"groups_provided"`
-		Tokens         []model.SiteToken     `json:"tokens"`
-		Groups         []model.SiteUserGroup `json:"groups"`
-		Models         []model.SiteModel     `json:"models"`
-		Balance        *float64              `json:"balance"`
-		BalanceUsed    *float64              `json:"balance_used"`
-		TodayIncome    *float64              `json:"today_income"`
-		AccessToken    *string               `json:"access_token"`
-	}{accountID, mode, format, sections.tokensProvided, sections.groupsProvided, tokens, groups, models, sections.balance, sections.balanceUsed, sections.todayIncome, sections.accessToken}
+		AccountID          int                   `json:"account_id"`
+		Mode               string                `json:"mode"`
+		Format             string                `json:"format"`
+		TokensProvided     bool                  `json:"tokens_provided"`
+		GroupsProvided     bool                  `json:"groups_provided"`
+		Tokens             []model.SiteToken     `json:"tokens"`
+		Groups             []model.SiteUserGroup `json:"groups"`
+		Models             []model.SiteModel     `json:"models"`
+		Balance            *float64              `json:"balance"`
+		BalanceUsed        *float64              `json:"balance_used"`
+		TodayIncome        *float64              `json:"today_income"`
+		AccessToken        *string               `json:"access_token"`
+		CredentialVersions []int64               `json:"credential_versions,omitempty"`
+	}{accountID, mode, format, sections.tokensProvided, sections.groupsProvided, tokens, groups, models, sections.balance, sections.balanceUsed, sections.todayIncome, sections.accessToken, credentialVersions}
 	encoded, _ := json.Marshal(payload)
 	mac := hmac.New(sha256.New, manualSyncFingerprintKey)
 	_, _ = mac.Write(encoded)

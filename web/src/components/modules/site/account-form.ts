@@ -14,6 +14,7 @@ export type SiteAccountFormState = {
     cookie: string;
     linked_account_id: number | null;
     token_expires_at: string;
+    credential_version: number;
     platform_user_id: string;
     proxy_mode: ProxyMode;
     proxy_config_id: number | null;
@@ -59,6 +60,7 @@ export function createEmptyAccountForm(site: SiteRecord): SiteAccountFormState {
         cookie: '',
         linked_account_id: null,
         token_expires_at: '',
+        credential_version: 0,
         platform_user_id: '',
         proxy_mode: 'inherit',
         proxy_config_id: null,
@@ -85,6 +87,7 @@ export function createAccountForm(account: SiteAccount): SiteAccountFormState {
         linked_account_id: account.linked_account_id ?? null,
         token_expires_at:
             account.token_expires_at > 0 ? String(account.token_expires_at) : '',
+        credential_version: account.credential_version ?? 0,
         platform_user_id: account.platform_user_id
             ? String(account.platform_user_id)
             : '',
@@ -125,6 +128,37 @@ export function getErrorMessage(error: unknown) {
         if (typeof message === 'string') return message;
     }
     return '操作失败';
+}
+
+// Compare with the form's opening snapshot, not a query result that may have
+// refreshed in the background while the user was editing.
+export function createAccountUpdatePayload(
+    payload: Partial<SiteAccount> & { id: number },
+    form: SiteAccountFormState,
+    initial: SiteAccountFormState,
+) {
+    const update = { ...payload };
+    const typeChanged = form.credential_type !== initial.credential_type;
+    let credentialsChanged = false;
+    const fields = [
+        'credential_type', 'username', 'password', 'access_token', 'api_key',
+        'refresh_token', 'cookie', 'token_expires_at', 'platform_user_id',
+        'proxy_mode', 'proxy_config_id',
+    ] as const;
+    for (const field of fields) {
+        const current = form[field];
+        const previous = initial[field];
+        const changed = (typeof current === 'string' ? current.trim() : current) !==
+            (typeof previous === 'string' ? previous.trim() : previous);
+        if (!changed && !(typeChanged && field !== 'proxy_mode' && field !== 'proxy_config_id')) {
+            delete update[field];
+        } else {
+            credentialsChanged = true;
+        }
+    }
+    if (credentialsChanged) update.credential_version = initial.credential_version;
+    else delete update.credential_version;
+    return update;
 }
 
 export type AccountFormFieldsProps = {

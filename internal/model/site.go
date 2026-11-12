@@ -134,17 +134,21 @@ type SiteAccount struct {
 	SiteID int `json:"site_id" gorm:"index;not null"`
 	// Migration provenance keeps incremental legacy imports from duplicating
 	// independently renamed or edited check-in accounts.
-	CheckinSourceAccountID     *int                 `json:"checkin_source_account_id,omitempty" gorm:"index"`
-	LinkedAccountID            *int                 `json:"linked_account_id" gorm:"index"`
-	Name                       string               `json:"name" gorm:"not null"`
-	CredentialType             SiteCredentialType   `json:"credential_type" gorm:"type:varchar(32);not null"`
-	Username                   string               `json:"username"`
-	Password                   string               `json:"password"`
-	AccessToken                string               `json:"access_token"`
-	APIKey                     string               `json:"api_key"`
-	RefreshToken               string               `json:"refresh_token"`
-	Cookie                     string               `json:"cookie" gorm:"type:text"`
-	TokenExpiresAt             int64                `json:"token_expires_at" gorm:"default:0"`
+	CheckinSourceAccountID *int               `json:"checkin_source_account_id,omitempty" gorm:"index"`
+	LinkedAccountID        *int               `json:"linked_account_id" gorm:"index"`
+	Name                   string             `json:"name" gorm:"not null"`
+	CredentialType         SiteCredentialType `json:"credential_type" gorm:"type:varchar(32);not null"`
+	Username               string             `json:"username"`
+	Password               string             `json:"password"`
+	AccessToken            string             `json:"access_token"`
+	APIKey                 string             `json:"api_key"`
+	RefreshToken           string             `json:"refresh_token"`
+	Cookie                 string             `json:"cookie" gorm:"type:text"`
+	TokenExpiresAt         int64              `json:"token_expires_at" gorm:"default:0"`
+	CredentialVersion      int64              `json:"credential_version" gorm:"not null;default:0"`
+	// Refresh leases are runtime coordination state and must not be exported or restored.
+	TokenRefreshLease          string               `json:"-" gorm:"size:64;not null;default:''"`
+	TokenRefreshLeaseUntil     int64                `json:"-" gorm:"not null;default:0"`
 	PlatformUserID             *int                 `json:"platform_user_id"`
 	ProxyMode                  ProxyUsageMode       `json:"proxy_mode" gorm:"type:varchar(16);not null;default:'inherit'"`
 	ProxyConfigID              *int                 `json:"proxy_config_id"`

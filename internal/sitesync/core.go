@@ -12,16 +12,17 @@ import (
 )
 
 type syncSnapshot struct {
-	accessToken  string
-	groups       []model.SiteUserGroup
-	tokens       []model.SiteToken
-	models       []model.SiteModel
-	groupResults []siteGroupSyncResult
-	status       model.SiteExecutionStatus
-	balance      float64
-	balanceUsed  float64
-	todayIncome  float64
-	message      string
+	accessToken       string
+	credentialVersion *int64 // Explicit manual credential changes only.
+	groups            []model.SiteUserGroup
+	tokens            []model.SiteToken
+	models            []model.SiteModel
+	groupResults      []siteGroupSyncResult
+	status            model.SiteExecutionStatus
+	balance           float64
+	balanceUsed       float64
+	todayIncome       float64
+	message           string
 }
 
 type siteBatchAccount struct {

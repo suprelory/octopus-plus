@@ -85,27 +85,35 @@ export function AccountEditDialog({ open, onOpenChange, site, account }: Account
                         />
 
                         <div className="grid gap-2 text-sm">
-                            <ProxySelector
-                                allowInherit
-                                value={{
-                                    proxy_mode: accountForm.proxy_mode,
-                                    proxy_config_id: accountForm.proxy_config_id,
-                                }}
-                                onChange={(next) =>
-                                    setAccountForm((current) =>
-                                        current
-                                            ? {
-                                                  ...current,
-                                                  proxy_mode: next.proxy_mode,
-                                                  proxy_config_id: next.proxy_config_id ?? null,
-                                              }
-                                            : current,
-                                    )
-                                }
-                            />
-                            <span className="text-xs text-muted-foreground">
-                                {site?.kind === 'checkin' ? '用于该签到账号的请求；继承时使用签到站点的代理配置。' : '用于该账号的同步和模型拉取；自动投影的渠道会跟随这里解析后的代理。'}
-                            </span>
+                            {useSubscriptionToken ? (
+                                <span className="text-xs text-muted-foreground">
+                                    签到、状态查询和令牌刷新统一使用所选订阅账号的代理及订阅站 User-Agent。
+                                </span>
+                            ) : (
+                                <>
+                                    <ProxySelector
+                                        allowInherit
+                                        value={{
+                                            proxy_mode: accountForm.proxy_mode,
+                                            proxy_config_id: accountForm.proxy_config_id,
+                                        }}
+                                        onChange={(next) =>
+                                            setAccountForm((current) =>
+                                                current
+                                                    ? {
+                                                          ...current,
+                                                          proxy_mode: next.proxy_mode,
+                                                          proxy_config_id: next.proxy_config_id ?? null,
+                                                      }
+                                                    : current,
+                                            )
+                                        }
+                                    />
+                                    <span className="text-xs text-muted-foreground">
+                                        {site?.kind === 'checkin' ? '用于该签到账号的请求；继承时使用签到站点的代理配置。' : '用于该账号的同步和模型拉取；自动投影的渠道会跟随这里解析后的代理。'}
+                                    </span>
+                                </>
+                            )}
                         </div>
                     </div>
 
