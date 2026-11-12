@@ -406,11 +406,18 @@ func isValidUserSelfPayload(payload map[string]any, err error) bool {
 }
 
 func fetchSub2APIBalanceDetails(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string) siteBalanceFetchResult {
+	if account.CredentialType == model.SiteCredentialTypeAccessToken {
+		var err error
+		accessToken, err = ensureFreshSub2APIAccessToken(ctx, siteRecord, account, false)
+		if err != nil {
+			return siteBalanceFetchResult{reason: "credentials_unavailable", err: err}
+		}
+	}
 	token := stripBearerPrefix(accessToken)
 	if token == "" {
 		return siteBalanceFetchResult{reason: "access_token_missing"}
 	}
-	payload, err := requestJSON(ctx, siteRecord, "GET", buildSiteURL(siteRecord.BaseURL, "/api/v1/auth/me"), nil, map[string]string{"Authorization": ensureBearer(token)}, account)
+	payload, err := requestSub2APIJSON(ctx, siteRecord, http.MethodGet, "/api/v1/auth/me", nil, account, token)
 	if err != nil {
 		return siteBalanceFetchResult{reason: "upstream_profile_unavailable", err: err}
 	}

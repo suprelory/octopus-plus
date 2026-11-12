@@ -29,6 +29,7 @@ export function normalizeSiteServerList(data: SiteServer[]): Site[] {
     archived_at: site.archived_at ?? null,
     accounts: (site.accounts ?? []).map((account) => ({
       ...account,
+      credential_version: typeof account.credential_version === "number" ? account.credential_version : 0,
       refresh_token:
         typeof account.refresh_token === "string"
           ? account.refresh_token

@@ -25,21 +25,42 @@ func checkinConfiguredHTTP(ctx context.Context, siteRecord *model.Site, account 
 		if err != nil {
 			return nil, "", err
 		}
-		token, err = ensureFreshSub2APIAccessToken(ctx, sourceSite, source, false)
-		if err != nil {
-			return nil, token, err
+		auth := &sub2APICheckinAuth{site: sourceSite, account: source, token: stripBearerPrefix(source.AccessToken)}
+		ctx = context.WithValue(withSub2APIRecoveryBudget(ctx), sub2APICheckinAuthKey{}, auth)
+		refreshed, refreshErr := ensureFreshSub2APIAccessToken(ctx, sourceSite, source, false)
+		if refreshErr != nil {
+			auth.err = refreshErr
+			if siteRecord.CheckinStatus == nil {
+				return nil, auth.token, refreshErr
+			}
+		} else {
+			auth.token = refreshed
 		}
+		token = auth.token
 	}
 	if siteRecord.CheckinStatus != nil {
 		result, _, err := checkinWithStatus(ctx, siteRecord, account, token)
-		return result, token, err
+		return result, configuredCheckinToken(ctx, token), err
 	}
 	response, _, err := requestConfiguredCheckinHTTP(ctx, siteRecord, account, token)
 	if err != nil {
 		return nil, token, err
 	}
-	result, _, err := interpretConfiguredCheckinResponse(ctx, siteRecord, response)
-	return result, token, err
+	result, _, interpretErr := interpretConfiguredCheckinResponse(ctx, siteRecord, response)
+	if result != nil && result.Status == model.SiteExecutionStatusSuccess {
+		return result, token, interpretErr
+	}
+	if siteRecord.CheckinUseSubscriptionToken && response.StatusCode == http.StatusUnauthorized {
+		recovered, refreshErr := recoverSub2APICheckinAuth(ctx, response)
+		if refreshErr != nil {
+			return nil, configuredCheckinToken(ctx, token), refreshErr
+		}
+		if recovered {
+			return &model.SiteCheckinResult{Status: model.SiteExecutionStatusFailed, Reason: "checkin_auth_recovered",
+				Message: "签到接口返回 401，登录凭据已更新；本次未自动重发签到请求，请确认站点状态后再操作"}, configuredCheckinToken(ctx, token), nil
+		}
+	}
+	return result, token, interpretErr
 }
 
 type configuredCheckinResponse struct {
@@ -87,7 +108,7 @@ func requestConfiguredCheckinHTTP(ctx context.Context, siteRecord *model.Site, a
 		return nil, token, fmt.Errorf("configured checkin body is invalid after credential substitution")
 	}
 
-	httpClient, err := siteHTTPClient(ctx, siteRecord, account)
+	httpClient, err := configuredCheckinHTTPClient(ctx, siteRecord, account)
 	if err != nil {
 		return nil, token, err
 	}
@@ -127,6 +148,7 @@ func requestConfiguredCheckinHTTP(ctx context.Context, siteRecord *model.Site, a
 		// account's identity. A previous cookie login must not compete with it.
 		req.Header.Del("Cookie")
 		req.Header.Set("Authorization", ensureBearer(token))
+		applySub2APICheckinUserAgent(ctx, req)
 	} else {
 		// The account cookie takes precedence over legacy shared Cookie headers.
 		req.Header.Set("Cookie", strings.TrimSpace(account.Cookie))

@@ -187,6 +187,11 @@ func buildManualSyncPlan(siteRecord *model.Site, account *model.SiteAccount, req
 		CanApply:             manualSyncHasActionableSection(sections),
 	}
 	preview.PreviewFingerprint = buildManualSyncFingerprint(account.ID, mode, format, sections)
+	if siteRecord.Platform == model.SitePlatformSub2API && sections.accessToken != nil && accessToken != "" {
+		version := account.CredentialVersion
+		snapshot.credentialVersion = &version
+		preview.PreviewFingerprint = buildManualSyncFingerprint(account.ID, mode, format, sections, version)
+	}
 
 	return &manualSyncPlan{
 		snapshot:    snapshot,

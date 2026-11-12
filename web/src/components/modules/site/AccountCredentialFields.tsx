@@ -264,9 +264,8 @@ export function AccountCredentialFields({ accountForm, setAccountForm, currentPl
                                             </label>
                                         </div>
                                         <span className="text-xs text-muted-foreground">
-                                            Sub2API 推荐同时填写 F12 里的 <code>refresh_token</code>{' '}
-                                            与 <code>token_expires_at</code>，会在快过期或 401
-                                            时自动续期。
+                                            自动续期需要有效的 Refresh Token；过期时间可留空，查询鉴权失败时会尝试恢复。
+                                            请使用独立登录会话，避免浏览器与本项目争用同一个 Refresh Token。
                                         </span>
                                     </div>
                                 ) : null}

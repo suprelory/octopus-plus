@@ -121,6 +121,8 @@ func (s *dbImportState) importAccounts() error {
 		}
 		oldID := account.ID
 		account.ID = 0
+		account.CredentialVersion = 0
+		account.TokenRefreshLease, account.TokenRefreshLeaseUntil = "", 0
 		sourceAccountID := account.CheckinSourceAccountID
 		account.CheckinSourceAccountID = nil
 		linkedAccountID := account.LinkedAccountID

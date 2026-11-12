@@ -235,7 +235,16 @@
             "context_deadline_exceeded": "執行逾時",
             "database_error": "紀錄儲存失敗",
             "internal_error": "內部錯誤",
-            "unknown": "未知原因"
+            "unknown": "未知原因",
+            "refresh_missing": "缺少 Refresh Token，無法自動續期",
+            "session_invalid": "登入工作階段或 Refresh Token 已失效",
+            "session_binding_mismatch": "工作階段出口 IP 或 User-Agent 不符",
+            "account_inactive": "訂閱帳號無法使用",
+            "credentials_changed": "訂閱帳號憑證已變更",
+            "session_save_failed": "登入憑證儲存失敗",
+            "refresh_unavailable": "權杖更新暫時無法使用",
+            "refresh_rejected": "站點拒絕更新權杖",
+            "checkin_auth_recovered": "憑證已更新，需確認簽到結果"
         }
     },
     "workspace": {

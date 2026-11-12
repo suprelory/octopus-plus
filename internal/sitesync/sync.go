@@ -217,6 +217,7 @@ func syncManagementPlatform(ctx context.Context, siteRecord *model.Site, account
 }
 
 func syncSub2API(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount) (*syncSnapshot, error) {
+	ctx = withSub2APIRecoveryBudget(ctx)
 	if account.CredentialType == model.SiteCredentialTypeUsernamePassword {
 		return nil, fmt.Errorf("sub2api does not support username/password login")
 	}
@@ -228,14 +229,7 @@ func syncSub2API(ctx context.Context, siteRecord *model.Site, account *model.Sit
 	if err != nil {
 		return nil, err
 	}
-	snapshot, err := syncSub2APIWithAccessToken(ctx, siteRecord, account, accessToken)
-	if err != nil && shouldRetrySub2APIAfterRefresh(err, account) {
-		refreshedToken, refreshErr := ensureFreshSub2APIAccessToken(ctx, siteRecord, account, true)
-		if refreshErr == nil && stripBearerPrefix(refreshedToken) != stripBearerPrefix(accessToken) {
-			return syncSub2APIWithAccessToken(ctx, siteRecord, account, refreshedToken)
-		}
-	}
-	return snapshot, err
+	return syncSub2APIWithAccessToken(ctx, siteRecord, account, accessToken)
 }
 
 func syncSub2APIWithAccessToken(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string) (*syncSnapshot, error) {
@@ -256,6 +250,9 @@ func syncSub2APIWithAccessToken(ctx context.Context, siteRecord *model.Site, acc
 
 	groups, err := fetchSub2APIGroups(ctx, siteRecord, account, accessToken, tokens)
 	if err != nil {
+		if status, _ := sub2APIUpstreamErrorDetails(err); status == 401 || strings.HasPrefix(apperror.Code(err), "site.sub2api.") {
+			return nil, err
+		}
 		groups = nil
 	}
 	groups = mergeSiteGroups(groups, tokens)

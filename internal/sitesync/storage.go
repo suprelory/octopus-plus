@@ -112,10 +112,22 @@ func persistSyncSnapshot(ctx context.Context, accountID int, snapshot *syncSnaps
 			"today_income":      snapshot.todayIncome,
 		}
 		if strings.TrimSpace(snapshot.accessToken) != "" {
-			updatePayload["access_token"] = strings.TrimSpace(snapshot.accessToken)
+			updatePayload["access_token"] = snapshotTokenUpdate(tx, snapshot.accessToken)
 		}
-		if err := tx.Model(&model.SiteAccount{}).Where("id = ?", accountID).Updates(updatePayload).Error; err != nil {
-			return err
+		accountQuery := tx.Model(&model.SiteAccount{}).Where("id = ?", accountID)
+		if snapshot.credentialVersion != nil {
+			accountQuery = accountQuery.Where("credential_version = ?", *snapshot.credentialVersion)
+			updatePayload["access_token"] = strings.TrimSpace(snapshot.accessToken)
+			updatePayload["token_expires_at"] = int64(0)
+			updatePayload["credential_version"] = *snapshot.credentialVersion + 1
+			updatePayload["token_refresh_lease"], updatePayload["token_refresh_lease_until"] = "", 0
+		}
+		written := accountQuery.Updates(updatePayload)
+		if written.Error != nil {
+			return written.Error
+		}
+		if snapshot.credentialVersion != nil && written.RowsAffected != 1 {
+			return newSub2APISessionError(sub2APISessionChanged, "订阅账号凭据已更新，请重新预览后再应用")
 		}
 
 		groupResultMap := make(map[string]siteGroupSyncResult, len(snapshot.groupResults))
@@ -182,9 +194,16 @@ func updateAccountSyncState(ctx context.Context, accountID int, status model.Sit
 		"last_sync_message": sanitizeSiteStatusText(message),
 	}
 	if strings.TrimSpace(accessToken) != "" {
-		updatePayload["access_token"] = strings.TrimSpace(accessToken)
+		updatePayload["access_token"] = snapshotTokenUpdate(db.GetDB(), accessToken)
 	}
 	return db.GetDB().WithContext(ctx).Model(&model.SiteAccount{}).Where("id = ?", accountID).Updates(updatePayload).Error
+}
+
+// A sync snapshot may outlive a Sub2API refresh or a manual credential edit.
+// Only the session manager and explicit credential edits can write its token.
+func snapshotTokenUpdate(conn *gorm.DB, token string) any {
+	sites := conn.Model(&model.Site{}).Select("id").Where("platform = ?", model.SitePlatformSub2API)
+	return gorm.Expr("CASE WHEN site_id IN (?) THEN access_token ELSE ? END", sites, strings.TrimSpace(token))
 }
 
 func updateAccountCheckinState(tx *gorm.DB, siteRecord *model.Site, account *model.SiteAccount, result *model.SiteCheckinResult, accessToken string, now time.Time) error {

@@ -156,70 +156,36 @@ func createSub2APIToken(ctx context.Context, siteRecord *model.Site, account *mo
 	if account.CredentialType == model.SiteCredentialTypeAPIKey {
 		return fmt.Errorf("API key credential account does not support quick site key creation")
 	}
-
+	ctx = withSub2APIRecoveryBudget(ctx)
 	accessToken, err := ensureFreshSub2APIAccessToken(ctx, siteRecord, account, false)
 	if err != nil {
 		return err
 	}
-
 	requestBody := buildSub2APITokenCreatePayload(account, groupKey, name)
-	headers := map[string]string{"Authorization": ensureBearer(accessToken)}
-	endpoints := []string{"/api/v1/keys", "/api/v1/api-keys"}
 	var firstErr error
-
-	for _, endpoint := range endpoints {
-		payload, err := requestJSON(
-			ctx,
-			siteRecord,
-			http.MethodPost,
-			buildSiteURL(siteRecord.BaseURL, endpoint),
-			requestBody,
-			headers,
-			account,
-		)
+	for _, endpoint := range []string{"/api/v1/keys", "/api/v1/api-keys"} {
+		payload, err := requestSub2APIJSON(ctx, siteRecord, http.MethodPost, endpoint, requestBody, account, accessToken)
 		if err != nil {
-			if shouldRetrySub2APIAfterRefresh(err, account) {
-				refreshedToken, refreshErr := ensureFreshSub2APIAccessToken(ctx, siteRecord, account, true)
-				if refreshErr == nil && stripBearerPrefix(refreshedToken) != stripBearerPrefix(accessToken) {
-					headers = map[string]string{"Authorization": ensureBearer(refreshedToken)}
-					payload, err = requestJSON(
-						ctx,
-						siteRecord,
-						http.MethodPost,
-						buildSiteURL(siteRecord.BaseURL, endpoint),
-						requestBody,
-						headers,
-						account,
-					)
-					if err == nil {
-						data, envelopeErr := unwrapSub2APIData(payload, endpoint)
-						if envelopeErr == nil && siteTokenCreateSucceededFromAny(data) {
-							return nil
-						}
-						if envelopeErr != nil && firstErr == nil {
-							firstErr = envelopeErr
-						}
-					}
-				}
+			status, _ := sub2APIUpstreamErrorDetails(err)
+			// Only an absent route permits trying a legacy route. Network and
+			// decode failures may occur after a key was already created.
+			if status != http.StatusNotFound && status != http.StatusMethodNotAllowed {
+				return err
 			}
 			if firstErr == nil {
 				firstErr = err
 			}
 			continue
 		}
-		if data, envelopeErr := unwrapSub2APIData(payload, endpoint); envelopeErr == nil {
-			if siteTokenCreateSucceededFromAny(data) {
-				return nil
-			}
-		} else {
-			return envelopeErr
+		data, err := unwrapSub2APIData(payload, endpoint)
+		if err != nil {
+			return err
 		}
-		if siteTokenCreateSucceeded(payload) {
+		if siteTokenCreateSucceededFromAny(data) || siteTokenCreateSucceeded(payload) {
 			return nil
 		}
 		return fmt.Errorf("%s", firstNonEmptyString(extractSiteResponseMessage(payload), "site token creation failed"))
 	}
-
 	if firstErr != nil {
 		return firstErr
 	}

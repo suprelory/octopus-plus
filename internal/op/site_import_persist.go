@@ -289,22 +289,31 @@ func upsertImportedAccount(tx *gorm.DB, siteRecord *model.Site, input importedAc
 	}
 
 	updates := map[string]any{
-		"name":             merged.Name,
-		"credential_type":  merged.CredentialType,
-		"username":         merged.Username,
-		"password":         merged.Password,
-		"access_token":     merged.AccessToken,
-		"api_key":          merged.APIKey,
-		"refresh_token":    merged.RefreshToken,
-		"token_expires_at": merged.TokenExpiresAt,
-		"platform_user_id": merged.PlatformUserID,
-		"proxy_mode":       merged.ProxyMode,
-		"proxy_config_id":  merged.ProxyConfigID,
-		"auto_checkin":     merged.AutoCheckin,
+		"name":                      merged.Name,
+		"credential_version":        accountRecord.CredentialVersion + 1,
+		"token_refresh_lease":       "",
+		"token_refresh_lease_until": 0,
+		"credential_type":           merged.CredentialType,
+		"username":                  merged.Username,
+		"password":                  merged.Password,
+		"access_token":              merged.AccessToken,
+		"api_key":                   merged.APIKey,
+		"refresh_token":             merged.RefreshToken,
+		"token_expires_at":          merged.TokenExpiresAt,
+		"platform_user_id":          merged.PlatformUserID,
+		"proxy_mode":                merged.ProxyMode,
+		"proxy_config_id":           merged.ProxyConfigID,
+		"auto_checkin":              merged.AutoCheckin,
 	}
-	if err := tx.Model(&model.SiteAccount{}).Where("id = ?", accountRecord.ID).Updates(updates).Error; err != nil {
-		return nil, false, false, fmt.Errorf("update site account failed: %w", err)
+	written := tx.Model(&model.SiteAccount{}).Where("id = ? AND credential_version = ?", accountRecord.ID, accountRecord.CredentialVersion).Updates(updates)
+	if written.Error != nil {
+		return nil, false, false, fmt.Errorf("update site account failed: %w", written.Error)
 	}
+	if written.RowsAffected != 1 {
+		return nil, false, false, siteCredentialConflictError()
+	}
+	accountRecord.CredentialVersion++
+	accountRecord.TokenRefreshLease, accountRecord.TokenRefreshLeaseUntil = "", 0
 	accountRecord.Name = merged.Name
 	accountRecord.CredentialType = merged.CredentialType
 	accountRecord.Username = merged.Username

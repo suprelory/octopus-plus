@@ -2,11 +2,15 @@ package sitesync
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"math"
+	"net/http"
 	"strings"
 	"time"
 
-	"github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/apperror"
 	"github.com/suprelory/octopus-plus/internal/model"
 )
 
@@ -19,113 +23,110 @@ type sub2APIRefreshedCredentials struct {
 }
 
 func ensureFreshSub2APIAccessToken(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, forceRefresh bool) (string, error) {
-	if account == nil {
-		return "", fmt.Errorf("site account is nil")
-	}
-
-	accessToken := stripBearerPrefix(account.AccessToken)
-	if accessToken == "" {
-		return "", newAccessTokenRequiredError()
-	}
-	if !forceRefresh && !shouldProactivelyRefreshSub2API(account) {
-		return accessToken, nil
-	}
-	if strings.TrimSpace(account.RefreshToken) == "" {
-		return accessToken, nil
-	}
-
-	refreshed, err := refreshSub2APIManagedSession(ctx, siteRecord, account, accessToken)
-	if err != nil {
-		if forceRefresh {
-			return "", err
-		}
-		return accessToken, nil
-	}
-	return refreshed, nil
-}
-
-func shouldProactivelyRefreshSub2API(account *model.SiteAccount) bool {
-	if account == nil {
-		return false
-	}
-	if strings.TrimSpace(account.RefreshToken) == "" {
-		return false
-	}
-	if account.TokenExpiresAt <= 0 {
-		return false
-	}
-	return time.Until(time.UnixMilli(account.TokenExpiresAt)) <= sub2APIAccessTokenRefreshLead
-}
-
-func shouldRetrySub2APIAfterRefresh(err error, account *model.SiteAccount) bool {
-	if err == nil || account == nil || strings.TrimSpace(account.RefreshToken) == "" {
-		return false
-	}
-	text := strings.ToLower(strings.TrimSpace(err.Error()))
-	if text == "" {
-		return false
-	}
-	return strings.Contains(text, "http 401") ||
-		strings.Contains(text, "http 403") ||
-		strings.Contains(text, "unauthorized") ||
-		strings.Contains(text, "forbidden") ||
-		strings.Contains(text, "expired") ||
-		strings.Contains(text, "invalid token") ||
-		strings.Contains(text, "access token")
-}
-
-func refreshSub2APIManagedSession(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, currentAccessToken string) (string, error) {
 	if siteRecord == nil || account == nil {
 		return "", fmt.Errorf("site or account is nil")
 	}
-	refreshToken := strings.TrimSpace(account.RefreshToken)
-	if refreshToken == "" {
-		return "", fmt.Errorf("sub2api managed refresh token missing")
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
-
-	headers := map[string]string{
-		"Content-Type": "application/json",
-	}
-	if currentAccessToken = stripBearerPrefix(currentAccessToken); currentAccessToken != "" {
-		headers["Authorization"] = ensureBearer(currentAccessToken)
-	}
-
-	payload, err := requestJSON(
-		ctx,
-		siteRecord,
-		"POST",
-		buildSiteURL(siteRecord.BaseURL, "/api/v1/auth/refresh"),
-		map[string]any{"refresh_token": refreshToken},
-		headers,
-		account,
-	)
-	if err != nil {
-		return "", fmt.Errorf("sub2api token refresh request failed: %w", err)
-	}
-
-	refreshed, ok := parseSub2APIRefreshPayload(payload)
-	if !ok {
-		return "", fmt.Errorf("sub2api token refresh failed")
-	}
-
-	account.AccessToken = refreshed.AccessToken
-	account.RefreshToken = refreshed.RefreshToken
-	account.TokenExpiresAt = refreshed.TokenExpiresAt
-
-	if account.ID > 0 {
-		if err := db.GetDB().WithContext(ctx).
-			Model(&model.SiteAccount{}).
-			Where("id = ?", account.ID).
-			Updates(map[string]any{
-				"access_token":     refreshed.AccessToken,
-				"refresh_token":    refreshed.RefreshToken,
-				"token_expires_at": refreshed.TokenExpiresAt,
-			}).Error; err != nil {
-			return "", fmt.Errorf("failed to persist sub2api refreshed session: %w", err)
+	// Unsaved accounts may make read-only probes, but cannot rotate a session
+	// whose replacement credentials have nowhere durable to go.
+	if account.ID <= 0 {
+		if forceRefresh || shouldProactivelyRefreshSub2API(account) {
+			return "", newSub2APISessionError(sub2APISessionSaveFailed, "请先保存订阅账号，再刷新登录凭据")
 		}
+		return usableSub2APIAccessToken(account)
 	}
+	result, err := resolveSub2APISession(ctx, siteRecord, account, forceRefresh)
+	if result.account != nil {
+		copySub2APICredentials(account, result.account)
+	}
+	if err != nil {
+		if !forceRefresh && isSub2APITransientRefreshError(err) && sub2APIAccessTokenExpiresAt(account) > time.Now().Add(5*time.Second).UnixMilli() {
+			return stripBearerPrefix(account.AccessToken), nil
+		}
+		return "", err
+	}
+	return usableSub2APIAccessToken(account)
+}
 
-	return refreshed.AccessToken, nil
+func shouldProactivelyRefreshSub2API(account *model.SiteAccount) bool {
+	if account == nil || strings.TrimSpace(account.RefreshToken) == "" {
+		return false
+	}
+	expiresAt := sub2APIAccessTokenExpiresAt(account)
+	return expiresAt > 0 && time.Until(time.UnixMilli(expiresAt)) <= sub2APIAccessTokenRefreshLead
+}
+
+func shouldRetrySub2APIAfterRefresh(err error, account *model.SiteAccount) bool {
+	if err == nil || account == nil || account.CredentialType != model.SiteCredentialTypeAccessToken {
+		return false
+	}
+	status, reason := sub2APIUpstreamErrorDetails(err)
+	if status != http.StatusUnauthorized {
+		return false
+	}
+	switch reason {
+	case "", "UNAUTHORIZED", "TOKEN_EXPIRED", "ACCESS_TOKEN_EXPIRED", "INVALID_TOKEN":
+		return true
+	default:
+		return false
+	}
+}
+
+func usableSub2APIAccessToken(account *model.SiteAccount) (string, error) {
+	token := stripBearerPrefix(account.AccessToken)
+	if token == "" {
+		return "", newAccessTokenRequiredError()
+	}
+	if expiresAt := sub2APIAccessTokenExpiresAt(account); expiresAt > 0 && expiresAt <= time.Now().UnixMilli() {
+		return "", newSub2APISessionError(sub2APIRefreshMissing, "Access Token 已过期，请补充有效的 Refresh Token 或更新登录凭据")
+	}
+	return token, nil
+}
+
+// JWT claims are only a scheduling hint. Authentication remains the upstream's
+// responsibility; parsing an unverified exp never grants access locally.
+func sub2APIAccessTokenExpiresAt(account *model.SiteAccount) int64 {
+	if account == nil {
+		return 0
+	}
+	expiresAt := account.TokenExpiresAt
+	parts := strings.Split(stripBearerPrefix(account.AccessToken), ".")
+	if len(parts) != 3 || len(parts[1]) > 16<<10 {
+		return expiresAt
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return expiresAt
+	}
+	var claims struct {
+		Exp json.Number `json:"exp"`
+	}
+	if json.Unmarshal(payload, &claims) != nil {
+		return expiresAt
+	}
+	seconds, err := claims.Exp.Int64()
+	if err == nil && seconds > 0 && seconds <= math.MaxInt64/1000 && (expiresAt <= 0 || seconds*1000 < expiresAt) {
+		return seconds * 1000
+	}
+	return expiresAt
+}
+
+func copySub2APICredentials(dst, src *model.SiteAccount) {
+	dst.AccessToken, dst.RefreshToken = src.AccessToken, src.RefreshToken
+	dst.APIKey = src.APIKey
+	dst.TokenExpiresAt, dst.CredentialVersion = src.TokenExpiresAt, src.CredentialVersion
+	dst.CredentialType = src.CredentialType
+	dst.ProxyMode, dst.ProxyConfigID = src.ProxyMode, src.ProxyConfigID
+}
+
+func sub2APIUpstreamErrorDetails(err error) (int, string) {
+	if apperror.Code(err) != CodeSiteUpstreamHTTPError {
+		return 0, ""
+	}
+	params := apperror.Params(err)
+	return int(anyToInt64(params["statusCode"])), strings.ToUpper(jsonString(params["upstreamReason"]))
 }
 
 func parseSub2APIRefreshPayload(payload map[string]any) (sub2APIRefreshedCredentials, bool) {
@@ -148,7 +149,7 @@ func parseSub2APIRefreshPayload(payload map[string]any) (sub2APIRefreshedCredent
 	accessToken := stripBearerPrefix(jsonString(data["access_token"]))
 	refreshToken := strings.TrimSpace(jsonString(data["refresh_token"]))
 	expiresInSeconds := anyToInt64(data["expires_in"])
-	if accessToken == "" || refreshToken == "" || expiresInSeconds <= 0 {
+	if accessToken == "" || refreshToken == "" || expiresInSeconds <= 0 || expiresInSeconds > math.MaxInt64/int64(time.Second) {
 		return sub2APIRefreshedCredentials{}, false
 	}
 

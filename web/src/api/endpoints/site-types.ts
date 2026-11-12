@@ -89,6 +89,7 @@ export type SiteAccount = {
   cookie?: string;
   linked_account_id?: number | null;
   token_expires_at: number;
+  credential_version?: number;
   platform_user_id?: number | null;
   proxy_mode: ProxyMode;
   proxy_config_id?: number | null;

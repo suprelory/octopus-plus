@@ -44,6 +44,8 @@ func SiteAccountCreate(account *model.SiteAccount, ctx context.Context) error {
 	}
 	account.CheckinSourceAccountID = nil
 	account.CheckinPending = nil // Execution state is owned by the server.
+	account.CredentialVersion = 0
+	account.TokenRefreshLease, account.TokenRefreshLeaseUntil = "", 0
 	var site model.Site
 	if err := db.GetDB().WithContext(ctx).First(&site, account.SiteID).Error; err != nil {
 		return fmt.Errorf("load account site: %w", err)
@@ -113,6 +115,15 @@ func SiteAccountUpdate(req *model.SiteAccountUpdateRequest, ctx context.Context)
 		return nil, fmt.Errorf("load account site: %w", err)
 	}
 	isCheckin := site.IsCheckinOnly()
+	credentialsWritten := req.CredentialType != nil || req.Username != nil || req.Password != nil ||
+		req.AccessToken != nil || req.APIKey != nil || req.RefreshToken != nil || req.Cookie != nil ||
+		req.TokenExpiresAt != nil || req.PlatformUserIDSet || req.ProxyMode != nil || req.ProxyConfigIDSet
+	if credentialsWritten && site.Platform == model.SitePlatformSub2API && !isCheckin && req.CredentialVersion == nil {
+		return nil, siteCredentialConflictError()
+	}
+	if credentialsWritten && req.CredentialVersion != nil && *req.CredentialVersion != account.CredentialVersion {
+		return nil, siteCredentialConflictError()
+	}
 
 	if req.Name != nil {
 		merged.Name = *req.Name
@@ -202,7 +213,7 @@ func SiteAccountUpdate(req *model.SiteAccountUpdateRequest, ctx context.Context)
 		if err := validateSiteAccountCredentials(&site, &merged, ctx); err != nil {
 			return nil, err
 		}
-		if merged.ProxyMode == model.ProxyUsageModePool && merged.ProxyConfigID != nil {
+		if !site.CheckinUseSubscriptionToken && merged.ProxyMode == model.ProxyUsageModePool && merged.ProxyConfigID != nil {
 			if _, err := ProxyURLForConfig(*merged.ProxyConfigID, ctx); err != nil {
 				return nil, err
 			}
@@ -267,12 +278,20 @@ func SiteAccountUpdate(req *model.SiteAccountUpdateRequest, ctx context.Context)
 	}
 
 	if len(selectFields) > 0 {
-		if err := db.GetDB().WithContext(ctx).
+		query := db.GetDB().WithContext(ctx).
 			Model(&model.SiteAccount{}).
-			Where("id = ?", req.ID).
-			Select(selectFields).
-			Updates(&updates).Error; err != nil {
-			return nil, fmt.Errorf("failed to update site account: %w", err)
+			Where("id = ?", req.ID)
+		if credentialsWritten {
+			query = query.Where("credential_version = ?", account.CredentialVersion)
+			updates.CredentialVersion = account.CredentialVersion + 1
+			selectFields = append(selectFields, "credential_version", "token_refresh_lease", "token_refresh_lease_until")
+		}
+		written := query.Select(selectFields).Updates(&updates)
+		if written.Error != nil {
+			return nil, fmt.Errorf("failed to update site account: %w", written.Error)
+		}
+		if credentialsWritten && written.RowsAffected != 1 {
+			return nil, siteCredentialConflictError()
 		}
 	}
 	return SiteAccountGet(req.ID, ctx)

@@ -178,8 +178,8 @@ func applyDefaultSiteRequestHeaders(req *http.Request, hasJSONBody bool) {
 
 func formatSiteHTTPError(statusCode int, header http.Header, bodyBytes []byte) error {
 	if payload, ok := parseSiteJSONMap(bodyBytes); ok {
-		if message := extractSiteResponseMessage(payload); message != "" {
-			return newSiteHTTPError(statusCode, message)
+		if message := extractSiteResponseMessage(payload); message != "" || siteUpstreamReason(payload) != "" {
+			return newSiteHTTPError(statusCode, message).WithParam("upstreamReason", siteUpstreamReason(payload))
 		}
 	}
 	if IsCloudflareProtectionResponse(statusCode, header, bodyBytes) {
@@ -189,6 +189,20 @@ func formatSiteHTTPError(statusCode int, header http.Header, bodyBytes []byte) e
 		return newSiteHTTPError(statusCode, summary)
 	}
 	return newSiteHTTPError(statusCode, firstNonEmptyString(http.StatusText(statusCode), "上游返回非 JSON 响应，无法解析为接口响应"))
+}
+
+// Only retain short machine-readable reason codes, not arbitrary response data.
+func siteUpstreamReason(payload map[string]any) string {
+	reason := strings.TrimSpace(jsonString(payload["reason"]))
+	if len(reason) > 64 {
+		return ""
+	}
+	for _, char := range reason {
+		if (char < 'A' || char > 'Z') && (char < '0' || char > '9') && char != '_' {
+			return ""
+		}
+	}
+	return reason
 }
 
 // IsCloudflareProtectionResponse requires an explicit challenge header or page
