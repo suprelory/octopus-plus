@@ -15,6 +15,7 @@ export function normalizeSiteServerList(data: SiteServer[]): Site[] {
     proxy_config_id: site.proxy_config_id ?? null,
     external_checkin_url: site.external_checkin_url ?? null,
     checkin_mode: site.checkin_mode ?? 'auto',
+    checkin_use_subscription_token: site.checkin_use_subscription_token ?? false,
     checkin_timezone: site.checkin_timezone || "Asia/Shanghai",
     checkin_window_start: site.checkin_window_start || "00:00",
     checkin_window_end: site.checkin_window_end || "23:59",

@@ -29,6 +29,25 @@ func SiteCheckinLinkedAccount(site *model.Site, account *model.SiteAccount, ctx 
 	return source, nil
 }
 
+// Resolve the opt-in HTTP credential independently of the check-in account.
+// The caller refreshes and persists the session on this subscription account.
+func SiteCheckinSubscriptionTokenAccount(site *model.Site, account *model.SiteAccount, ctx context.Context) (*model.Site, *model.SiteAccount, error) {
+	if site == nil || account == nil || !site.IsCheckinOnly() || !site.CheckinHTTPEnabled || !site.CheckinUseSubscriptionToken || site.Platform != model.SitePlatformSub2API {
+		return nil, nil, fmt.Errorf("subscription token checkin is only available for Sub2API custom HTTP checkin")
+	}
+	if site.LinkedSiteID == nil || account.LinkedAccountID == nil {
+		return nil, nil, fmt.Errorf("select a linked Sub2API subscription site and Access Token account for checkin")
+	}
+	sourceSite, source, err := SiteCheckinBalanceAccount(site, account, ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if sourceSite.Platform != model.SitePlatformSub2API || source.CredentialType != model.SiteCredentialTypeAccessToken || strings.TrimSpace(source.AccessToken) == "" {
+		return nil, nil, fmt.Errorf("subscription token checkin requires a Sub2API subscription account with an Access Token")
+	}
+	return sourceSite, source, nil
+}
+
 // Balance queries use the subscription site's own address, platform and proxy.
 // An external check-in may run on a completely different site with its own cookie.
 func SiteCheckinBalanceAccount(site *model.Site, account *model.SiteAccount, ctx context.Context) (*model.Site, *model.SiteAccount, error) {
@@ -71,6 +90,10 @@ func validateSiteAccountCredentials(site *model.Site, account *model.SiteAccount
 		return nil
 	}
 	if site.CheckinHTTPEnabled {
+		if site.CheckinUseSubscriptionToken {
+			_, _, err := SiteCheckinSubscriptionTokenAccount(site, account, ctx)
+			return err
+		}
 		if err := model.ValidateSiteCheckinCookie(account.Cookie); err != nil {
 			return err
 		}

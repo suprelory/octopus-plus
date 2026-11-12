@@ -204,7 +204,7 @@ func TestStatusCheckinScheduledFailureReplayKeepsReason(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, _, err := checkinWithStatus(context.WithValue(ctx, checkinTriggerKey{}, SiteBatchTriggerScheduled), site, loaded)
+	result, _, err := checkinWithStatus(context.WithValue(ctx, checkinTriggerKey{}, SiteBatchTriggerScheduled), site, loaded, "")
 	if err != nil || result == nil || !result.Replayed || result.Message != failed.Message || queries.Load() != before {
 		t.Fatalf("scheduled replay hid the original reason: %+v, %v", result, err)
 	}

@@ -36,6 +36,7 @@ export function SiteBasicFields({ siteForm, setSiteForm, site }: SiteFormFieldsP
                                     value === AUTO_DETECT_VALUE
                                         ? ''
                                         : (value as SitePlatform),
+                                checkin_use_subscription_token: value === SitePlatform.Sub2API && current.checkin_use_subscription_token,
                             }))
                         }
                     >

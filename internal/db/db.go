@@ -165,7 +165,7 @@ func ensureSiteCheckinBatchJobSchema(db *gorm.DB) error {
 }
 
 func ensureSiteCheckinHTTPColumns(db *gorm.DB) error {
-	for _, column := range []string{"CheckinHTTPEnabled", "CheckinHTTPMethod", "CheckinHTTPPath", "CheckinHTTPBody", "CheckinHTTPHeaders", "CheckinRewardExtractor", "CheckinStatus"} {
+	for _, column := range []string{"CheckinHTTPEnabled", "CheckinUseSubscriptionToken", "CheckinHTTPMethod", "CheckinHTTPPath", "CheckinHTTPBody", "CheckinHTTPHeaders", "CheckinRewardExtractor", "CheckinStatus"} {
 		if db.Migrator().HasColumn(&model.Site{}, column) {
 			continue
 		}

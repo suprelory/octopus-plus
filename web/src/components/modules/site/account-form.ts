@@ -49,7 +49,7 @@ export function createEmptyAccountForm(site: SiteRecord): SiteAccountFormState {
         site_id: site.id,
         name: '',
         credential_type: site.kind === 'checkin'
-            ? (site.checkin_http_enabled ? SiteCredentialType.Cookie : SiteCredentialType.LinkedAccount)
+            ? (site.checkin_http_enabled && !site.checkin_use_subscription_token ? SiteCredentialType.Cookie : SiteCredentialType.LinkedAccount)
             : defaultCredentialType(),
         username: '',
         password: '',

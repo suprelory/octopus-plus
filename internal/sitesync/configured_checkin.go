@@ -12,20 +12,34 @@ import (
 	"strings"
 
 	"github.com/suprelory/octopus-plus/internal/model"
+	"github.com/suprelory/octopus-plus/internal/op"
 	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 const siteCheckinResponseLimit = 1 << 20
 
 func checkinConfiguredHTTP(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount) (*model.SiteCheckinResult, string, error) {
-	if siteRecord.CheckinStatus != nil {
-		return checkinWithStatus(ctx, siteRecord, account)
+	token := ""
+	if siteRecord.CheckinUseSubscriptionToken {
+		sourceSite, source, err := op.SiteCheckinSubscriptionTokenAccount(siteRecord, account, ctx)
+		if err != nil {
+			return nil, "", err
+		}
+		token, err = ensureFreshSub2APIAccessToken(ctx, sourceSite, source, false)
+		if err != nil {
+			return nil, token, err
+		}
 	}
-	response, token, err := requestConfiguredCheckinHTTP(ctx, siteRecord, account)
+	if siteRecord.CheckinStatus != nil {
+		result, _, err := checkinWithStatus(ctx, siteRecord, account, token)
+		return result, token, err
+	}
+	response, _, err := requestConfiguredCheckinHTTP(ctx, siteRecord, account, token)
 	if err != nil {
 		return nil, token, err
 	}
-	return interpretConfiguredCheckinResponse(ctx, siteRecord, response)
+	result, _, err := interpretConfiguredCheckinResponse(ctx, siteRecord, response)
+	return result, token, err
 }
 
 type configuredCheckinResponse struct {
@@ -34,12 +48,24 @@ type configuredCheckinResponse struct {
 	Body       []byte
 }
 
-func requestConfiguredCheckinHTTP(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount) (*configuredCheckinResponse, string, error) {
-	// External check-ins have their own browser session. Never resolve a
-	// platform token (or log in) for this request.
-	const token = ""
-	if err := model.ValidateSiteCheckinCookie(account.Cookie); err != nil {
-		return nil, "", err
+func validateConfiguredCheckinCredentials(site *model.Site, account *model.SiteAccount, token string) error {
+	if !site.CheckinUseSubscriptionToken {
+		return model.ValidateSiteCheckinCookie(account.Cookie)
+	}
+	if strings.TrimSpace(token) == "" {
+		return fmt.Errorf("linked subscription Access Token is required for checkin")
+	}
+	if len(token) > 8192 || strings.ContainsAny(token, "\r\n\x00") {
+		return fmt.Errorf("linked subscription Access Token must be a single header value of at most 8 KiB")
+	}
+	return nil
+}
+
+func requestConfiguredCheckinHTTP(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, token string) (*configuredCheckinResponse, string, error) {
+	// Tokens come only from an explicitly selected subscription account.
+	// The check-in account's retained platform credentials are never used.
+	if err := validateConfiguredCheckinCredentials(siteRecord, account, token); err != nil {
+		return nil, token, err
 	}
 
 	method := strings.ToUpper(strings.TrimSpace(siteRecord.CheckinHTTPMethod))
@@ -96,8 +122,15 @@ func requestConfiguredCheckinHTTP(ctx context.Context, siteRecord *model.Site, a
 			req.Header.Set(key, value)
 		}
 	}
-	// The account cookie takes precedence over legacy shared Cookie headers.
-	req.Header.Set("Cookie", strings.TrimSpace(account.Cookie))
+	if siteRecord.CheckinUseSubscriptionToken {
+		// Apply last so stale shared/endpoint headers cannot replace the selected
+		// account's identity. A previous cookie login must not compete with it.
+		req.Header.Del("Cookie")
+		req.Header.Set("Authorization", ensureBearer(token))
+	} else {
+		// The account cookie takes precedence over legacy shared Cookie headers.
+		req.Header.Set("Cookie", strings.TrimSpace(account.Cookie))
+	}
 	resp, err := checkinHTTPClient(httpClient).Do(req)
 	if err != nil {
 		return nil, token, err
@@ -142,7 +175,7 @@ func interpretConfiguredCheckinResponse(ctx context.Context, siteRecord *model.S
 		return nil, token, err
 	}
 	if !isJSON {
-		return newUnconfirmedCheckinResult(), token, nil
+		return newUnconfirmedCheckinResult(siteRecord), token, nil
 	}
 	if !isAlreadyCheckedInMessage(message) {
 		if !jsonBool(payload["success"]) && isUnsupportedCheckinMessage(message) {
@@ -156,7 +189,7 @@ func interpretConfiguredCheckinResponse(ctx context.Context, siteRecord *model.S
 		}
 	}
 	if !jsonBool(payload["success"]) && !isAlreadyCheckedInMessage(message) {
-		return newUnconfirmedCheckinResult(), token, nil
+		return newUnconfirmedCheckinResult(siteRecord), token, nil
 	}
 	result := newSuccessfulCheckinResult(message, checkinRewardString(nestedValue(payload, "data", "reward")))
 	if result.Reason == model.SiteCheckinReasonCheckedIn && strings.TrimSpace(siteRecord.CheckinRewardExtractor) != "" {
@@ -170,13 +203,17 @@ func interpretConfiguredCheckinResponse(ctx context.Context, siteRecord *model.S
 	return result, token, nil
 }
 
-func newUnconfirmedCheckinResult() *model.SiteCheckinResult {
+func newUnconfirmedCheckinResult(site *model.Site) *model.SiteCheckinResult {
 	// A successful HTTP exchange does not establish that the account checked in.
 	// Keep the evidence unknown, and allow normal failure backoff without
 	// recording a success timestamp, extracting rewards or refreshing balances.
+	message := "签到响应未确认成功，请检查签到接口和 Cookie"
+	if site.CheckinUseSubscriptionToken {
+		message = "签到响应未确认成功，请检查签到接口和订阅账号 Access Token"
+	}
 	return &model.SiteCheckinResult{
 		Status: model.SiteExecutionStatusFailed, Reason: model.SiteCheckinReasonUnconfirmed,
-		Message:            "签到响应未确认成功，请检查签到接口和 Cookie",
+		Message:            message,
 		CapabilityEvidence: model.SiteCheckinSupportUnknown,
 	}
 }

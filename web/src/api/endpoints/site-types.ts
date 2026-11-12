@@ -144,6 +144,7 @@ export type Site = {
   checkin_mode?: SiteCheckinMode;
   checkin_capability?: SiteCheckinCapability;
   checkin_http_enabled?: boolean;
+  checkin_use_subscription_token?: boolean;
   checkin_http_method?: "GET" | "POST";
   checkin_http_path?: string;
   checkin_http_body?: string;

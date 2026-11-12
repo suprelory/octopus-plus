@@ -68,15 +68,16 @@ func TestSiteCheckinCapabilityPrecedence(t *testing.T) {
 func TestSiteCheckinEvidenceBindsToRequestConfiguration(t *testing.T) {
 	site := Site{Platform: SitePlatformDoneHub, BaseURL: "https://site.example", CheckinHTTPMethod: "POST", ProxyMode: ProxyUsageModeDirect}
 	for name, change := range map[string]func(*Site){
-		"platform":      func(s *Site) { s.Platform = SitePlatformNewAPI },
-		"URL":           func(s *Site) { s.BaseURL += "/v2" },
-		"HTTP override": func(s *Site) { s.CheckinHTTPEnabled = true },
-		"method":        func(s *Site) { s.CheckinHTTPMethod = "GET" },
-		"path":          func(s *Site) { s.CheckinHTTPPath = "/daily" },
-		"body":          func(s *Site) { s.CheckinHTTPBody = "{}" },
-		"headers":       func(s *Site) { s.CheckinHTTPHeaders = []CustomHeader{{HeaderKey: "X-Version", HeaderValue: "2"}} },
-		"site headers":  func(s *Site) { s.CustomHeader = []CustomHeader{{HeaderKey: "X-Version", HeaderValue: "2"}} },
-		"proxy":         func(s *Site) { s.ProxyMode = ProxyUsageModeSystem },
+		"platform":           func(s *Site) { s.Platform = SitePlatformNewAPI },
+		"URL":                func(s *Site) { s.BaseURL += "/v2" },
+		"HTTP override":      func(s *Site) { s.CheckinHTTPEnabled = true },
+		"subscription token": func(s *Site) { s.CheckinUseSubscriptionToken = true },
+		"method":             func(s *Site) { s.CheckinHTTPMethod = "GET" },
+		"path":               func(s *Site) { s.CheckinHTTPPath = "/daily" },
+		"body":               func(s *Site) { s.CheckinHTTPBody = "{}" },
+		"headers":            func(s *Site) { s.CheckinHTTPHeaders = []CustomHeader{{HeaderKey: "X-Version", HeaderValue: "2"}} },
+		"site headers":       func(s *Site) { s.CustomHeader = []CustomHeader{{HeaderKey: "X-Version", HeaderValue: "2"}} },
+		"proxy":              func(s *Site) { s.ProxyMode = ProxyUsageModeSystem },
 	} {
 		t.Run(name, func(t *testing.T) {
 			changed := site

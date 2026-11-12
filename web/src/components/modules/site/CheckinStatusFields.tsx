@@ -74,7 +74,7 @@ export function CheckinStatusFields({ siteForm, setSiteForm }: SiteFormFieldsPro
                 </Select></label>
                 <label className="grid gap-2">状态查询路径<Input aria-label="状态查询路径" value={config.path} onChange={event => update({ path: event.target.value })} placeholder="/api/checkin/status" required /></label>
             </div>
-            <p className="text-xs text-muted-foreground">使用该账号的 Cookie、代理和站点公共 Header。路径、JSON 请求体可使用 {'{{checkin_date}}'} 表示本次签到日期。</p>
+            <p className="text-xs text-muted-foreground">{siteForm.checkin_use_subscription_token ? '使用关联订阅账号的 Access Token、签到账号的代理和签到站点公共 Header。' : '使用该账号的 Cookie、代理和站点公共 Header。'}路径、JSON 请求体可使用 {'{{checkin_date}}'} 表示本次签到日期。</p>
             {config.method === 'POST' ? <label className="grid gap-2">状态查询 JSON 请求体<textarea className={textareaClass} value={config.body} rows={3} onChange={event => update({ body: event.target.value })} /></label> : null}
             <div className="grid gap-2">
                 <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => update({ headers: [...(config.headers ?? []), { header_key: '', header_value: '' }] })}>添加状态查询 Header</Button>

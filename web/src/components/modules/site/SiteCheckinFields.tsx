@@ -7,12 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useSiteCheckinDefaults } from '@/api/endpoints/site-checkin';
-import type { SiteCheckinMode } from '@/api/endpoints/site';
+import { SitePlatform, type Site, type SiteCheckinMode } from '@/api/endpoints/site';
 import type { SiteFormFieldsProps } from './site-form';
 import { CheckinRewardExtractorField } from './CheckinRewardExtractorField';
 import { CheckinStatusFields } from './CheckinStatusFields';
 
-export function SiteCheckinFields({ siteForm, setSiteForm }: SiteFormFieldsProps) {
+export function SiteCheckinFields({ siteForm, setSiteForm, linkedSite }: SiteFormFieldsProps & { linkedSite?: Site }) {
     const t = useTranslations('siteCheckinCapability');
     const { data: defaults } = useSiteCheckinDefaults();
     const platformDefaults = siteForm.platform ? defaults?.[siteForm.platform] : undefined;
@@ -56,16 +56,26 @@ export function SiteCheckinFields({ siteForm, setSiteForm }: SiteFormFieldsProps
                 <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0">
                         <div className="text-sm font-medium">自定义 HTTP 签到</div>
-                        <p className="text-xs text-muted-foreground">使用签到账号中单独填写的 Cookie 发送请求，启用后覆盖平台内置签到端点。</p>
+                        <p className="text-xs text-muted-foreground">{siteForm.checkin_use_subscription_token ? '使用关联订阅账号的 Access Token 发送请求，启用后覆盖平台内置签到端点。' : '使用签到账号中单独填写的 Cookie 发送请求，启用后覆盖平台内置签到端点。'}</p>
                     </div>
                     <Switch
                         aria-label="启用自定义 HTTP 签到"
                         checked={siteForm.checkin_http_enabled}
-                        onCheckedChange={(checked) => setSiteForm((current) => ({ ...current, checkin_http_enabled: checked }))}
+                        onCheckedChange={(checked) => setSiteForm((current) => ({ ...current, checkin_http_enabled: checked, checkin_use_subscription_token: checked && current.checkin_use_subscription_token }))}
                     />
                 </div>
                 {siteForm.checkin_http_enabled ? (
                     <div className="grid gap-4">
+                        {siteForm.platform === SitePlatform.Sub2API ? <div className="grid gap-2 text-sm">
+                            <label className="flex items-center justify-between gap-4 font-medium">
+                                使用订阅账号 Access Token
+                                <Switch aria-label="使用订阅账号 Access Token" checked={siteForm.checkin_use_subscription_token}
+                                    disabled={!siteForm.checkin_use_subscription_token && linkedSite?.platform !== SitePlatform.Sub2API}
+                                    onCheckedChange={(checked) => setSiteForm((current) => ({ ...current, checkin_use_subscription_token: checked }))} />
+                            </label>
+                            <p className="text-xs text-muted-foreground">开启后，在签到账号中选择关联订阅站的 Access Token 账号。签到和状态查询自动使用其最新令牌进行 Bearer 鉴权，无需填写 Cookie。</p>
+                            {linkedSite?.platform !== SitePlatform.Sub2API ? <p className="text-xs text-muted-foreground">请先关联一个 Sub2API 订阅站。</p> : null}
+                        </div> : null}
                         <div className="grid gap-4 sm:grid-cols-[8rem_minmax(0,1fr)]">
                             <label className="grid gap-2 text-sm">
                                 <span className="font-medium">请求方法</span>
@@ -113,7 +123,7 @@ export function SiteCheckinFields({ siteForm, setSiteForm }: SiteFormFieldsProps
                                 <textarea
                                     value={siteForm.checkin_http_body}
                                     onChange={(event) => setSiteForm((current) => ({ ...current, checkin_http_body: event.target.value }))}
-                                    placeholder={'可选，例如：{"action":"checkin"}\n支持 {{cookie}}、{{username}} 占位符；Cookie 请求头会自动发送'}
+                                    placeholder={siteForm.checkin_use_subscription_token ? '可选，例如：{"action":"checkin"}\nAuthorization 请求头会自动发送' : '可选，例如：{"action":"checkin"}\n支持 {{cookie}}、{{username}} 占位符；Cookie 请求头会自动发送'}
                                     rows={4}
                                     className="w-full min-w-0 resize-y rounded-xl border border-input bg-background px-3 py-2 font-mono text-xs"
                                 />

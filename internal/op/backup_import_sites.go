@@ -91,11 +91,15 @@ func (s *dbImportState) importAccounts() error {
 	accountIDMap := s.accountIDs
 	pendingSources := make(map[int]int)
 	pendingLinkedAccounts := make(map[int]int)
-	pendingWorkflows := make(map[int]string)
+	type pendingWorkflow struct {
+		site    model.Site
+		account model.SiteAccount
+	}
+	pendingWorkflows := make(map[int]pendingWorkflow)
 	// 5. SiteAccounts (remap site_id, dedup by site_id+name)
 	for i := range dump.SiteAccounts {
 		account := dump.SiteAccounts[i]
-		expectedWorkflowFingerprint := ""
+		var expectedWorkflow *pendingWorkflow
 		if account.CheckinPending != nil {
 			for _, originalSite := range dump.Sites {
 				if originalSite.ID != account.SiteID || account.CheckinPending.Fingerprint != originalSite.CheckinWorkflowFingerprint(&account) {
@@ -111,7 +115,7 @@ func (s *dbImportState) importAccounts() error {
 						expectedSite.LinkedSiteID = nil
 					}
 				}
-				expectedWorkflowFingerprint = expectedSite.CheckinWorkflowFingerprint(&expectedAccount)
+				expectedWorkflow = &pendingWorkflow{site: expectedSite, account: expectedAccount}
 				break
 			}
 		}
@@ -161,8 +165,8 @@ func (s *dbImportState) importAccounts() error {
 			pendingLinkedAccounts[account.ID] = *linkedAccountID
 		}
 		res.RowsAffected["site_accounts"]++
-		if expectedWorkflowFingerprint != "" {
-			pendingWorkflows[account.ID] = expectedWorkflowFingerprint
+		if expectedWorkflow != nil {
+			pendingWorkflows[account.ID] = *expectedWorkflow
 		}
 	}
 	for accountID, oldSourceID := range pendingSources {
@@ -180,6 +184,14 @@ func (s *dbImportState) importAccounts() error {
 		}
 	}
 	for accountID, expected := range pendingWorkflows {
+		if expected.site.CheckinUseSubscriptionToken && expected.account.LinkedAccountID != nil {
+			linkedID, ok := accountIDMap[*expected.account.LinkedAccountID]
+			if !ok {
+				continue
+			}
+			expected.account.LinkedAccountID = &linkedID
+		}
+		expectedFingerprint := expected.site.CheckinWorkflowFingerprint(&expected.account)
 		var account model.SiteAccount
 		if err := tx.First(&account, accountID).Error; err != nil {
 			return err
@@ -188,10 +200,10 @@ func (s *dbImportState) importAccounts() error {
 		if err := tx.First(&site, account.SiteID).Error; err != nil {
 			return err
 		}
-		if site.CheckinWorkflowFingerprint(&account) != expected {
+		if site.CheckinWorkflowFingerprint(&account) != expectedFingerprint {
 			continue
 		}
-		account.CheckinPending.Fingerprint = expected
+		account.CheckinPending.Fingerprint = expectedFingerprint
 		if err := tx.Model(&account).Select("checkin_pending").Updates(&account).Error; err != nil {
 			return err
 		}

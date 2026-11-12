@@ -131,6 +131,10 @@ export function useSiteForm({ site, onOpenChange, onCreated, kind = 'relay' }: {
                 return;
             }
             if (siteForm.checkin_http_enabled) {
+                if (siteForm.checkin_use_subscription_token && !siteForm.linked_site_id) {
+                    toast.error('请先关联用于提供 Access Token 的 Sub2API 订阅站');
+                    return;
+                }
                 const checkinPath = siteForm.checkin_http_path.trim();
                 if (!checkinPath.startsWith('/') || checkinPath.startsWith('//') || /[\\\r\n\0#]/.test(checkinPath)) {
                     toast.error('自定义签到路径必须是以 / 开头的站内路径');
@@ -170,6 +174,7 @@ export function useSiteForm({ site, onOpenChange, onCreated, kind = 'relay' }: {
                 external_checkin_url: siteForm.external_checkin_url.trim() || null,
                 checkin_mode: siteForm.kind === 'checkin' ? siteForm.checkin_mode : 'disabled',
                 checkin_http_enabled: siteForm.checkin_http_enabled,
+                checkin_use_subscription_token: siteForm.kind === 'checkin' && siteForm.checkin_http_enabled && platform === SitePlatform.Sub2API && siteForm.checkin_use_subscription_token,
                 checkin_http_method: siteForm.checkin_http_method,
                 checkin_http_path: siteForm.checkin_http_path.trim(),
                 checkin_http_body: siteForm.checkin_http_body,

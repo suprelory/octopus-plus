@@ -169,6 +169,9 @@ func (s *Site) Validate() error {
 	if err := s.Platform.Validate(); err != nil {
 		return err
 	}
+	if s.CheckinUseSubscriptionToken && (!s.IsCheckinOnly() || !s.CheckinHTTPEnabled || s.Platform != SitePlatformSub2API || s.LinkedSiteID == nil) {
+		return fmt.Errorf("subscription token checkin requires a Sub2API checkin site with custom HTTP enabled and a linked subscription site")
+	}
 	switch s.CheckinMode {
 	case SiteCheckinModeAuto, SiteCheckinModeEnabled, SiteCheckinModeDisabled:
 	default:

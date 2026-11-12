@@ -21,12 +21,12 @@ func checkinWorkflowFingerprint(site *model.Site, account *model.SiteAccount) st
 	return site.CheckinWorkflowFingerprint(account)
 }
 
-func checkinWithStatus(ctx context.Context, site *model.Site, account *model.SiteAccount) (*model.SiteCheckinResult, string, error) {
+func checkinWithStatus(ctx context.Context, site *model.Site, account *model.SiteAccount, token string) (*model.SiteCheckinResult, string, error) {
 	config := *site.CheckinStatus
 	if err := config.Validate(); err != nil {
 		return nil, "", err
 	}
-	if err := model.ValidateSiteCheckinCookie(account.Cookie); err != nil {
+	if err := validateConfiguredCheckinCredentials(site, account, token); err != nil {
 		return nil, "", err
 	}
 	workflow, err := beginStatusCheckin(ctx, site, account, &config)
@@ -66,7 +66,7 @@ func checkinWithStatus(ctx context.Context, site *model.Site, account *model.Sit
 		querySite.CheckinHTTPMethod, querySite.CheckinHTTPPath = config.Method, strings.ReplaceAll(config.Path, "{{checkin_date}}", workflow.Date)
 		querySite.CheckinHTTPBody = strings.ReplaceAll(config.Body, "{{checkin_date}}", workflow.Date)
 		querySite.CheckinHTTPHeaders = config.Headers
-		response, _, err := requestConfiguredCheckinHTTP(runCtx, &querySite, account)
+		response, _, err := requestConfiguredCheckinHTTP(runCtx, &querySite, account, token)
 		if err != nil {
 			queryDetail = "状态查询请求失败或超时"
 			return nil, checkinStateUnknown, err
@@ -145,7 +145,7 @@ func checkinWithStatus(ctx context.Context, site *model.Site, account *model.Sit
 			queryDetail = "未能取得签到提交权限，后续重新读取执行进度"
 			return pending(), "", nil
 		}
-		submit, _, _ = requestConfiguredCheckinHTTP(runCtx, site, account)
+		submit, _, _ = requestConfiguredCheckinHTTP(runCtx, site, account, token)
 		// Submission transport/HTTP errors do not prove that the operation failed.
 		if !waitCheckinStatus(runCtx, time.Duration(config.InitialDelayMs)*time.Millisecond) {
 			return pending(), "", nil

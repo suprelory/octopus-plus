@@ -28,7 +28,14 @@ func prepareLinkedCheckinBalance(ctx context.Context, site *model.Site, account 
 func resolveLinkedCheckinBalance(ctx context.Context, site *model.Site, account *model.SiteAccount, captureBefore bool) *linkedCheckinBalance {
 	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	sourceSite, source, err := op.SiteCheckinBalanceAccount(site, account, queryCtx)
+	var sourceSite *model.Site
+	var source *model.SiteAccount
+	var err error
+	if site.CheckinUseSubscriptionToken {
+		sourceSite, source, err = op.SiteCheckinSubscriptionTokenAccount(site, account, queryCtx)
+	} else {
+		sourceSite, source, err = op.SiteCheckinBalanceAccount(site, account, queryCtx)
+	}
 	if err != nil {
 		logSiteDataWarning(site, account, "", "linked_balance", "account_unavailable", err)
 		return nil
@@ -40,7 +47,11 @@ func resolveLinkedCheckinBalance(ctx context.Context, site *model.Site, account 
 	case model.SitePlatformNewAPI, model.SitePlatformOneAPI, model.SitePlatformOneHub, model.SitePlatformDoneHub:
 		token, err = resolveManagedAccessToken(queryCtx, sourceSite, source)
 	case model.SitePlatformSub2API:
-		token = resolveDirectToken(source)
+		if site.CheckinUseSubscriptionToken {
+			token, err = ensureFreshSub2APIAccessToken(queryCtx, sourceSite, source, false)
+		} else {
+			token = resolveDirectToken(source)
+		}
 	default:
 		return nil
 	}

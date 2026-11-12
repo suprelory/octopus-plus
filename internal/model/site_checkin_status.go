@@ -48,7 +48,13 @@ type SiteCheckinPending struct {
 }
 
 func (s *Site) CheckinWorkflowFingerprint(account *SiteAccount) string {
-	payload, _ := json.Marshal([]any{s.CheckinConfigFingerprint(), s.CheckinTimezone, account.Cookie, account.Username, account.ProxyMode, account.ProxyConfigID})
+	var credential any = account.Cookie
+	if s.CheckinUseSubscriptionToken {
+		// Refreshing the same subscription account's token must not interrupt
+		// confirmation, but selecting another account changes the workflow.
+		credential = account.LinkedAccountID
+	}
+	payload, _ := json.Marshal([]any{s.CheckinConfigFingerprint(), s.CheckinTimezone, credential, account.Username, account.ProxyMode, account.ProxyConfigID})
 	digest := sha256.Sum256(payload)
 	return hex.EncodeToString(digest[:])
 }

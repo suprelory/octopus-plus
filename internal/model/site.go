@@ -89,6 +89,7 @@ type Site struct {
 	CheckinVerificationFingerprint string                   `json:"checkin_verification_fingerprint" gorm:"size:64"`
 	CheckinVerifiedAt              *time.Time               `json:"checkin_verified_at"`
 	CheckinHTTPEnabled             bool                     `json:"checkin_http_enabled" gorm:"default:false"`
+	CheckinUseSubscriptionToken    bool                     `json:"checkin_use_subscription_token" gorm:"not null;default:false"`
 	CheckinHTTPMethod              string                   `json:"checkin_http_method" gorm:"size:8;not null;default:'POST'"`
 	CheckinHTTPPath                string                   `json:"checkin_http_path" gorm:"type:text"`
 	CheckinHTTPBody                string                   `json:"checkin_http_body" gorm:"type:text"`

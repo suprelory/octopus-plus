@@ -28,6 +28,7 @@ export function AccountEditDialog({ open, onOpenChange, site, account }: Account
         currentPlatform,
         currentCredentialOptions,
         linkedAccounts,
+        useSubscriptionToken,
         handleSubmit,
         isPending,
     } = useAccountForm({ site, account, onOpenChange });
@@ -74,6 +75,7 @@ export function AccountEditDialog({ open, onOpenChange, site, account }: Account
                             currentPlatform={currentPlatform}
                             currentCredentialOptions={currentCredentialOptions}
                             linkedAccounts={linkedAccounts}
+                            useSubscriptionToken={useSubscriptionToken}
                         />
 
                         <AccountAutomationFields

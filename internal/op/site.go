@@ -84,13 +84,13 @@ func normalizeSiteProxyFields(site *model.Site) {
 }
 
 // Platform check-ins can use accounts from the linked subscription site;
-// custom HTTP check-ins can query the linked reward account's balance.
+// custom HTTP check-ins can use its token or query the reward account's balance.
 func validateLinkedSite(site *model.Site, ctx context.Context) error {
 	if site.LinkedSiteID == nil {
 		return nil
 	}
 	var linked model.Site
-	if err := db.GetDB().WithContext(ctx).Select("id", "kind").First(&linked, *site.LinkedSiteID).Error; err != nil {
+	if err := db.GetDB().WithContext(ctx).Select("id", "kind", "platform").First(&linked, *site.LinkedSiteID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("linked site not found")
 		}
@@ -98,6 +98,9 @@ func validateLinkedSite(site *model.Site, ctx context.Context) error {
 	}
 	if linked.Kind == model.SiteKindCheckin {
 		return fmt.Errorf("a check-in site can only be linked to a subscription site")
+	}
+	if site.CheckinUseSubscriptionToken && linked.Platform != model.SitePlatformSub2API {
+		return fmt.Errorf("subscription token checkin requires a linked Sub2API subscription site")
 	}
 	return nil
 }
@@ -188,6 +191,10 @@ func SiteUpdate(req *model.SiteUpdateRequest, ctx context.Context) (*model.Site,
 		merged.CheckinHTTPEnabled = *req.CheckinHTTPEnabled
 		selectFields = append(selectFields, "checkin_http_enabled")
 	}
+	if req.CheckinUseSubscriptionToken != nil {
+		merged.CheckinUseSubscriptionToken = *req.CheckinUseSubscriptionToken
+		selectFields = append(selectFields, "checkin_use_subscription_token")
+	}
 	if req.CheckinMode != nil {
 		merged.CheckinMode = *req.CheckinMode
 		selectFields = append(selectFields, "checkin_mode")
@@ -256,7 +263,7 @@ func SiteUpdate(req *model.SiteUpdateRequest, ctx context.Context) (*model.Site,
 		if err := merged.Validate(); err != nil {
 			return nil, err
 		}
-		if req.LinkedSiteIDSet {
+		if req.LinkedSiteIDSet || merged.CheckinUseSubscriptionToken {
 			if err := validateLinkedSite(&merged, ctx); err != nil {
 				return nil, err
 			}
@@ -293,6 +300,9 @@ func SiteUpdate(req *model.SiteUpdateRequest, ctx context.Context) (*model.Site,
 	}
 	if req.CheckinHTTPEnabled != nil {
 		updates.CheckinHTTPEnabled = merged.CheckinHTTPEnabled
+	}
+	if req.CheckinUseSubscriptionToken != nil {
+		updates.CheckinUseSubscriptionToken = merged.CheckinUseSubscriptionToken
 	}
 	if req.CheckinMode != nil {
 		updates.CheckinMode = merged.CheckinMode

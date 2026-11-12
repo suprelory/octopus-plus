@@ -5,36 +5,37 @@ import (
 )
 
 type SiteUpdateRequest struct {
-	ID                     int                      `json:"id" binding:"required"`
-	Name                   *string                  `json:"name,omitempty"`
-	Platform               *SitePlatform            `json:"platform,omitempty"`
-	BaseURL                *string                  `json:"base_url,omitempty"`
-	Enabled                *bool                    `json:"enabled,omitempty"`
-	ProxyMode              *ProxyUsageMode          `json:"proxy_mode,omitempty"`
-	ProxyConfigID          *int                     `json:"proxy_config_id,omitempty"`
-	ProxyConfigIDSet       bool                     `json:"-"`
-	ExternalCheckinURL     *string                  `json:"external_checkin_url,omitempty"`
-	ExternalCheckinSet     bool                     `json:"-"`
-	LinkedSiteID           *int                     `json:"linked_site_id,omitempty"`
-	LinkedSiteIDSet        bool                     `json:"-"`
-	CheckinMode            *SiteCheckinMode         `json:"checkin_mode,omitempty"`
-	CheckinHTTPEnabled     *bool                    `json:"checkin_http_enabled,omitempty"`
-	CheckinHTTPMethod      *string                  `json:"checkin_http_method,omitempty"`
-	CheckinHTTPPath        *string                  `json:"checkin_http_path,omitempty"`
-	CheckinHTTPBody        *string                  `json:"checkin_http_body,omitempty"`
-	CheckinHTTPHeaders     *[]CustomHeader          `json:"checkin_http_headers,omitempty"`
-	CheckinRewardExtractor *string                  `json:"checkin_reward_extractor,omitempty"`
-	CheckinStatus          *SiteCheckinStatusConfig `json:"checkin_status,omitempty"`
-	CheckinStatusSet       bool                     `json:"-"`
-	CheckinTimezone        *string                  `json:"checkin_timezone,omitempty"`
-	CheckinWindowStart     *string                  `json:"checkin_window_start,omitempty"`
-	CheckinWindowEnd       *string                  `json:"checkin_window_end,omitempty"`
-	IsPinned               *bool                    `json:"is_pinned,omitempty"`
-	SortOrder              *int                     `json:"sort_order,omitempty"`
-	GlobalWeight           *float64                 `json:"global_weight,omitempty"`
-	CustomHeader           *[]CustomHeader          `json:"custom_header,omitempty"`
-	RouteBaseURLs          *[]SiteRouteBaseURL      `json:"route_base_urls,omitempty"`
-	Tags                   *[]string                `json:"tags,omitempty"`
+	ID                          int                      `json:"id" binding:"required"`
+	Name                        *string                  `json:"name,omitempty"`
+	Platform                    *SitePlatform            `json:"platform,omitempty"`
+	BaseURL                     *string                  `json:"base_url,omitempty"`
+	Enabled                     *bool                    `json:"enabled,omitempty"`
+	ProxyMode                   *ProxyUsageMode          `json:"proxy_mode,omitempty"`
+	ProxyConfigID               *int                     `json:"proxy_config_id,omitempty"`
+	ProxyConfigIDSet            bool                     `json:"-"`
+	ExternalCheckinURL          *string                  `json:"external_checkin_url,omitempty"`
+	ExternalCheckinSet          bool                     `json:"-"`
+	LinkedSiteID                *int                     `json:"linked_site_id,omitempty"`
+	LinkedSiteIDSet             bool                     `json:"-"`
+	CheckinMode                 *SiteCheckinMode         `json:"checkin_mode,omitempty"`
+	CheckinHTTPEnabled          *bool                    `json:"checkin_http_enabled,omitempty"`
+	CheckinUseSubscriptionToken *bool                    `json:"checkin_use_subscription_token,omitempty"`
+	CheckinHTTPMethod           *string                  `json:"checkin_http_method,omitempty"`
+	CheckinHTTPPath             *string                  `json:"checkin_http_path,omitempty"`
+	CheckinHTTPBody             *string                  `json:"checkin_http_body,omitempty"`
+	CheckinHTTPHeaders          *[]CustomHeader          `json:"checkin_http_headers,omitempty"`
+	CheckinRewardExtractor      *string                  `json:"checkin_reward_extractor,omitempty"`
+	CheckinStatus               *SiteCheckinStatusConfig `json:"checkin_status,omitempty"`
+	CheckinStatusSet            bool                     `json:"-"`
+	CheckinTimezone             *string                  `json:"checkin_timezone,omitempty"`
+	CheckinWindowStart          *string                  `json:"checkin_window_start,omitempty"`
+	CheckinWindowEnd            *string                  `json:"checkin_window_end,omitempty"`
+	IsPinned                    *bool                    `json:"is_pinned,omitempty"`
+	SortOrder                   *int                     `json:"sort_order,omitempty"`
+	GlobalWeight                *float64                 `json:"global_weight,omitempty"`
+	CustomHeader                *[]CustomHeader          `json:"custom_header,omitempty"`
+	RouteBaseURLs               *[]SiteRouteBaseURL      `json:"route_base_urls,omitempty"`
+	Tags                        *[]string                `json:"tags,omitempty"`
 }
 
 func (r *SiteUpdateRequest) UnmarshalJSON(data []byte) error {

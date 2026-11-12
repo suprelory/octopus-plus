@@ -196,7 +196,7 @@ func TestInitializeSchemaAddsCustomHTTPCheckinColumnsToExistingSites(t *testing.
 	if err := initializeSchema(gormDB); err != nil {
 		t.Fatalf("upgrade existing schema: %v", err)
 	}
-	for _, column := range []string{"checkin_http_enabled", "checkin_http_method", "checkin_http_path", "checkin_http_body", "checkin_http_headers", "checkin_reward_extractor", "checkin_status"} {
+	for _, column := range []string{"checkin_http_enabled", "checkin_use_subscription_token", "checkin_http_method", "checkin_http_path", "checkin_http_body", "checkin_http_headers", "checkin_reward_extractor", "checkin_status"} {
 		if !gormDB.Migrator().HasColumn(&model.Site{}, column) {
 			t.Errorf("missing migrated site column %s", column)
 		}
@@ -207,6 +207,10 @@ func TestInitializeSchemaAddsCustomHTTPCheckinColumnsToExistingSites(t *testing.
 	var name string
 	if err := gormDB.Raw("SELECT name FROM sites WHERE id = 7").Scan(&name).Error; err != nil || name != "legacy" {
 		t.Fatalf("legacy site data changed: name=%q error=%v", name, err)
+	}
+	var useSubscriptionToken bool
+	if err := gormDB.Raw("SELECT checkin_use_subscription_token FROM sites WHERE id = 7").Scan(&useSubscriptionToken).Error; err != nil || useSubscriptionToken {
+		t.Fatalf("legacy site opted into subscription tokens: enabled=%v error=%v", useSubscriptionToken, err)
 	}
 }
 

@@ -38,7 +38,7 @@ export function useAccountForm({ site, account, onOpenChange }: {
         if (account) {
             const form = createAccountForm(account);
             if (site?.kind === 'checkin') {
-                if (site.checkin_http_enabled) form.credential_type = SiteCredentialType.Cookie;
+                if (site.checkin_http_enabled) form.credential_type = site.checkin_use_subscription_token ? SiteCredentialType.LinkedAccount : SiteCredentialType.Cookie;
                 else if (site.linked_site_id || account.linked_account_id || account.credential_type === SiteCredentialType.LinkedAccount) form.credential_type = SiteCredentialType.LinkedAccount;
             }
             return form;
@@ -48,17 +48,23 @@ export function useAccountForm({ site, account, onOpenChange }: {
     });
 
     const currentPlatform = site?.platform ?? SitePlatform.NewAPI;
+    const useSubscriptionToken = site?.kind === 'checkin' && !!site.checkin_http_enabled && !!site.checkin_use_subscription_token;
     const currentCredentialOptions = useMemo(
         () => site?.kind === 'checkin'
-            ? site.checkin_http_enabled ? [SiteCredentialType.Cookie]
+            ? site.checkin_http_enabled ? [useSubscriptionToken ? SiteCredentialType.LinkedAccount : SiteCredentialType.Cookie]
                 : site.linked_site_id || !account || account.credential_type === SiteCredentialType.LinkedAccount
                     ? [SiteCredentialType.LinkedAccount]
                     : credentialOptions(currentPlatform).filter((type) => type !== SiteCredentialType.APIKey)
             : credentialOptions(currentPlatform),
-        [currentPlatform, site, account],
+        [currentPlatform, site, account, useSubscriptionToken],
     );
     const linkedAccounts = useMemo(() => {
         const linkedSite = sites?.find((item) => item.id === site?.linked_site_id);
+        if (useSubscriptionToken) {
+            return linkedSite?.platform === SitePlatform.Sub2API
+                ? (linkedSite.accounts ?? []).filter((item) => item.credential_type === SiteCredentialType.AccessToken)
+                : [];
+        }
         if (site?.checkin_http_enabled && linkedSite?.platform === SitePlatform.API) return [];
         return (linkedSite?.accounts ?? []).filter((item) => {
             if (site?.checkin_http_enabled && linkedSite?.platform === SitePlatform.Sub2API) {
@@ -66,7 +72,7 @@ export function useAccountForm({ site, account, onOpenChange }: {
             }
             return item.credential_type === SiteCredentialType.AccessToken || item.credential_type === SiteCredentialType.UsernamePassword;
         });
-    }, [sites, site?.linked_site_id, site?.checkin_http_enabled]);
+    }, [sites, site?.linked_site_id, site?.checkin_http_enabled, useSubscriptionToken]);
 
     const handleSubmit = useCallback(
         async (event: FormEvent<HTMLFormElement>) => {
@@ -89,7 +95,7 @@ export function useAccountForm({ site, account, onOpenChange }: {
             }
             if (accountForm.credential_type === SiteCredentialType.LinkedAccount &&
                 (!site.linked_site_id || !linkedAccounts.some((item) => item.id === accountForm.linked_account_id))) {
-                toast.error('请先关联订阅站，再选择用于平台签到的订阅账号');
+                toast.error(useSubscriptionToken ? '请选择关联 Sub2API 订阅站的 Access Token 账号' : '请先关联订阅站，再选择用于平台签到的订阅账号');
                 return;
             }
             if (accountForm.credential_type === SiteCredentialType.Cookie && accountForm.linked_account_id !== null &&
@@ -236,6 +242,7 @@ export function useAccountForm({ site, account, onOpenChange }: {
             accountForm,
             currentPlatform,
             linkedAccounts,
+            useSubscriptionToken,
             tProxy,
             updateSiteAccount,
             createSiteAccount,
@@ -246,5 +253,5 @@ export function useAccountForm({ site, account, onOpenChange }: {
     );
 
     const isPending = createSiteAccount.isPending || updateSiteAccount.isPending;
-    return { accountForm, setAccountForm, currentPlatform, currentCredentialOptions, linkedAccounts, handleSubmit, isPending };
+    return { accountForm, setAccountForm, currentPlatform, currentCredentialOptions, linkedAccounts, useSubscriptionToken, handleSubmit, isPending };
 }

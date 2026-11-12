@@ -232,6 +232,10 @@ func runAccountCheckin(ctx context.Context, accountID int, trigger SiteBatchTrig
 			}
 		} else if externalBalance != nil {
 			balanceBefore = externalBalance.before
+			if siteRecord.CheckinUseSubscriptionToken && accessToken != "" {
+				// The check-in may have refreshed again after the balance snapshot.
+				externalBalance.token = accessToken
+			}
 			balance = refreshAccountBalanceAfterCheckin(ctx, externalBalance.site, externalBalance.account, externalBalance.token)
 			mirrorCheckinBalance(ctx, siteRecord, account, balance)
 		}

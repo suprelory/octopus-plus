@@ -53,10 +53,11 @@ function AnimatedFormSection({ children }: { children: ReactNode }) {
     );
 }
 
-export function AccountCredentialFields({ accountForm, setAccountForm, currentPlatform, currentCredentialOptions, linkedAccounts = [] }: AccountFormFieldsProps & {
+export function AccountCredentialFields({ accountForm, setAccountForm, currentPlatform, currentCredentialOptions, linkedAccounts = [], useSubscriptionToken = false }: AccountFormFieldsProps & {
     currentPlatform: SitePlatform;
     currentCredentialOptions: SiteCredentialType[];
     linkedAccounts?: SiteAccount[];
+    useSubscriptionToken?: boolean;
 }) {
     return (
         <>
@@ -150,8 +151,8 @@ export function AccountCredentialFields({ accountForm, setAccountForm, currentPl
                                     {linkedAccounts.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <p className="text-xs text-muted-foreground">平台签到使用此订阅账号的最新 Access Token、用户 ID 或登录凭据。</p>
-                            {linkedAccounts.length === 0 ? <p className="text-xs text-amber-600">请先在签到站点设置中关联订阅站，并为订阅站添加 Access Token 或用户名 / 密码账号。</p> : null}
+                            <p className="text-xs text-muted-foreground">{useSubscriptionToken ? '签到和状态查询使用此订阅账号的最新 Access Token 进行 Bearer 鉴权；令牌更新后自动生效，无需填写 Cookie。' : '平台签到使用此订阅账号的最新 Access Token、用户 ID 或登录凭据。'}</p>
+                            {linkedAccounts.length === 0 ? <p className="text-xs text-amber-600">{useSubscriptionToken ? '请先关联 Sub2API 订阅站，并为订阅站添加 Access Token 账号。' : '请先在签到站点设置中关联订阅站，并为订阅站添加 Access Token 或用户名 / 密码账号。'}</p> : null}
                         </div>
                     ) : accountForm.credential_type === SiteCredentialType.UsernamePassword ? (
                         <motion.div

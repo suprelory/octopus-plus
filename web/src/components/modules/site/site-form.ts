@@ -15,6 +15,7 @@ export type SiteFormState = {
     external_checkin_url: string;
     checkin_mode: SiteCheckinMode;
     checkin_http_enabled: boolean;
+    checkin_use_subscription_token: boolean;
     checkin_http_method: 'GET' | 'POST';
     checkin_http_path: string;
     checkin_http_body: string;
@@ -72,6 +73,7 @@ export function createEmptySiteForm(kind: SiteKind = 'relay'): SiteFormState {
         external_checkin_url: '',
         checkin_mode: kind === 'checkin' ? 'auto' : 'disabled',
         checkin_http_enabled: false,
+        checkin_use_subscription_token: false,
         checkin_http_method: 'POST',
         checkin_http_path: '',
         checkin_http_body: '',
@@ -104,6 +106,7 @@ export function createSiteForm(site: SiteRecord): SiteFormState {
         external_checkin_url: site.external_checkin_url ?? '',
         checkin_mode: site.checkin_mode ?? 'auto',
         checkin_http_enabled: site.checkin_http_enabled ?? false,
+        checkin_use_subscription_token: site.checkin_use_subscription_token ?? false,
         checkin_http_method: site.checkin_http_method ?? 'POST',
         checkin_http_path: site.checkin_http_path ?? '',
         checkin_http_body: site.checkin_http_body ?? '',
@@ -138,6 +141,7 @@ export function normalizeSiteRecord(site: SiteRecord): SiteRecord {
         external_checkin_url: site.external_checkin_url ?? null,
         checkin_mode: site.checkin_mode ?? 'auto',
         checkin_http_enabled: site.checkin_http_enabled ?? false,
+        checkin_use_subscription_token: site.checkin_use_subscription_token ?? false,
         checkin_http_method: site.checkin_http_method ?? 'POST',
         checkin_http_path: site.checkin_http_path ?? '',
         checkin_http_body: site.checkin_http_body ?? '',

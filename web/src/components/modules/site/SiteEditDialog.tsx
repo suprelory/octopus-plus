@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ProxySelector } from '@/components/modules/proxy-pool/ProxySelector';
 import { TagInput } from './TagInput';
-import { Site as SiteRecord, type SiteKind } from '@/api/endpoints/site';
+import { Site as SiteRecord, SitePlatform, type SiteKind } from '@/api/endpoints/site';
 import type { ProxyMode } from '@/api/endpoints/proxy-pool';
 import { useSiteForm } from './useSiteForm';
 import { SiteBasicFields } from './SiteBasicFields';
@@ -70,6 +70,7 @@ export function SiteEditDialog({ open, onOpenChange, site, onCreated, allTags, k
                                         const previous = linkedSites.find((item) => item.id === current.linked_site_id);
                                         const canFillAddress = !current.base_url.trim() || current.base_url === previous?.base_url || current.base_url === site?.base_url;
                                         return { ...current, linked_site_id: linked?.id ?? null,
+                                            checkin_use_subscription_token: linked?.platform === SitePlatform.Sub2API && current.checkin_use_subscription_token,
                                             ...(!current.checkin_http_enabled && linked && canFillAddress ? { platform: linked.platform, base_url: linked.base_url } : {}) };
                                     })}
                                 >
@@ -80,9 +81,9 @@ export function SiteEditDialog({ open, onOpenChange, site, onCreated, allTags, k
                                         {siteForm.linked_site_id && !linkedSites.some((item) => item.id === siteForm.linked_site_id) ? <SelectItem value={String(siteForm.linked_site_id)}>订阅站 #{siteForm.linked_site_id}（已归档）</SelectItem> : null}
                                     </SelectContent>
                                 </Select>
-                                <p className="text-xs text-muted-foreground">平台签到从关联订阅站选择账号，并使用相同的平台和地址。自定义 HTTP 签到使用签到站 Cookie，关联仅标记奖励对应的订阅站。</p>
+                                <p className="text-xs text-muted-foreground">平台签到使用关联订阅账号及相同的平台和地址。自定义 HTTP 签到可关联订阅账号查询余额；Sub2API 还可选择使用订阅账号的 Access Token。</p>
                             </div>
-                            <SiteCheckinFields siteForm={siteForm} setSiteForm={setSiteForm} />
+                            <SiteCheckinFields siteForm={siteForm} setSiteForm={setSiteForm} linkedSite={linkedSites.find((item) => item.id === siteForm.linked_site_id)} />
                         </> : null}
 
                         <label className="grid gap-2 text-sm">
