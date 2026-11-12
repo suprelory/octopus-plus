@@ -22,7 +22,6 @@ export type SiteAccountFormState = {
     auto_sync: boolean;
     auto_checkin: boolean;
     random_checkin: boolean;
-    checkin_interval_hours: number;
     checkin_random_window_minutes: number;
 };
 
@@ -68,7 +67,6 @@ export function createEmptyAccountForm(site: SiteRecord): SiteAccountFormState {
         auto_sync: site.kind !== 'checkin',
         auto_checkin: site.kind === 'checkin',
         random_checkin: false,
-        checkin_interval_hours: 24,
         checkin_random_window_minutes: 120,
     };
 }
@@ -97,7 +95,6 @@ export function createAccountForm(account: SiteAccount): SiteAccountFormState {
         auto_sync: account.auto_sync,
         auto_checkin: account.auto_checkin,
         random_checkin: account.random_checkin,
-        checkin_interval_hours: account.checkin_interval_hours,
         checkin_random_window_minutes: account.checkin_random_window_minutes,
     };
 }

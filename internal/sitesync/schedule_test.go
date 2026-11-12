@@ -23,7 +23,6 @@ func checkinTestAccount() *model.SiteAccount {
 		Enabled:                    true,
 		AutoCheckin:                true,
 		RandomCheckin:              true,
-		CheckinIntervalHours:       24,
 		CheckinRandomWindowMinutes: 120,
 	}
 }

@@ -90,16 +90,31 @@ func effectiveLastCheckinSuccessAt(account *model.SiteAccount) *time.Time {
 	return nil
 }
 
-func checkinIntervalDays(account *model.SiteAccount) int {
-	intervalHours := 24
-	if account != nil && account.CheckinIntervalHours > 0 {
-		intervalHours = account.CheckinIntervalHours
+// nextDailyCheckinWindow returns the earliest time and the exclusive end of
+// the next eligible local day's window. Random delays stay within this date.
+func nextDailyCheckinWindow(window siteCheckinWindow, account *model.SiteAccount, now time.Time) (time.Time, time.Time) {
+	localNow := now.In(window.location)
+	targetDate := localDateStart(localNow, window.location)
+	if lastSuccess := effectiveLastCheckinSuccessAt(account); lastSuccess != nil {
+		targetDate = localDateStart(*lastSuccess, window.location).AddDate(0, 0, 1)
+		if targetDate.Before(localDateStart(localNow, window.location)) {
+			targetDate = localDateStart(localNow, window.location)
+		}
 	}
-	days := (intervalHours + 23) / 24
-	if days < 1 {
-		return 1
+
+	windowStart, windowEndExclusive := checkinWindowBounds(window, targetDate)
+	base := windowStart
+	if sameLocalDate(targetDate, localNow, window.location) {
+		switch {
+		case !localNow.Before(windowEndExclusive):
+			targetDate = targetDate.AddDate(0, 0, 1)
+			windowStart, windowEndExclusive = checkinWindowBounds(window, targetDate)
+			base = windowStart
+		case localNow.After(windowStart):
+			base = localNow
+		}
 	}
-	return days
+	return base, windowEndExclusive
 }
 
 func buildNextAutoCheckinAt(siteRecord *model.Site, account *model.SiteAccount, now time.Time) *time.Time {
@@ -119,26 +134,7 @@ func buildNextAutoCheckinAt(siteRecord *model.Site, account *model.SiteAccount, 
 			return &next
 		}
 	}
-	targetDate := localDateStart(localNow, window.location)
-	if lastSuccess := effectiveLastCheckinSuccessAt(account); lastSuccess != nil {
-		targetDate = localDateStart(*lastSuccess, window.location).AddDate(0, 0, checkinIntervalDays(account))
-		if targetDate.Before(localDateStart(localNow, window.location)) {
-			targetDate = localDateStart(localNow, window.location)
-		}
-	}
-
-	windowStart, windowEndExclusive := checkinWindowBounds(window, targetDate)
-	base := windowStart
-	if sameLocalDate(targetDate, localNow, window.location) {
-		switch {
-		case !localNow.Before(windowEndExclusive):
-			targetDate = targetDate.AddDate(0, 0, 1)
-			windowStart, windowEndExclusive = checkinWindowBounds(window, targetDate)
-			base = windowStart
-		case localNow.After(windowStart):
-			base = localNow
-		}
-	}
+	base, windowEndExclusive := nextDailyCheckinWindow(window, account, now)
 
 	if account.RandomCheckin && account.CheckinRandomWindowMinutes > 0 {
 		latest := windowEndExclusive.Add(-time.Minute)
@@ -187,8 +183,15 @@ func ensureAccountCheckinSchedule(ctx context.Context, siteRecord *model.Site, a
 	if nextAt := account.NextAutoCheckinAt; nextAt != nil && !nextAt.IsZero() && checkinTimeWithinWindow(siteRecord, *nextAt) {
 		window := resolveSiteCheckinWindow(siteRecord)
 		lastSuccess := effectiveLastCheckinSuccessAt(account)
-		sameDayAsSuccess := lastSuccess != nil && sameLocalDate(*lastSuccess, *nextAt, window.location)
-		if !sameDayAsSuccess && (now.Before(*nextAt) || checkinTimeWithinWindow(siteRecord, now)) {
+		beforeNextDayAfterSuccess := lastSuccess != nil && nextAt.Before(localDateStart(*lastSuccess, window.location).AddDate(0, 0, 1))
+		// Reconcile schedules created by the former multi-day interval, including
+		// restored backups. Keep persisted random delays and failure backoff.
+		beyondDailyWindow := false
+		if account.LastCheckinStatus != model.SiteExecutionStatusFailed && account.LastCheckinStatus != model.SiteExecutionStatusSkipped {
+			_, windowEnd := nextDailyCheckinWindow(window, account, now)
+			beyondDailyWindow = !nextAt.Before(windowEnd)
+		}
+		if !beforeNextDayAfterSuccess && !beyondDailyWindow && (now.Before(*nextAt) || checkinTimeWithinWindow(siteRecord, now)) {
 			return nextAt, nil
 		}
 	}

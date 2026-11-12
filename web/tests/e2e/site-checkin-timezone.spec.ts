@@ -9,7 +9,7 @@ function account(siteID: number, status: 'success' | 'failed', checkedAt: string
         id: siteID * 10 + 1, site_id: siteID, name: `Account ${siteID}`, credential_type: SiteCredentialType.AccessToken,
         username: '', password: '', access_token: 'test-token', api_key: '', refresh_token: '',
         token_expires_at: 0, proxy_mode: 'inherit', enabled: true, auto_sync: false,
-        auto_checkin: true, random_checkin: false, checkin_interval_hours: 24,
+        auto_checkin: true, random_checkin: false,
         checkin_random_window_minutes: 0, checkin_failure_count: 0,
         last_sync_status: 'idle', last_sync_message: '', last_checkin_message: '',
         last_checkin_status: status, last_checkin_at: checkedAt,

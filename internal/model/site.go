@@ -161,7 +161,6 @@ type SiteAccount struct {
 	AutoCheckin                bool                 `json:"auto_checkin" gorm:"default:true"`
 	AutoCheckinSet             bool                 `json:"-" gorm:"-"`
 	RandomCheckin              bool                 `json:"random_checkin" gorm:"default:false"`
-	CheckinIntervalHours       int                  `json:"checkin_interval_hours" gorm:"default:24"`
 	CheckinRandomWindowMinutes int                  `json:"checkin_random_window_minutes" gorm:"default:120"`
 	Balance                    float64              `json:"balance" gorm:"default:0"`
 	BalanceUsed                float64              `json:"balance_used" gorm:"default:0"`

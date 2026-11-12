@@ -206,10 +206,6 @@ func SiteAccountUpdate(req *model.SiteAccountUpdateRequest, ctx context.Context)
 		merged.RandomCheckin = *req.RandomCheckin
 		selectFields = append(selectFields, "random_checkin")
 	}
-	if req.CheckinIntervalHours != nil {
-		merged.CheckinIntervalHours = *req.CheckinIntervalHours
-		selectFields = append(selectFields, "checkin_interval_hours")
-	}
 	if req.CheckinRandomWindowMinutes != nil {
 		merged.CheckinRandomWindowMinutes = *req.CheckinRandomWindowMinutes
 		selectFields = append(selectFields, "checkin_random_window_minutes")
@@ -278,9 +274,6 @@ func SiteAccountUpdate(req *model.SiteAccountUpdateRequest, ctx context.Context)
 	}
 	if req.RandomCheckin != nil {
 		updates.RandomCheckin = merged.RandomCheckin
-	}
-	if req.CheckinIntervalHours != nil {
-		updates.CheckinIntervalHours = merged.CheckinIntervalHours
 	}
 	if req.CheckinRandomWindowMinutes != nil {
 		updates.CheckinRandomWindowMinutes = merged.CheckinRandomWindowMinutes

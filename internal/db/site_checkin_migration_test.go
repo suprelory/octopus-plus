@@ -57,7 +57,7 @@ func TestSeparateLegacyCheckinsPreservesStateAndHistory(t *testing.T) {
 			accounts := []model.SiteAccount{
 				{SiteID: source.ID, Name: "automatic", CredentialType: model.SiteCredentialTypeAccessToken,
 					AccessToken: "migration-test-token", Enabled: true, AutoSync: true, AutoCheckin: true,
-					RandomCheckin: true, CheckinIntervalHours: 12, CheckinRandomWindowMinutes: 30,
+					RandomCheckin: true, CheckinRandomWindowMinutes: 30,
 					LastCheckinAt: &now, LastCheckinSuccessAt: &now, NextAutoCheckinAt: &next,
 					LastCheckinStatus: model.SiteExecutionStatusSuccess, LastCheckinMessage: "earned 2",
 					LastSyncAt: &now, LastSyncStatus: model.SiteExecutionStatusSuccess, Balance: 12, TodayIncome: 2},
@@ -107,7 +107,7 @@ func TestSeparateLegacyCheckinsPreservesStateAndHistory(t *testing.T) {
 			if automatic.ID == accounts[0].ID || automatic.AutoSync || !automatic.AutoCheckin || !automatic.Enabled ||
 				automatic.AccessToken != accounts[0].AccessToken || automatic.NextAutoCheckinAt == nil || !automatic.NextAutoCheckinAt.Equal(next) ||
 				automatic.LastCheckinSuccessAt == nil || !automatic.LastCheckinSuccessAt.Equal(now) || automatic.LastSyncAt != nil ||
-				automatic.CheckinIntervalHours != 12 || automatic.CheckinRandomWindowMinutes != 30 || !automatic.RandomCheckin ||
+				automatic.CheckinRandomWindowMinutes != 30 || !automatic.RandomCheckin ||
 				automatic.Balance != 12 || automatic.TodayIncome != 2 || manual.Enabled || manual.AutoCheckin || manual.AutoSync ||
 				manual.CheckinRandomWindowMinutes != 0 || manual.APIKey != accounts[1].APIKey {
 				t.Fatalf("migration lost account settings: %+v", target.Accounts)

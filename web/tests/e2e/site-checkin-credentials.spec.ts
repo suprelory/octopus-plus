@@ -6,7 +6,7 @@ const source: SiteAccount = {
     id: 11, site_id: 1, name: 'Subscription account', credential_type: SiteCredentialType.AccessToken,
     username: '', password: '', access_token: 'source-token', api_key: '', refresh_token: '',
     token_expires_at: 0, platform_user_id: 42, proxy_mode: 'inherit', enabled: true, auto_sync: true,
-    auto_checkin: false, random_checkin: false, checkin_interval_hours: 24, checkin_random_window_minutes: 0,
+    auto_checkin: false, random_checkin: false, checkin_random_window_minutes: 0,
     checkin_failure_count: 0, last_sync_status: '', last_checkin_status: '', last_sync_message: '', last_checkin_message: '',
     balance: 0, balance_used: 0, today_income: 0, tokens: [], user_groups: [], models: [], channel_bindings: [],
 };

@@ -6,7 +6,7 @@ const account: SiteAccount = {
     id: 11, site_id: 1, name: 'Sub2API session', credential_type: SiteCredentialType.AccessToken,
     username: '', password: '', access_token: 'old-access', api_key: '', refresh_token: 'rt_old',
     token_expires_at: 0, credential_version: 7, proxy_mode: 'inherit', enabled: true,
-    auto_sync: true, auto_checkin: false, random_checkin: false, checkin_interval_hours: 24,
+    auto_sync: true, auto_checkin: false, random_checkin: false,
     checkin_random_window_minutes: 0, checkin_failure_count: 0, last_sync_status: '', last_checkin_status: '',
     last_sync_message: '', last_checkin_message: '', balance: 0, balance_used: 0, today_income: 0,
     tokens: [], user_groups: [], models: [], channel_bindings: [],

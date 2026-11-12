@@ -9,7 +9,7 @@ function account(id: number, siteID: number, auto = true): SiteAccount {
         id, site_id: siteID, name: 'Account ' + id, credential_type: SiteCredentialType.AccessToken,
         username: '', password: '', access_token: 'test-token', api_key: '', refresh_token: '',
         token_expires_at: 0, proxy_mode: 'inherit', enabled: true, auto_sync: false,
-        auto_checkin: auto, random_checkin: false, checkin_interval_hours: 24,
+        auto_checkin: auto, random_checkin: false,
         checkin_random_window_minutes: 0, checkin_failure_count: 0,
         last_sync_status: 'idle', last_checkin_status: 'idle', last_sync_message: '',
         last_checkin_message: '', balance: 0, balance_used: 0, today_income: 0,

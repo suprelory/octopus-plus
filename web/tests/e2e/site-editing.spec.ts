@@ -130,7 +130,8 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
             await expect(dialog.getByPlaceholder('请输入 Access Token', { exact: true })).not.toBeVisible();
             await expect(dialog.getByRole('switch', { name: '自动同步', exact: true })).toHaveCount(0);
             await dialog.getByRole('switch', { name: '随机签到', exact: true }).check();
-            await dialog.getByRole('spinbutton', { name: /签到间隔/ }).fill('48');
+            await expect(dialog.getByRole('spinbutton', { name: /签到间隔/ })).toHaveCount(0);
+            await expect(dialog.getByText('按站点当地自然日每天自动签到一次，在设定的时间窗口内执行。', { exact: true })).toBeVisible();
             await dialog.getByRole('spinbutton', { name: /随机延迟窗口/ }).fill('30');
             await page.screenshot({ path: testInfo.outputPath('account-edit.png') });
             const bounds = await dialog.boundingBox();
@@ -150,7 +151,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
                     refresh_token: '', token_expires_at: 0, platform_user_id: null,
                     proxy_mode: 'inherit', proxy_config_id: null, enabled: true,
                     auto_sync: false, auto_checkin: true, random_checkin: true,
-                    checkin_interval_hours: 48, checkin_random_window_minutes: 30,
+                    checkin_random_window_minutes: 30,
                 },
             }]);
             expect(state.unexpectedRequests).toEqual([]);

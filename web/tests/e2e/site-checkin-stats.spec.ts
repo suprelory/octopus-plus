@@ -7,7 +7,7 @@ const account: SiteAccount = {
     id: 11, site_id: 1, name: 'Primary account', credential_type: SiteCredentialType.AccessToken,
     username: '', password: '', access_token: '', api_key: '', refresh_token: '', token_expires_at: 0,
     proxy_mode: 'inherit', enabled: true, auto_sync: false, auto_checkin: true, random_checkin: false,
-    checkin_interval_hours: 24, checkin_random_window_minutes: 0, checkin_failure_count: 0,
+    checkin_random_window_minutes: 0, checkin_failure_count: 0,
     last_sync_status: 'idle', last_checkin_status: 'idle', last_sync_message: '', last_checkin_message: '',
     balance: 4, balance_used: 1, today_income: 0, tokens: [], user_groups: [], models: [], channel_bindings: [],
 };

@@ -90,30 +90,9 @@ export function AccountAutomationFields({ accountForm, setAccountForm, isCheckin
                             transition={FORM_SECTION_TRANSITION}
                             className="mt-4 grid gap-4 border-t border-border/50 pt-4 md:grid-cols-2"
                         >
-                            <label className="grid gap-2 text-sm">
-                                <span className="font-medium">签到间隔（小时）</span>
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    max={720}
-                                    value={accountForm.checkin_interval_hours}
-                                    onChange={(event) =>
-                                        setAccountForm((current) =>
-                                            current
-                                                ? {
-                                                      ...current,
-                                                      checkin_interval_hours: Number(event.target.value),
-                                                  }
-                                                : current,
-                                        )
-                                    }
-                                    placeholder="24"
-                                    className="rounded-xl"
-                                />
-                                <span className="text-xs text-muted-foreground">
-                                    每 24 小时按站点当地自然日计算一次。
-                                </span>
-                            </label>
+                            <p className="text-xs text-muted-foreground md:col-span-2">
+                                按站点当地自然日每天自动签到一次，在设定的时间窗口内执行。
+                            </p>
 
                             {accountForm.random_checkin ? (
                                 <label className="grid gap-2 text-sm">

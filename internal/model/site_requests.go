@@ -80,7 +80,6 @@ type SiteAccountUpdateRequest struct {
 	AutoSync                   *bool               `json:"auto_sync,omitempty"`
 	AutoCheckin                *bool               `json:"auto_checkin,omitempty"`
 	RandomCheckin              *bool               `json:"random_checkin,omitempty"`
-	CheckinIntervalHours       *int                `json:"checkin_interval_hours,omitempty"`
 	CheckinRandomWindowMinutes *int                `json:"checkin_random_window_minutes,omitempty"`
 }
 

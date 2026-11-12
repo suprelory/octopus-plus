@@ -255,7 +255,7 @@ export function SiteAccountRow({
               {account.next_auto_checkin_at
                 ? formatDateTime(account.next_auto_checkin_at)
                 : "待调度"}{" "}
-              · 间隔 {account.checkin_interval_hours} 小时
+              · 每天一次
               {account.random_checkin
                 ? ` · 随机延迟 0-${account.checkin_random_window_minutes} 分钟`
                 : ""}

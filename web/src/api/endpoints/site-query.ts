@@ -43,11 +43,6 @@ export function normalizeSiteServerList(data: SiteServer[]): Site[] {
       proxy_mode: account.proxy_mode ?? "inherit",
       proxy_config_id: account.proxy_config_id ?? null,
       random_checkin: account.random_checkin ?? false,
-      checkin_interval_hours:
-        typeof account.checkin_interval_hours === "number" &&
-        account.checkin_interval_hours > 0
-          ? account.checkin_interval_hours
-          : 24,
       checkin_random_window_minutes:
         typeof account.checkin_random_window_minutes === "number" &&
         account.checkin_random_window_minutes >= 0

@@ -333,9 +333,6 @@ func (a *SiteAccount) Normalize() {
 	if a.ProxyMode != ProxyUsageModePool {
 		a.ProxyConfigID = nil
 	}
-	if a.CheckinIntervalHours <= 0 {
-		a.CheckinIntervalHours = 24
-	}
 	if a.CheckinRandomWindowMinutes < 0 {
 		a.CheckinRandomWindowMinutes = 0
 	}
@@ -360,12 +357,6 @@ func (a *SiteAccount) Validate() error {
 	}
 	if a.ProxyMode == ProxyUsageModePool && (a.ProxyConfigID == nil || *a.ProxyConfigID <= 0) {
 		return fmt.Errorf("proxy config id is required when proxy mode is pool")
-	}
-	if a.CheckinIntervalHours <= 0 {
-		return fmt.Errorf("checkin interval hours must be greater than 0")
-	}
-	if a.CheckinIntervalHours > 720 {
-		return fmt.Errorf("checkin interval hours must be less than or equal to 720")
 	}
 	if a.CheckinRandomWindowMinutes < 0 {
 		return fmt.Errorf("checkin random window minutes must be greater than or equal to 0")

@@ -97,7 +97,6 @@ export type SiteAccount = {
   auto_sync: boolean;
   auto_checkin: boolean;
   random_checkin: boolean;
-  checkin_interval_hours: number;
   checkin_random_window_minutes: number;
   next_auto_checkin_at?: string | null;
   last_sync_at?: string | null;

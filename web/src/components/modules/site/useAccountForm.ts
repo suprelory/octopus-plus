@@ -127,14 +127,6 @@ export function useAccountForm({ site, account, onOpenChange }: {
                 return;
             }
             if (accountForm.auto_checkin) {
-                if (
-                    !Number.isFinite(accountForm.checkin_interval_hours) ||
-                    accountForm.checkin_interval_hours < 1 ||
-                    accountForm.checkin_interval_hours > 720
-                ) {
-                    toast.error('签到间隔必须在 1 到 720 小时之间');
-                    return;
-                }
                 if (accountForm.random_checkin && (
                     !Number.isFinite(accountForm.checkin_random_window_minutes) ||
                     accountForm.checkin_random_window_minutes < 0 ||
@@ -215,10 +207,6 @@ export function useAccountForm({ site, account, onOpenChange }: {
                 auto_sync: site.kind !== 'checkin' && accountForm.auto_sync,
                 auto_checkin: site.kind === 'checkin' && accountForm.auto_checkin,
                 random_checkin: accountForm.random_checkin,
-                checkin_interval_hours: Math.max(
-                    1,
-                    Math.trunc(accountForm.checkin_interval_hours || 24),
-                ),
                 checkin_random_window_minutes: Math.max(
                     0,
                     Math.trunc(accountForm.checkin_random_window_minutes || 0),
