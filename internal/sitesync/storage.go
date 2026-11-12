@@ -116,11 +116,20 @@ func persistSyncSnapshot(ctx context.Context, accountID int, snapshot *syncSnaps
 		}
 		accountQuery := tx.Model(&model.SiteAccount{}).Where("id = ?", accountID)
 		if snapshot.credentialVersion != nil {
+			var current model.SiteAccount
+			if err := tx.First(&current, accountID).Error; err != nil {
+				return err
+			}
+			replacement := current
+			replacement.AccessToken = strings.TrimSpace(snapshot.accessToken)
 			accountQuery = accountQuery.Where("credential_version = ?", *snapshot.credentialVersion)
 			updatePayload["access_token"] = strings.TrimSpace(snapshot.accessToken)
 			updatePayload["token_expires_at"] = int64(0)
 			updatePayload["credential_version"] = *snapshot.credentialVersion + 1
-			updatePayload["token_refresh_lease"], updatePayload["token_refresh_lease_until"] = "", 0
+			if !current.HasSameAccessTokenSession(&replacement) {
+				updatePayload["token_refresh_lease"], updatePayload["token_refresh_lease_until"] = "", 0
+				updatePayload["token_refreshed_at"] = int64(0)
+			}
 		}
 		written := accountQuery.Updates(updatePayload)
 		if written.Error != nil {

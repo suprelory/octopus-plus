@@ -45,6 +45,7 @@ func SiteAccountCreate(account *model.SiteAccount, ctx context.Context) error {
 	account.CheckinSourceAccountID = nil
 	account.CheckinPending = nil // Execution state is owned by the server.
 	account.CredentialVersion = 0
+	account.TokenRefreshedAt = 0
 	account.TokenRefreshLease, account.TokenRefreshLeaseUntil = "", 0
 	var site model.Site
 	if err := db.GetDB().WithContext(ctx).First(&site, account.SiteID).Error; err != nil {
@@ -284,7 +285,12 @@ func SiteAccountUpdate(req *model.SiteAccountUpdateRequest, ctx context.Context)
 		if credentialsWritten {
 			query = query.Where("credential_version = ?", account.CredentialVersion)
 			updates.CredentialVersion = account.CredentialVersion + 1
-			selectFields = append(selectFields, "credential_version", "token_refresh_lease", "token_refresh_lease_until")
+			selectFields = append(selectFields, "credential_version")
+			// A settings edit may race with rotation of the same one-time token.
+			// Preserve its lease unless the login session itself is replaced.
+			if !account.HasSameAccessTokenSession(&merged) {
+				selectFields = append(selectFields, "token_refresh_lease", "token_refresh_lease_until", "token_refreshed_at")
+			}
 		}
 		written := query.Select(selectFields).Updates(&updates)
 		if written.Error != nil {

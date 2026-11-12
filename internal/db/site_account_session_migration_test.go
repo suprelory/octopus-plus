@@ -47,15 +47,16 @@ func TestSiteAccountSessionMigrationPreservesCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	if current.AccessToken != old.AccessToken || current.RefreshToken != old.RefreshToken || current.TokenExpiresAt != old.TokenExpiresAt ||
-		current.CredentialVersion != 0 || current.TokenRefreshLease != "" || current.TokenRefreshLeaseUntil != 0 {
+		current.CredentialVersion != 0 || current.TokenRefreshLease != "" || current.TokenRefreshLeaseUntil != 0 || current.TokenRefreshedAt != 0 {
 		t.Fatal("session migration changed credentials or introduced an active lease")
 	}
 	current.TokenRefreshLease, current.TokenRefreshLeaseUntil = "runtime-only", 12345
+	current.TokenRefreshedAt = 1_900_000_000_001
 	encoded, err := json.Marshal(current)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(encoded), "runtime-only") || strings.Contains(string(encoded), "token_refresh_lease") {
-		t.Fatal("runtime refresh lease was included in an API response or backup")
+	if strings.Contains(string(encoded), "runtime-only") || strings.Contains(string(encoded), "token_refresh_lease") || strings.Contains(string(encoded), "1900000000001") {
+		t.Fatal("runtime refresh state was included in an API response or backup")
 	}
 }

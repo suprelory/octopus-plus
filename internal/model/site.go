@@ -146,6 +146,8 @@ type SiteAccount struct {
 	Cookie                 string             `json:"cookie" gorm:"type:text"`
 	TokenExpiresAt         int64              `json:"token_expires_at" gorm:"default:0"`
 	CredentialVersion      int64              `json:"credential_version" gorm:"not null;default:0"`
+	// Local receipt time bounds proactive refresh for opaque or short-lived tokens.
+	TokenRefreshedAt int64 `json:"-" gorm:"not null;default:0"`
 	// Refresh leases are runtime coordination state and must not be exported or restored.
 	TokenRefreshLease          string               `json:"-" gorm:"size:64;not null;default:''"`
 	TokenRefreshLeaseUntil     int64                `json:"-" gorm:"not null;default:0"`

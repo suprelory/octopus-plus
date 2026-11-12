@@ -8,7 +8,7 @@ import (
 )
 
 func ensureSiteAccountSessionColumns(conn *gorm.DB) error {
-	for _, field := range []string{"CredentialVersion", "TokenRefreshLease", "TokenRefreshLeaseUntil"} {
+	for _, field := range []string{"CredentialVersion", "TokenRefreshLease", "TokenRefreshLeaseUntil", "TokenRefreshedAt"} {
 		if !conn.Migrator().HasColumn(&model.SiteAccount{}, field) {
 			if err := conn.Migrator().AddColumn(&model.SiteAccount{}, field); err != nil {
 				return fmt.Errorf("add site account session column %s: %w", field, err)

@@ -79,20 +79,23 @@ func sub2APIPermanentAuthError(err error) error {
 	case "USER_INACTIVE", "USER_NOT_ACTIVE", "USER_NOT_FOUND":
 		return newSub2APISessionError(sub2APISessionInactive, "Sub2API 账号不可用，请检查账号状态")
 	case "TOKEN_REVOKED", "REFRESH_TOKEN_INVALID", "REFRESH_TOKEN_EXPIRED", "REFRESH_TOKEN_REUSED":
-		return newSub2APISessionError(sub2APISessionInvalid, "Sub2API 登录会话或 Refresh Token 已失效，请重新获取独立会话的登录凭据")
+		return newSub2APISessionError(sub2APISessionInvalid, "Sub2API 登录会话或 Refresh Token 已失效，请重新获取独立会话的登录凭据").WithParam("upstreamReason", reason)
 	}
 	return nil
 }
 
 func sub2APICredentialFingerprint(account *model.SiteAccount) [32]byte {
-	return sha256.Sum256([]byte(account.AccessToken + "\x00" + account.RefreshToken))
+	return sha256.Sum256([]byte(stripBearerPrefix(account.AccessToken) + "\x00" + strings.TrimSpace(account.RefreshToken)))
 }
 
 func sub2APIFailure(key sub2APISessionKey, account *model.SiteAccount) (sub2APIRefreshFailure, bool) {
 	sub2APISessions.Lock()
 	defer sub2APISessions.Unlock()
 	failure, ok := sub2APISessions.failures[key]
-	if ok && (failure.version != account.CredentialVersion || failure.fingerprint != sub2APICredentialFingerprint(account)) {
+	// A rotated pair awaiting persistence still belongs to the same session
+	// after settings edits. Only a replacement token pair supersedes it.
+	if ok && (failure.fingerprint != sub2APICredentialFingerprint(account) ||
+		(failure.version != account.CredentialVersion && failure.pending == nil)) {
 		delete(sub2APISessions.failures, key)
 		return sub2APIRefreshFailure{}, false
 	}
@@ -140,8 +143,7 @@ func resolveSub2APISession(ctx context.Context, site *model.Site, account *model
 		case completed := <-ch:
 			result, _ := completed.Val.(sub2APISessionResult)
 			if completed.Err != nil || !force || result.refreshed || result.account == nil ||
-				result.account.CredentialVersion != original.CredentialVersion ||
-				stripBearerPrefix(result.account.AccessToken) != stripBearerPrefix(original.AccessToken) {
+				!result.account.HasSameAccessTokenSession(&original) {
 				return result, completed.Err
 			}
 		}
@@ -172,7 +174,7 @@ func loadOrRefreshSub2APISession(ctx context.Context, key sub2APISessionKey, sit
 			rememberSub2APIFailure(key, &current, err, failure.pending)
 			return result, err
 		}
-		advanced := current.CredentialVersion != original.CredentialVersion || stripBearerPrefix(current.AccessToken) != stripBearerPrefix(original.AccessToken)
+		advanced := !current.HasSameAccessTokenSession(original)
 		if advanced && (sub2APIAccessTokenExpiresAt(&current) == 0 || sub2APIAccessTokenExpiresAt(&current) > time.Now().UnixMilli()) {
 			return result, nil
 		}
@@ -228,10 +230,13 @@ func rotateSub2APISession(ctx context.Context, key sub2APISessionKey, current *m
 		releaseSub2APIRefreshLease(key, current, lease)
 		var latest model.SiteAccount
 		if key.conn.WithContext(ctx).First(&latest, current.ID).Error == nil && latest.CredentialVersion != current.CredentialVersion {
-			if latest.SiteID == current.SiteID && latest.CredentialType == model.SiteCredentialTypeAccessToken {
+			if latest.SiteID != current.SiteID || latest.CredentialType != model.SiteCredentialTypeAccessToken {
+				return result, newSub2APISessionError(sub2APISessionChanged, "订阅账号凭据已变更，请重新执行")
+			}
+			if !latest.HasSameAccessTokenSession(current) {
 				return sub2APISessionResult{account: &latest}, nil
 			}
-			return result, newSub2APISessionError(sub2APISessionChanged, "订阅账号凭据已变更，请重新执行")
+			current, result.account = &latest, &latest
 		}
 		err := classifySub2APIRefreshError(requestErr)
 		rememberSub2APIFailure(key, current, err, nil)
@@ -268,22 +273,28 @@ func persistSub2APISession(conn *gorm.DB, pending *sub2APIPendingSession) (*mode
 			Updates(map[string]any{
 				"access_token": credentials.AccessToken, "refresh_token": credentials.RefreshToken,
 				"token_expires_at": credentials.TokenExpiresAt, "credential_version": before.CredentialVersion + 1,
+				"token_refreshed_at":  credentials.TokenRefreshedAt,
 				"token_refresh_lease": "", "token_refresh_lease_until": 0,
 			})
 		if written.Error == nil && written.RowsAffected == 1 {
 			before.AccessToken, before.RefreshToken = credentials.AccessToken, credentials.RefreshToken
 			before.TokenExpiresAt, before.CredentialVersion = credentials.TokenExpiresAt, before.CredentialVersion+1
+			before.TokenRefreshedAt = credentials.TokenRefreshedAt
 			before.TokenRefreshLease, before.TokenRefreshLeaseUntil = "", 0
 			return &before, nil
 		}
-		// An interrupted write may have committed. Read before retrying, also
-		// adopting a newer manual edit instead of overwriting it.
+		// An interrupted write may have committed. Adopt a replacement session,
+		// but merge settings edits into the next CAS instead of losing the pair.
 		var latest model.SiteAccount
 		if err := conn.WithContext(ctx).First(&latest, before.ID).Error; err == nil && latest.CredentialVersion != before.CredentialVersion {
 			if latest.SiteID != before.SiteID || latest.CredentialType != model.SiteCredentialTypeAccessToken {
 				return nil, newSub2APISessionError(sub2APISessionChanged, "刷新期间订阅账号凭据已变更，新令牌未覆盖当前配置")
 			}
-			return &latest, nil
+			if !latest.HasSameAccessTokenSession(&before) {
+				return &latest, nil
+			}
+			before = latest
+			continue
 		}
 		if !waitSub2APISession(ctx, time.Duration(attempt+1)*100*time.Millisecond) {
 			break
@@ -296,7 +307,7 @@ func releaseSub2APIRefreshLease(key sub2APISessionKey, account *model.SiteAccoun
 	ctx, cancel := context.WithTimeout(context.Background(), sub2APISaveTimeout)
 	defer cancel()
 	_ = key.conn.WithContext(ctx).Model(&model.SiteAccount{}).
-		Where("id = ? AND credential_version = ? AND token_refresh_lease = ?", account.ID, account.CredentialVersion, lease).
+		Where("id = ? AND token_refresh_lease = ?", account.ID, lease).
 		Updates(map[string]any{"token_refresh_lease": "", "token_refresh_lease_until": 0}).Error
 }
 

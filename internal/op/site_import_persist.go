@@ -289,21 +289,24 @@ func upsertImportedAccount(tx *gorm.DB, siteRecord *model.Site, input importedAc
 	}
 
 	updates := map[string]any{
-		"name":                      merged.Name,
-		"credential_version":        accountRecord.CredentialVersion + 1,
-		"token_refresh_lease":       "",
-		"token_refresh_lease_until": 0,
-		"credential_type":           merged.CredentialType,
-		"username":                  merged.Username,
-		"password":                  merged.Password,
-		"access_token":              merged.AccessToken,
-		"api_key":                   merged.APIKey,
-		"refresh_token":             merged.RefreshToken,
-		"token_expires_at":          merged.TokenExpiresAt,
-		"platform_user_id":          merged.PlatformUserID,
-		"proxy_mode":                merged.ProxyMode,
-		"proxy_config_id":           merged.ProxyConfigID,
-		"auto_checkin":              merged.AutoCheckin,
+		"name":               merged.Name,
+		"credential_version": accountRecord.CredentialVersion + 1,
+		"credential_type":    merged.CredentialType,
+		"username":           merged.Username,
+		"password":           merged.Password,
+		"access_token":       merged.AccessToken,
+		"api_key":            merged.APIKey,
+		"refresh_token":      merged.RefreshToken,
+		"token_expires_at":   merged.TokenExpiresAt,
+		"platform_user_id":   merged.PlatformUserID,
+		"proxy_mode":         merged.ProxyMode,
+		"proxy_config_id":    merged.ProxyConfigID,
+		"auto_checkin":       merged.AutoCheckin,
+	}
+	sessionReplaced := !accountRecord.HasSameAccessTokenSession(&merged)
+	if sessionReplaced {
+		updates["token_refresh_lease"], updates["token_refresh_lease_until"] = "", 0
+		updates["token_refreshed_at"] = int64(0)
 	}
 	written := tx.Model(&model.SiteAccount{}).Where("id = ? AND credential_version = ?", accountRecord.ID, accountRecord.CredentialVersion).Updates(updates)
 	if written.Error != nil {
@@ -313,7 +316,10 @@ func upsertImportedAccount(tx *gorm.DB, siteRecord *model.Site, input importedAc
 		return nil, false, false, siteCredentialConflictError()
 	}
 	accountRecord.CredentialVersion++
-	accountRecord.TokenRefreshLease, accountRecord.TokenRefreshLeaseUntil = "", 0
+	if sessionReplaced {
+		accountRecord.TokenRefreshLease, accountRecord.TokenRefreshLeaseUntil = "", 0
+		accountRecord.TokenRefreshedAt = 0
+	}
 	accountRecord.Name = merged.Name
 	accountRecord.CredentialType = merged.CredentialType
 	accountRecord.Username = merged.Username

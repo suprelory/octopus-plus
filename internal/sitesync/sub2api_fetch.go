@@ -178,11 +178,7 @@ func inferSub2APIGroupsFromTokens(tokens []model.SiteToken) []model.SiteUserGrou
 }
 
 func stripBearerPrefix(token string) string {
-	trimmed := strings.TrimSpace(token)
-	if strings.HasPrefix(strings.ToLower(trimmed), "bearer ") {
-		return strings.TrimSpace(trimmed[7:])
-	}
-	return trimmed
+	return model.NormalizeSiteAccessToken(token)
 }
 
 func fetchSub2APIModelsForSiteToken(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, token model.SiteToken) ([]string, error) {
