@@ -216,8 +216,8 @@ func rotateSub2APISession(ctx context.Context, key sub2APISessionKey, current *m
 		return result, newSub2APISessionError(sub2APISessionChanged, "订阅站配置已变更，无法刷新 Sub2API 会话")
 	}
 	requestCtx, cancel := context.WithTimeout(ctx, sub2APIRefreshTimeout)
-	// The refresh endpoint is public. Do not send an expired bearer or a
-	// browser cookie, but retain the source site's network and UA settings.
+	// The refresh endpoint is public. Omit the expired bearer, but retain
+	// explicitly configured site headers such as a Cloudflare clearance cookie.
 	site.CustomHeader = sub2APIRefreshHeaders(site.CustomHeader)
 	payload, requestErr := requestJSON(requestCtx, &site, http.MethodPost,
 		buildSiteURL(site.BaseURL, "/api/v1/auth/refresh"),
@@ -304,7 +304,7 @@ func sub2APIRefreshHeaders(headers []model.CustomHeader) []model.CustomHeader {
 	filtered := make([]model.CustomHeader, 0, len(headers))
 	for _, header := range headers {
 		key := strings.TrimSpace(header.HeaderKey)
-		if !strings.EqualFold(key, "Authorization") && !strings.EqualFold(key, "Cookie") {
+		if !strings.EqualFold(key, "Authorization") {
 			filtered = append(filtered, header)
 		}
 	}

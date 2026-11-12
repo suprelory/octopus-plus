@@ -52,11 +52,26 @@ func writeSub2APITestRefresh(t *testing.T, w http.ResponseWriter, r *http.Reques
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body["refresh_token"] != "rt_old" {
 		t.Errorf("unexpected refresh request body: %v", err)
 	}
-	if r.Header.Get("Authorization") != "" || r.Header.Get("Cookie") != "" || r.Header.Get("User-Agent") != "subscription-agent" {
+	if r.Header.Get("Authorization") != "" || r.Header.Get("User-Agent") != "subscription-agent" {
 		t.Error("refresh did not retain only the source session's network headers")
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"code":0,"data":{"access_token":"new-access-token","refresh_token":"rt_new","expires_in":3600}}`))
+}
+
+func TestSub2APIRefreshPreservesExplicitSiteCookies(t *testing.T) {
+	ctx := setupProjectTestDB(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Cookie") != "legacy-cookie" {
+			t.Error("refresh dropped an explicitly configured site cookie")
+		}
+		writeSub2APITestRefresh(t, w, r)
+	}))
+	defer server.Close()
+	site, account := sub2APITestAccount(t, ctx, server.URL, time.Now().Add(-time.Minute).UnixMilli())
+	if _, err := ensureFreshSub2APIAccessToken(ctx, site, account, false); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestSub2APIConcurrentRefreshConsumesTokenOnce(t *testing.T) {

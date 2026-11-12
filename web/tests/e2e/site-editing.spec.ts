@@ -56,6 +56,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
                     checkin_http_headers: [{ header_key: 'X-Checkin-Mode', header_value: 'daily' }],
                     checkin_reward_extractor: 'return response.data?.amount ?? null;',
                     checkin_status: null,
+                    checkin_use_subscription_token: false,
                     checkin_timezone: 'UTC', checkin_window_start: '09:00',
                     checkin_window_end: '18:00', is_pinned: false, sort_order: 0, global_weight: 1,
                     custom_header: [],
