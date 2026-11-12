@@ -172,17 +172,24 @@ func runAccountCheckin(ctx context.Context, accountID int, trigger SiteBatchTrig
 		externalBalance = prepareLinkedCheckinBalance(ctx, siteRecord, account)
 	}
 	if runErr == nil {
+		if !siteRecord.CheckinHTTPEnabled {
+			ctx = withAnyRouterSession(ctx, siteRecord, executionAccount)
+		}
+		if session := anyRouterSessionFromContext(ctx, siteRecord, executionAccount); session != nil && !siteRecord.CheckinHTTPEnabled {
+			original := *executionAccount
+			defer func() { session.persist(ctx, siteRecord, &original, accessToken) }()
+		}
 		originalToken := executionAccount.AccessToken
 		result, accessToken, runErr = checkinAccountState(ctx, siteRecord, executionAccount, func(token string) error {
 			balanceBefore = fetchAccountBalanceBeforeCheckin(ctx, siteRecord, executionAccount, token)
 			// A challenge blocks this site's requests, including the check-in.
 			// Preserve the batch's existing stop/backoff behavior after one hit.
-			if IsCloudflareProtectionError(balanceBefore.err) {
+			if IsCloudflareProtectionError(balanceBefore.err) || (siteRecord.Platform == model.SitePlatformAnyRouter && anyRouterRequestMustStop(balanceBefore.err)) {
 				return balanceBefore.err
 			}
 			return nil
 		})
-		if executionAccount != account && accessToken != "" && accessToken != originalToken {
+		if executionAccount != account && siteRecord.Platform != model.SitePlatformAnyRouter && accessToken != "" && accessToken != originalToken {
 			persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			saveErr := db.GetDB().WithContext(persistCtx).Model(&model.SiteAccount{}).
 				Where("id = ? AND access_token = ?", executionAccount.ID, originalToken).

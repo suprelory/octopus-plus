@@ -99,7 +99,7 @@ export function AccountCredentialFields({ accountForm, setAccountForm, currentPl
                                             : '',
                                     platform_user_id:
                                         nextType === SiteCredentialType.AccessToken &&
-                                        currentPlatform === SitePlatform.NewAPI
+                                        (currentPlatform === SitePlatform.NewAPI || currentPlatform === SitePlatform.AnyRouter)
                                             ? current.platform_user_id
                                             : '',
                                 };
@@ -270,7 +270,7 @@ export function AccountCredentialFields({ accountForm, setAccountForm, currentPl
                                     </div>
                                 ) : null}
 
-                                {currentPlatform === SitePlatform.NewAPI ? (
+                                {currentPlatform === SitePlatform.NewAPI || currentPlatform === SitePlatform.AnyRouter ? (
                                     <label className="grid gap-2 text-sm">
                                         <span className="font-medium">Platform User ID</span>
                                         <Input
@@ -287,11 +287,12 @@ export function AccountCredentialFields({ accountForm, setAccountForm, currentPl
                                             }
                                             placeholder="例如 11494"
                                             className="rounded-xl"
-                                            required
+                                            required={currentPlatform === SitePlatform.NewAPI}
                                         />
                                         <span className="text-xs text-muted-foreground">
-                                            New API 站点同步 token、分组和签到时需要用户
-                                            ID。导入数据会尽量自动填充该值。
+                                            {currentPlatform === SitePlatform.AnyRouter
+                                                ? '可选：填写浏览器请求头中的 New-API-User，减少身份探测；留空时尝试从登录凭据获取。'
+                                                : 'New API 站点同步 token、分组和签到时需要用户 ID。导入数据会尽量自动填充该值。'}
                                         </span>
                                     </label>
                                 ) : null}

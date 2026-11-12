@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -35,28 +36,54 @@ func anyRouterRequestJSONWithCookies(ctx context.Context, siteRecord *model.Site
 		}
 	}
 
-	mergedHeaders := map[string]string{
-		"User-Agent": anyRouterUserAgent,
+	requestURI, err := url.Parse(requestURL)
+	if err != nil {
+		return nil, "", err
+	}
+	var account *model.SiteAccount
+	if len(accounts) > 0 {
+		account = accounts[0]
+	}
+	session := anyRouterSessionFromContext(ctx, siteRecord, account)
+	if session == nil {
+		session = newAnyRouterSession(siteRecord, account)
+	}
+	requestClient := *httpClient
+	transport := requestClient.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	requestClient.Transport = anyRouterSessionTransport{base: transport, session: session}
+	// The original client is shared by unrelated accounts and relay requests.
+	requestClient.Jar = nil
+	mergedHeaders := make(http.Header)
+	mergedHeaders.Set("User-Agent", anyRouterUserAgent)
+	mergedHeaders.Set("Accept", "application/json, text/plain, */*")
+	mergedHeaders.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+	if siteRecord.Platform == model.SitePlatformAnyRouter {
+		mergedHeaders.Set("Origin", session.origin)
+		mergedHeaders.Set("Referer", strings.TrimRight(siteRecord.BaseURL, "/")+"/console")
 	}
 	if len(payloadBytes) > 0 {
-		mergedHeaders["Content-Type"] = "application/json"
+		mergedHeaders.Set("Content-Type", "application/json")
 	}
 	for _, item := range siteRecord.CustomHeader {
 		if strings.TrimSpace(item.HeaderKey) != "" {
-			mergedHeaders[strings.TrimSpace(item.HeaderKey)] = item.HeaderValue
+			mergedHeaders.Set(strings.TrimSpace(item.HeaderKey), item.HeaderValue)
 		}
 	}
 	for key, value := range headers {
 		if strings.TrimSpace(key) != "" && strings.TrimSpace(value) != "" {
-			mergedHeaders[key] = value
+			mergedHeaders.Set(key, value)
 		}
 	}
 
-	cookieHeader := firstNonEmptyString(mergedHeaders["Cookie"], mergedHeaders["cookie"])
-	delete(mergedHeaders, "cookie")
-	if cookieHeader != "" {
-		mergedHeaders["Cookie"] = cookieHeader
+	if cookie := session.authCookie(); cookie != "" && mergedHeaders.Get("Cookie") == "" {
+		mergedHeaders.Set("Cookie", cookie)
+		mergedHeaders.Del("Authorization")
 	}
+	baseCookie := mergedHeaders.Get("Cookie")
+	cookieHeader := session.cookieHeader(requestURI, baseCookie)
 
 	var lastResponseErr error
 	for attempt := 0; attempt < 3; attempt++ {
@@ -75,11 +102,9 @@ func anyRouterRequestJSONWithCookies(ctx context.Context, siteRecord *model.Site
 			if err != nil {
 				return nil, nil, 0, err
 			}
-			for key, value := range mergedHeaders {
-				req.Header.Set(key, value)
-			}
+			req.Header = mergedHeaders.Clone()
 
-			resp, err := httpClient.Do(req)
+			resp, err := requestClient.Do(req)
 			if err != nil {
 				return nil, nil, 0, err
 			}
@@ -95,15 +120,13 @@ func anyRouterRequestJSONWithCookies(ctx context.Context, siteRecord *model.Site
 			return nil, cookieHeader, err
 		}
 
-		cookieHeader = anyRouterMergeSetCookiePairs(cookieHeader, respHeader.Values("Set-Cookie"))
-		if cookieHeader != "" {
-			mergedHeaders["Cookie"] = cookieHeader
-		}
+		cookieHeader = session.cookieHeader(requestURI, baseCookie)
 
 		payload, responseErr := decodeSiteResponse(statusCode, respHeader, bodyBytes)
 		if responseErr == nil {
 			return payload, cookieHeader, nil
 		}
+		responseErr = session.redactError(responseErr)
 		lastResponseErr = responseErr
 
 		text := strings.TrimSpace(string(bodyBytes))
@@ -111,8 +134,8 @@ func anyRouterRequestJSONWithCookies(ctx context.Context, siteRecord *model.Site
 			if anyRouterIsShieldChallenge(respHeader.Get("Content-Type"), text) && cookieHeader != "" {
 				acwScV2 := anyRouterSolveAcwScV2(text)
 				if acwScV2 != "" {
-					cookieHeader = anyRouterUpsertCookie(cookieHeader, "acw_sc__v2", acwScV2)
-					mergedHeaders["Cookie"] = cookieHeader
+					session.receiveCookies(requestURI, []*http.Cookie{{Name: "acw_sc__v2", Value: acwScV2, Path: "/"}})
+					cookieHeader = session.cookieHeader(requestURI, baseCookie)
 					continue
 				}
 			}
@@ -182,50 +205,6 @@ func anyRouterHasUsableSessionCookie(cookieHeader string) bool {
 		}
 	}
 	return false
-}
-
-func anyRouterMergeSetCookiePairs(cookieHeader string, setCookieHeaders []string) string {
-	merged := strings.TrimSpace(cookieHeader)
-	for _, raw := range setCookieHeaders {
-		raw = strings.TrimSpace(raw)
-		if raw == "" {
-			continue
-		}
-		firstPair := strings.TrimSpace(strings.SplitN(raw, ";", 2)[0])
-		parts := strings.SplitN(firstPair, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		merged = anyRouterUpsertCookie(merged, strings.TrimSpace(parts[0]), parts[1])
-	}
-	return merged
-}
-
-func anyRouterUpsertCookie(cookieHeader string, name string, value string) string {
-	parts := strings.Split(cookieHeader, ";")
-	next := make([]string, 0, len(parts)+1)
-	replaced := false
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		segments := strings.SplitN(part, "=", 2)
-		if len(segments) != 2 {
-			next = append(next, part)
-			continue
-		}
-		if strings.TrimSpace(segments[0]) == name {
-			next = append(next, name+"="+value)
-			replaced = true
-			continue
-		}
-		next = append(next, part)
-	}
-	if !replaced {
-		next = append(next, name+"="+value)
-	}
-	return strings.Join(next, "; ")
 }
 
 func anyRouterIsShieldChallenge(contentType string, text string) bool {

@@ -113,6 +113,13 @@ func fillCheckinRewardFromBalance(ctx context.Context, result *model.SiteCheckin
 		return
 	}
 	delta := after.balance - before.balance
+	// Account for consumption while the check-in request was in flight. Both
+	// snapshots must contain a finite, nondecreasing cumulative usage counter.
+	if before.usedKnown && after.usedKnown && before.balanceUsed >= 0 && after.balanceUsed >= before.balanceUsed &&
+		!math.IsNaN(before.balanceUsed) && !math.IsInf(before.balanceUsed, 0) &&
+		!math.IsNaN(after.balanceUsed) && !math.IsInf(after.balanceUsed, 0) {
+		delta += after.balanceUsed - before.balanceUsed
+	}
 	if math.IsNaN(delta) || math.IsInf(delta, 0) || delta < 0 {
 		return
 	}

@@ -112,14 +112,14 @@ func fetchManagementQuotaBalanceResult(ctx context.Context, siteRecord *model.Si
 	requestURL := buildSiteURL(siteRecord.BaseURL, "/api/user/self")
 	payload, _, err := anyRouterRequestJSONWithCookies(ctx, siteRecord, http.MethodGet, requestURL, nil,
 		anyRouterAuthHeaders(accessToken, userID), account)
-	if IsCloudflareProtectionError(err) {
+	if stopBalanceProbe(siteRecord, err) {
 		return siteBalanceFetchResult{reason: "upstream_profile_unavailable", err: err}
 	}
 	// Most deployments accept the first profile request. Discover a missing user
 	// ID only when necessary, especially for the extra pre-check-in snapshot.
 	if userID <= 0 && !isValidUserSelfPayload(payload, err) {
 		discovered, discoverErr := anyRouterDiscoverUserID(ctx, siteRecord, account, accessToken)
-		if IsCloudflareProtectionError(discoverErr) {
+		if stopBalanceProbe(siteRecord, discoverErr) {
 			return siteBalanceFetchResult{reason: "upstream_profile_unavailable", err: discoverErr}
 		}
 		if discovered > 0 {
@@ -127,7 +127,7 @@ func fetchManagementQuotaBalanceResult(ctx context.Context, siteRecord *model.Si
 			rememberManagedPlatformUserID(userID, account)
 			payload, _, err = anyRouterRequestJSONWithCookies(ctx, siteRecord, http.MethodGet, requestURL, nil,
 				anyRouterAuthHeaders(accessToken, userID), account)
-			if IsCloudflareProtectionError(err) {
+			if stopBalanceProbe(siteRecord, err) {
 				return siteBalanceFetchResult{reason: "upstream_profile_unavailable", err: err}
 			}
 		}
@@ -139,7 +139,7 @@ func fetchManagementQuotaBalanceResult(ctx context.Context, siteRecord *model.Si
 	// shielded deployments expect requests to arrive.
 	if !isValidUserSelfPayload(payload, err) {
 		cookiePayload, _, cookieErr := anyRouterFetchUserSelfByCookie(ctx, siteRecord, account, accessToken, userID)
-		if IsCloudflareProtectionError(cookieErr) {
+		if stopBalanceProbe(siteRecord, cookieErr) {
 			return siteBalanceFetchResult{reason: "upstream_profile_unavailable", err: cookieErr}
 		}
 		if isValidUserSelfPayload(cookiePayload, cookieErr) {
@@ -151,13 +151,13 @@ func fetchManagementQuotaBalanceResult(ctx context.Context, siteRecord *model.Si
 			// anyRouterProbeAlternateUserIDByCookie returns 0 when the probed ID matches the current
 			// one, and it only returns IDs that genuinely validate against the session.
 			alt, probeErr := anyRouterProbeAlternateUserIDByCookie(ctx, siteRecord, account, accessToken, userID)
-			if IsCloudflareProtectionError(probeErr) {
+			if stopBalanceProbe(siteRecord, probeErr) {
 				return siteBalanceFetchResult{reason: "upstream_profile_unavailable", err: probeErr}
 			}
 			if alt > 0 {
 				altPayload, _, altErr := anyRouterRequestJSONWithCookies(ctx, siteRecord, http.MethodGet, requestURL, nil,
 					anyRouterAuthHeaders(accessToken, alt), account)
-				if IsCloudflareProtectionError(altErr) {
+				if stopBalanceProbe(siteRecord, altErr) {
 					return siteBalanceFetchResult{reason: "upstream_profile_unavailable", err: altErr}
 				}
 				if isValidUserSelfPayload(altPayload, altErr) {
@@ -166,7 +166,7 @@ func fetchManagementQuotaBalanceResult(ctx context.Context, siteRecord *model.Si
 					rememberManagedPlatformUserID(alt, account)
 				} else {
 					altCookiePayload, _, altCookieErr := anyRouterFetchUserSelfByCookie(ctx, siteRecord, account, accessToken, alt)
-					if IsCloudflareProtectionError(altCookieErr) {
+					if stopBalanceProbe(siteRecord, altCookieErr) {
 						return siteBalanceFetchResult{reason: "upstream_profile_unavailable", err: altCookieErr}
 					}
 					if isValidUserSelfPayload(altCookiePayload, altCookieErr) {
@@ -228,6 +228,10 @@ func fetchManagementQuotaBalanceResult(ctx context.Context, siteRecord *model.Si
 		return siteBalanceFetchResult{reason: "invalid_balance_number"}
 	}
 	return siteBalanceFetchResult{balance: balance, balanceUsed: balanceUsed, todayIncome: todayIncome, usedKnown: usedKnown, incomeKnown: todayIncomeKnown, ok: true}
+}
+
+func stopBalanceProbe(site *model.Site, err error) bool {
+	return IsCloudflareProtectionError(err) || (site.Platform == model.SitePlatformAnyRouter && anyRouterRequestMustStop(err))
 }
 
 func supportsTodayIncomeLogFallback(platform model.SitePlatform) bool {

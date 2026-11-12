@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -41,6 +42,7 @@ func resolveAnyRouterManagedAccessToken(ctx context.Context, siteRecord *model.S
 	if !jsonBool(payload["success"]) {
 		return "", newSiteLoginFailedError(firstNonEmptyString(anyRouterExtractResponseMessage(payload), "login failed"))
 	}
+	rememberManagedPlatformUserID(anyRouterExtractUserID(payload), account)
 
 	for _, candidate := range []string{
 		jsonString(payload["data"]),
@@ -56,111 +58,94 @@ func resolveAnyRouterManagedAccessToken(ctx context.Context, siteRecord *model.S
 		}
 	}
 	if anyRouterHasUsableSessionCookie(cookieHeader) {
+		rememberAnyRouterCookieAuth(ctx, siteRecord, account, cookieHeader)
 		return cookieHeader, nil
 	}
 	return "", newSiteLoginTokenMissingError()
 }
 
 func anyRouterDiscoverUserID(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string) (int, error) {
-	if jwtID := anyRouterTryDecodeJWTUserID(accessToken); jwtID > 0 {
-		if ok, err := anyRouterTestBearerUserID(ctx, siteRecord, account, accessToken, jwtID); IsCloudflareProtectionError(err) {
+	// Use only account-specific evidence. Guessing unrelated IDs can issue
+	// dozens of requests and still never include the user's actual ID.
+	candidates := []int{firstManagedPlatformUserID(account)}
+	candidates = append(candidates, anyRouterCredentialUserIDs(accessToken)...)
+	candidates = append(candidates, 0)
+	seen := make(map[int]bool)
+	for _, userID := range candidates {
+		if seen[userID] {
+			continue
+		}
+		seen[userID] = true
+		headers := anyRouterAuthHeaders(accessToken, userID)
+		payload, _, err := anyRouterRequestJSONWithCookies(ctx, siteRecord, http.MethodGet,
+			buildSiteURL(siteRecord.BaseURL, "/api/user/self"), nil, headers, account)
+		if err != nil && !anyRouterCanTryAlternativeAuth(err) {
 			return 0, err
-		} else if ok {
-			return jwtID, nil
 		}
-	}
-
-	payload, _, err := anyRouterRequestJSONWithCookies(
-		ctx,
-		siteRecord,
-		http.MethodGet,
-		buildSiteURL(siteRecord.BaseURL, "/api/user/self"),
-		nil,
-		map[string]string{"Authorization": "Bearer " + strings.TrimSpace(accessToken)},
-		account,
-	)
-	if IsCloudflareProtectionError(err) {
-		return 0, err
-	}
-	if err == nil {
-		if userID := anyRouterExtractUserID(payload); userID > 0 {
-			return userID, nil
+		if err == nil && jsonBool(payload["success"]) {
+			if actualID := anyRouterExtractUserID(payload); actualID > 0 {
+				rememberManagedPlatformUserID(actualID, account)
+				if cookie := headers["Cookie"]; cookie != "" {
+					rememberAnyRouterCookieAuth(ctx, siteRecord, account, cookie)
+				}
+				return actualID, nil
+			}
 		}
-	}
-
-	for _, userID := range anyRouterBuildUserIDProbeCandidates(accessToken) {
-		if ok, err := anyRouterTestBearerUserID(ctx, siteRecord, account, accessToken, userID); IsCloudflareProtectionError(err) {
+		if anyRouterIsCookieCredential(accessToken) {
+			continue
+		}
+		payload, _, err = anyRouterFetchUserSelfByCookie(ctx, siteRecord, account, accessToken, userID)
+		if err != nil && !anyRouterCanTryAlternativeAuth(err) {
 			return 0, err
-		} else if ok {
-			return userID, nil
+		}
+		if actualID := anyRouterExtractUserID(payload); actualID > 0 {
+			rememberManagedPlatformUserID(actualID, account)
+			return actualID, nil
 		}
 	}
-
-	if payload, _, cookieErr := anyRouterFetchUserSelfByCookie(ctx, siteRecord, account, accessToken, 0); IsCloudflareProtectionError(cookieErr) {
-		return 0, cookieErr
-	} else if cookieErr == nil {
-		if userID := anyRouterExtractUserID(payload); userID > 0 {
-			return userID, nil
-		}
-	}
-
-	if userID, probeErr := anyRouterProbeUserIDByCookie(ctx, siteRecord, account, accessToken); userID > 0 || probeErr != nil {
-		return userID, probeErr
-	}
-
 	return 0, nil
-}
-
-func anyRouterTestBearerUserID(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string, userID int) (bool, error) {
-	payload, _, err := anyRouterRequestJSONWithCookies(
-		ctx,
-		siteRecord,
-		http.MethodGet,
-		buildSiteURL(siteRecord.BaseURL, "/api/user/self"),
-		nil,
-		anyRouterAuthHeaders(accessToken, userID),
-		account,
-	)
-	if err != nil {
-		return false, err
-	}
-	return payload != nil && jsonBool(payload["success"]) && anyRouterExtractUserID(payload) > 0, nil
 }
 
 func anyRouterFetchUserSelfByCookie(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string, userID int) (map[string]any, string, error) {
 	requestURL := buildSiteURL(siteRecord.BaseURL, "/api/user/self")
+	var lastErr error
 	for _, cookie := range anyRouterBuildCookieCandidates(accessToken) {
 		headers := map[string]string{"Cookie": cookie}
 		anyRouterAddUserIDHeaders(headers, userID)
 		payload, cookieHeader, err := anyRouterRequestJSONWithCookies(ctx, siteRecord, http.MethodGet, requestURL, nil, headers, account)
-		if IsCloudflareProtectionError(err) {
-			return nil, "", err
-		}
 		if err != nil {
+			if !anyRouterCanTryAlternativeAuth(err) {
+				return nil, "", err
+			}
+			lastErr = err
 			continue
 		}
 		if payload != nil && jsonBool(payload["success"]) && anyRouterExtractUserID(payload) > 0 {
+			rememberAnyRouterCookieAuth(ctx, siteRecord, account, cookie)
 			return payload, cookieHeader, nil
 		}
 	}
-	return nil, "", nil
+	return nil, "", lastErr
 }
 
 func anyRouterProbeUserIDByCookie(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string) (int, error) {
 	requestURL := buildSiteURL(siteRecord.BaseURL, "/api/user/self")
 	for _, cookie := range anyRouterBuildCookieCandidates(accessToken) {
-		for _, userID := range anyRouterBuildUserIDProbeCandidates(accessToken) {
+		for _, userID := range append([]int{firstManagedPlatformUserID(account), 0}, anyRouterCredentialUserIDs(accessToken)...) {
 			headers := map[string]string{"Cookie": cookie}
 			anyRouterAddUserIDHeaders(headers, userID)
 			payload, _, err := anyRouterRequestJSONWithCookies(ctx, siteRecord, http.MethodGet, requestURL, nil, headers, account)
-			if IsCloudflareProtectionError(err) {
-				return 0, err
-			}
 			if err != nil {
+				if !anyRouterCanTryAlternativeAuth(err) {
+					return 0, err
+				}
 				continue
 			}
 			if payload != nil && jsonBool(payload["success"]) && anyRouterExtractUserID(payload) > 0 {
-				return userID, nil
+				actualID := anyRouterExtractUserID(payload)
+				rememberManagedPlatformUserID(actualID, account)
+				rememberAnyRouterCookieAuth(ctx, siteRecord, account, cookie)
+				return actualID, nil
 			}
 		}
 	}
@@ -196,8 +181,11 @@ func anyRouterExtractUserID(payload map[string]any) int {
 }
 
 func anyRouterAuthHeaders(accessToken string, userID int) map[string]string {
-	headers := map[string]string{
-		"Authorization": "Bearer " + strings.TrimSpace(accessToken),
+	headers := map[string]string{}
+	if anyRouterIsCookieCredential(accessToken) {
+		headers["Cookie"] = stripBearerPrefix(accessToken)
+	} else {
+		headers["Authorization"] = "Bearer " + stripBearerPrefix(accessToken)
 	}
 	anyRouterAddUserIDHeaders(headers, userID)
 	return headers
@@ -224,6 +212,9 @@ func anyRouterBuildCookieCandidates(token string) []string {
 	if strings.HasPrefix(strings.ToLower(raw), "bearer ") {
 		raw = strings.TrimSpace(raw[7:])
 	}
+	if anyRouterIsCookieCredential(raw) {
+		return []string{raw}
+	}
 	seen := make(map[string]struct{}, 3)
 	candidates := make([]string, 0, 3)
 	appendCandidate := func(value string) {
@@ -246,7 +237,7 @@ func anyRouterBuildCookieCandidates(token string) []string {
 }
 
 func anyRouterTryDecodeJWTUserID(token string) int {
-	parts := strings.Split(strings.TrimSpace(token), ".")
+	parts := strings.Split(stripBearerPrefix(token), ".")
 	if len(parts) != 3 {
 		return 0
 	}
@@ -264,7 +255,7 @@ func anyRouterTryDecodeJWTUserID(token string) int {
 	return anyRouterParseInt(payload["sub"])
 }
 
-func anyRouterBuildUserIDProbeCandidates(token string) []int {
+func anyRouterCredentialUserIDs(token string) []int {
 	seen := make(map[int]struct{})
 	candidates := make([]int, 0, 18)
 	appendCandidate := func(value int) {
@@ -281,8 +272,16 @@ func anyRouterBuildUserIDProbeCandidates(token string) []int {
 	for _, value := range anyRouterExtractLikelyUserIDs(token) {
 		appendCandidate(value)
 	}
+	return candidates
+}
+
+// Other management adapters still use their existing fallback candidates.
+func anyRouterBuildUserIDProbeCandidates(token string) []int {
+	candidates := anyRouterCredentialUserIDs(token)
 	for _, value := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 50, 100, 8899, 11494} {
-		appendCandidate(value)
+		if !slices.Contains(candidates, value) {
+			candidates = append(candidates, value)
+		}
 	}
 	return candidates
 }

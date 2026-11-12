@@ -138,12 +138,12 @@ export function useAccountForm({ site, account, onOpenChange }: {
             }
 
             const shouldIncludePlatformUserID =
-                currentPlatform === SitePlatform.NewAPI &&
+                (currentPlatform === SitePlatform.NewAPI || currentPlatform === SitePlatform.AnyRouter) &&
                 accountForm.credential_type === SiteCredentialType.AccessToken;
             const platformUserIDInput = shouldIncludePlatformUserID
                 ? accountForm.platform_user_id.trim()
                 : '';
-            if (shouldIncludePlatformUserID && !platformUserIDInput) {
+            if (shouldIncludePlatformUserID && currentPlatform === SitePlatform.NewAPI && !platformUserIDInput) {
                 toast.error('请输入 Platform User ID');
                 return;
             }
