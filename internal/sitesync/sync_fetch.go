@@ -22,6 +22,33 @@ type siteModelFetchResult struct {
 	message       string
 }
 
+func newSiteModelFetchResult(names []string, err error) siteModelFetchResult {
+	message := "上游当前没有可用模型"
+	if len(names) > 0 {
+		message = fmt.Sprintf("同步到 %d 个模型", len(names))
+	}
+	return siteModelFetchResult{names: names, source: siteModelSourceSync, authoritative: err == nil, message: message}
+}
+
+func defaultSiteToken(value, source string) model.SiteToken {
+	return model.SiteToken{
+		Name:      "default",
+		Token:     strings.TrimSpace(value),
+		GroupKey:  model.SiteDefaultGroupKey,
+		GroupName: model.SiteDefaultGroupName,
+		Enabled:   true,
+		Source:    source,
+		IsDefault: true,
+	}
+}
+
+func withFallbackSiteToken(tokens []model.SiteToken, apiKey string) []model.SiteToken {
+	if len(tokens) > 0 || strings.TrimSpace(apiKey) == "" {
+		return tokens
+	}
+	return append(tokens, defaultSiteToken(apiKey, "fallback"))
+}
+
 func fetchManagementTokens(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string) ([]model.SiteToken, error) {
 	payload, err := requestJSONWithManagedAccessToken(ctx, siteRecord, "GET", buildSiteURL(siteRecord.BaseURL, "/api/token/?p=0&size=100"), nil, accessToken, account)
 	if err != nil {

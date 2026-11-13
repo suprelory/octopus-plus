@@ -1,6 +1,7 @@
 package sitesync
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -27,6 +28,41 @@ type siteGroupSyncResult struct {
 	Authoritative bool
 	ModelCount    int
 	Message       string
+}
+
+// finalizeAccountSync preserves group results even when every group fails, so
+// callers can persist the failure snapshot and retain unresolved projections.
+func finalizeAccountSync(
+	ctx context.Context,
+	siteRecord *model.Site,
+	account *model.SiteAccount,
+	accessToken string,
+	platformUserID int,
+	groups []model.SiteUserGroup,
+	tokens []model.SiteToken,
+	siteModels []model.SiteModel,
+	tokenGroupResults []siteGroupSyncResult,
+) (*syncSnapshot, error) {
+	siteModels = expandExplicitGroupModelsToGroups(siteModels, groups, tokens)
+	groupResults := finalizeSiteGroupSyncResults(account, groups, tokens, siteModels, tokenGroupResults)
+	status := buildSyncSnapshotStatus(groupResults)
+	balance, balanceUsed, todayIncome := fetchSiteAccountBalance(ctx, siteRecord, account, accessToken, platformUserID)
+	snapshot := &syncSnapshot{
+		accessToken:  accessToken,
+		groups:       groups,
+		tokens:       tokens,
+		models:       siteModels,
+		groupResults: groupResults,
+		status:       status,
+		balance:      balance,
+		balanceUsed:  balanceUsed,
+		todayIncome:  todayIncome,
+		message:      buildSyncSnapshotMessage(groupResults),
+	}
+	if status == model.SiteExecutionStatusFailed {
+		return snapshot, buildSyncSnapshotFailure(groupResults)
+	}
+	return snapshot, nil
 }
 
 func hasAuthoritativeGroupSyncResult(results []siteGroupSyncResult) bool {

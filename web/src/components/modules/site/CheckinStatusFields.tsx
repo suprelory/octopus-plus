@@ -7,7 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { SiteCheckinStatusConfig } from '@/api/endpoints/site-types';
 import { useTestCheckinStatusRule } from '@/api/endpoints/site-checkin';
-import { getErrorMessage, type SiteFormFieldsProps } from './site-form';
+import { getErrorMessage } from '@/lib/errors';
+import type { SiteFormFieldsProps } from './site-form';
 
 const defaults: SiteCheckinStatusConfig = {
     method: 'GET', path: '/api/checkin/status', body: '', headers: [], skip_precheck: false,
@@ -59,7 +60,7 @@ export function CheckinStatusFields({ siteForm, setSiteForm }: SiteFormFieldsPro
             const output = await preview.mutateAsync({ config, http_status: httpStatus, date, response: JSON.parse(sample) });
             const labels = { checked_in: '已签到', not_checked_in: '未签到', unknown: '无法确认' };
             setOutcome({ key, text: `判定结果：${labels[output.state]}` });
-        } catch (error) { setOutcome({ key, text: getErrorMessage(error) }); }
+        } catch (error) { setOutcome({ key, text: getErrorMessage(error, '操作失败') }); }
     }
     return <div className="grid gap-4 border-t border-border/60 pt-4 text-sm">
         <label className="flex items-center justify-between gap-4 font-medium">

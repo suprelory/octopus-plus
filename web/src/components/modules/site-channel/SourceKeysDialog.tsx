@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { getErrorMessage } from '@/lib/errors';
 import { useSettingStore } from '@/stores/setting';
 import { Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -22,7 +23,6 @@ import {
     type SiteSourceKeyFormItem,
     buildSourceKeyFormItems,
     buildSourceKeyUpdatePayload,
-    getErrorMessage,
     hasSourceKeyChanges,
     isMaskedTokenValue,
     matchesMaskedToken,

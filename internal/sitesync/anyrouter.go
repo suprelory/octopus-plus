@@ -26,27 +26,9 @@ func syncAnyRouter(ctx context.Context, siteRecord *model.Site, account *model.S
 		return nil, err
 	}
 	if len(tokens) == 0 && siteRecord.Platform != model.SitePlatformAgentRouter && account.CredentialType == model.SiteCredentialTypeAccessToken && strings.TrimSpace(account.AccessToken) != "" {
-		tokens = append(tokens, model.SiteToken{
-			Name:      "default",
-			Token:     strings.TrimSpace(account.AccessToken),
-			GroupKey:  model.SiteDefaultGroupKey,
-			GroupName: model.SiteDefaultGroupName,
-			Enabled:   true,
-			Source:    "access_token_fallback",
-			IsDefault: true,
-		})
+		tokens = append(tokens, defaultSiteToken(account.AccessToken, "access_token_fallback"))
 	}
-	if len(tokens) == 0 && strings.TrimSpace(account.APIKey) != "" {
-		tokens = append(tokens, model.SiteToken{
-			Name:      "default",
-			Token:     strings.TrimSpace(account.APIKey),
-			GroupKey:  model.SiteDefaultGroupKey,
-			GroupName: model.SiteDefaultGroupName,
-			Enabled:   true,
-			Source:    "fallback",
-			IsDefault: true,
-		})
-	}
+	tokens = withFallbackSiteToken(tokens, account.APIKey)
 	if len(tokens) == 0 {
 		return nil, newMissingGroupKeyError(model.SiteDefaultGroupKey)
 	}
@@ -70,37 +52,14 @@ func syncAnyRouter(ctx context.Context, siteRecord *model.Site, account *model.S
 			if (err != nil || len(models) == 0) && allowGlobalFallback {
 				fallbackModels, fallbackErr := fetchAnyRouterSessionModels(ctx, siteRecord, account, accessToken, userID)
 				if fallbackErr == nil && len(fallbackModels) > 0 {
-					return siteModelFetchResult{names: fallbackModels, source: siteModelSourceSync, authoritative: true, message: fmt.Sprintf("同步到 %d 个模型", len(fallbackModels))}, nil
+					return newSiteModelFetchResult(fallbackModels, nil), nil
 				}
 			}
-			message := "上游当前没有可用模型"
-			if len(models) > 0 {
-				message = fmt.Sprintf("同步到 %d 个模型", len(models))
-			}
-			return siteModelFetchResult{names: models, source: siteModelSourceSync, authoritative: err == nil, message: message}, err
+			return newSiteModelFetchResult(models, err), err
 		},
 	)
-	siteModels = expandExplicitGroupModelsToGroups(siteModels, groups, tokens)
-	groupResults := finalizeSiteGroupSyncResults(account, groups, tokens, siteModels, tokenGroupResults)
-	status := buildSyncSnapshotStatus(groupResults)
-	balance, balanceUsed, todayIncome := fetchSiteAccountBalance(ctx, siteRecord, account, accessToken, userID)
-	message := buildSyncSnapshotMessage(groupResults)
-	snapshot := &syncSnapshot{
-		accessToken:  accessToken,
-		groups:       groups,
-		tokens:       tokens,
-		models:       siteModels,
-		groupResults: groupResults,
-		status:       status,
-		balance:      balance,
-		balanceUsed:  balanceUsed,
-		todayIncome:  todayIncome,
-		message:      message,
-	}
-	if status == model.SiteExecutionStatusFailed {
-		return snapshot, buildSyncSnapshotFailure(groupResults)
-	}
-	return snapshot, nil
+	return finalizeAccountSync(ctx, siteRecord, account, accessToken, userID,
+		groups, tokens, siteModels, tokenGroupResults)
 }
 
 func fetchAnyRouterManagementTokens(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string, userID int) ([]model.SiteToken, error) {

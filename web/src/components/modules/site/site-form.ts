@@ -183,15 +183,6 @@ export function trimRouteBaseURLs(items: SiteRouteBaseURL[]) {
         .filter((item) => item.route_type || item.base_url);
 }
 
-export function getErrorMessage(error: unknown) {
-    if (error instanceof Error) return error.message;
-    if (typeof error === 'object' && error !== null && 'message' in error) {
-        const message = (error as { message?: unknown }).message;
-        if (typeof message === 'string') return message;
-    }
-    return '操作失败';
-}
-
 export type SiteFormFieldsProps = {
     siteForm: SiteFormState;
     setSiteForm: Dispatch<SetStateAction<SiteFormState>>;

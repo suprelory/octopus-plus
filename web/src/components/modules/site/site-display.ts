@@ -1,4 +1,5 @@
 import { SiteCredentialType, SitePlatform } from "@/api/endpoints/site";
+import { getErrorMessage } from "@/lib/errors";
 import { useSettingStore } from "@/stores/setting";
 import { useTranslations } from "next-intl";
 import { translateSiteMessage } from "./site-message";
@@ -55,21 +56,12 @@ export function statusLabel(status: string) {
   }
 }
 
-export function getErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error !== null && "message" in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") return message;
-  }
-  return "操作失败";
-}
-
 export function getSiteErrorMessage(
   locale: ReturnType<typeof useSettingStore.getState>["locale"],
   error: unknown,
   t?: ReturnType<typeof useTranslations>,
 ) {
-  return translateSiteMessage(locale, getErrorMessage(error), t);
+  return translateSiteMessage(locale, getErrorMessage(error, "操作失败"), t);
 }
 
 export function formatBalance(value: number) {

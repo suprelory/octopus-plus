@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { getErrorMessage } from '@/lib/errors';
 import { useSettingStore } from '@/stores/setting';
 import { ExternalLink, KeyRound, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -22,7 +23,6 @@ import { translateSiteMessage } from '../site/site-message';
 import {
     type PendingCompletionSite,
     buildSiteTokenManagementUrl,
-    getErrorMessage,
     isMaskedTokenValue,
     matchesMaskedToken,
     platformLabel,

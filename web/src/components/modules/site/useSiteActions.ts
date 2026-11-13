@@ -19,8 +19,7 @@ import { useJumpStore } from "@/stores/jump";
 import { useSettingStore } from "@/stores/setting";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { getErrorMessage, getSiteErrorMessage, statusLabel } from "./site-display";
-import { translateSiteMessage } from "./site-message";
+import { getSiteErrorMessage, statusLabel } from "./site-display";
 
 import type { Dispatch, SetStateAction } from "react";
 export function useSiteActions(setExpandedSiteIds: Dispatch<SetStateAction<Set<number>>>) {
@@ -110,7 +109,7 @@ export function useSiteActions(setExpandedSiteIds: Dispatch<SetStateAction<Set<n
         toast.error(summary);
       }
     } catch (syncError) {
-      toast.error(translateSiteMessage(locale, getErrorMessage(syncError), t));
+      toast.error(getSiteErrorMessage(locale, syncError, t));
     } finally {
       setSyncingAccountIds((current) => {
         const next = new Set(current);

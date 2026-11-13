@@ -18,7 +18,7 @@ import { RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 import { translateSiteMessage } from '../site/site-message';
-import { getErrorMessage } from './utils';
+import { getErrorMessage } from '@/lib/errors';
 
 export function CreateSiteKeyDialog({
     creatingGroup,

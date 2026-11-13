@@ -120,15 +120,6 @@ export function parseTokenExpiresAtInput(value: string) {
     return Math.trunc(parsed);
 }
 
-export function getErrorMessage(error: unknown) {
-    if (error instanceof Error) return error.message;
-    if (typeof error === 'object' && error !== null && 'message' in error) {
-        const message = (error as { message?: unknown }).message;
-        if (typeof message === 'string') return message;
-    }
-    return '操作失败';
-}
-
 // Compare with the form's opening snapshot, not a query result that may have
 // refreshed in the background while the user was editing.
 export function createAccountUpdatePayload(

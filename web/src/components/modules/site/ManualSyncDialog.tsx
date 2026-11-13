@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { getErrorMessage } from "@/lib/errors";
 
 interface ManualSyncDialogProps {
   open: boolean;
@@ -117,15 +118,6 @@ function getManualSyncEndpointHints(
 
 function emptyModelRow(id: number): ModelResponseRow {
   return { id, groupKey: "default", response: "" };
-}
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error !== null && "message" in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string") return message;
-  }
-  return "手动同步失败";
 }
 
 function parseJSONField(value: string, label: string): unknown {
@@ -272,7 +264,7 @@ export function ManualSyncDialog({
       setPreview(result);
     } catch (error) {
       setPreview(null);
-      toast.error(getErrorMessage(error));
+      toast.error(getErrorMessage(error, "手动同步失败"));
     }
   }
 
@@ -288,7 +280,7 @@ export function ManualSyncDialog({
       toast.success(result.sync_result.message || "手动同步数据已应用");
       handleOpenChange(false);
     } catch (error) {
-      toast.error(getErrorMessage(error));
+      toast.error(getErrorMessage(error, "手动同步失败"));
     }
   }
 

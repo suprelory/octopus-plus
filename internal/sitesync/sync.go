@@ -146,9 +146,7 @@ func syncManagementPlatform(ctx context.Context, siteRecord *model.Site, account
 	if err != nil {
 		groups = nil
 	}
-	if len(tokens) == 0 && strings.TrimSpace(account.APIKey) != "" {
-		tokens = append(tokens, model.SiteToken{Name: "default", Token: strings.TrimSpace(account.APIKey), GroupKey: model.SiteDefaultGroupKey, GroupName: model.SiteDefaultGroupName, Enabled: true, Source: "fallback", IsDefault: true})
-	}
+	tokens = withFallbackSiteToken(tokens, account.APIKey)
 	if len(tokens) == 0 {
 		return nil, newMissingGroupKeyError(model.SiteDefaultGroupKey)
 	}
@@ -203,23 +201,11 @@ func syncManagementPlatform(ctx context.Context, siteRecord *model.Site, account
 				return fetchManagementModels(ctx, siteRecord, account, accessToken, token, sessionFallbackFetcher)
 			}
 			models, err := fetchModelsForSiteToken(ctx, siteRecord, account, token)
-			message := "上游当前没有可用模型"
-			if len(models) > 0 {
-				message = fmt.Sprintf("同步到 %d 个模型", len(models))
-			}
-			return siteModelFetchResult{names: models, source: siteModelSourceSync, authoritative: err == nil, message: message}, err
+			return newSiteModelFetchResult(models, err), err
 		},
 	)
-	siteModels = expandExplicitGroupModelsToGroups(siteModels, groups, tokens)
-	groupResults := finalizeSiteGroupSyncResults(account, groups, tokens, siteModels, tokenGroupResults)
-	status := buildSyncSnapshotStatus(groupResults)
-	balance, balanceUsed, todayIncome := fetchSiteAccountBalance(ctx, siteRecord, account, accessToken, firstManagedPlatformUserID(account))
-	message := buildSyncSnapshotMessage(groupResults)
-	snapshot := &syncSnapshot{accessToken: accessToken, groups: groups, tokens: tokens, models: siteModels, groupResults: groupResults, status: status, balance: balance, balanceUsed: balanceUsed, todayIncome: todayIncome, message: message}
-	if status == model.SiteExecutionStatusFailed {
-		return snapshot, buildSyncSnapshotFailure(groupResults)
-	}
-	return snapshot, nil
+	return finalizeAccountSync(ctx, siteRecord, account, accessToken, firstManagedPlatformUserID(account),
+		groups, tokens, siteModels, tokenGroupResults)
 }
 
 func syncSub2API(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount) (*syncSnapshot, error) {
@@ -247,9 +233,7 @@ func syncSub2APIWithAccessToken(ctx context.Context, siteRecord *model.Site, acc
 	if err != nil {
 		return nil, err
 	}
-	if len(tokens) == 0 && strings.TrimSpace(account.APIKey) != "" {
-		tokens = append(tokens, model.SiteToken{Name: "default", Token: strings.TrimSpace(account.APIKey), GroupKey: model.SiteDefaultGroupKey, GroupName: model.SiteDefaultGroupName, Enabled: true, Source: "fallback", IsDefault: true})
-	}
+	tokens = withFallbackSiteToken(tokens, account.APIKey)
 	if len(tokens) == 0 {
 		return nil, apperror.New(apperror.CodeSiteSub2APIAPIKeyRequired, "sub2api sync requires an API key; create a key on the site and sync again")
 	}
@@ -272,22 +256,11 @@ func syncSub2APIWithAccessToken(ctx context.Context, siteRecord *model.Site, acc
 		siteModelSourceSync,
 		func(token model.SiteToken, allowGlobalFallback bool) (siteModelFetchResult, error) {
 			models, err := fetchModelsForSiteToken(ctx, siteRecord, account, token)
-			message := "上游当前没有可用模型"
-			if len(models) > 0 {
-				message = fmt.Sprintf("同步到 %d 个模型", len(models))
-			}
-			return siteModelFetchResult{names: models, source: siteModelSourceSync, authoritative: err == nil, message: message}, err
+			return newSiteModelFetchResult(models, err), err
 		},
 	)
-	siteModels = expandExplicitGroupModelsToGroups(siteModels, groups, tokens)
-	groupResults := finalizeSiteGroupSyncResults(account, groups, tokens, siteModels, tokenGroupResults)
-	status := buildSyncSnapshotStatus(groupResults)
-	balance, balanceUsed, todayIncome := fetchSiteAccountBalance(ctx, siteRecord, account, accessToken, 0)
-	snapshot := &syncSnapshot{accessToken: accessToken, groups: groups, tokens: tokens, models: siteModels, groupResults: groupResults, status: status, balance: balance, balanceUsed: balanceUsed, todayIncome: todayIncome, message: buildSyncSnapshotMessage(groupResults)}
-	if status == model.SiteExecutionStatusFailed {
-		return snapshot, buildSyncSnapshotFailure(groupResults)
-	}
-	return snapshot, nil
+	return finalizeAccountSync(ctx, siteRecord, account, accessToken, 0,
+		groups, tokens, siteModels, tokenGroupResults)
 }
 
 func syncOfficialPlatform(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount) (*syncSnapshot, error) {
@@ -300,7 +273,7 @@ func syncWithDirectToken(ctx context.Context, siteRecord *model.Site, account *m
 		return nil, newDirectTokenRequiredError()
 	}
 	models, err := fetchModelsForSiteToken(ctx, siteRecord, account, model.SiteToken{Token: token, GroupKey: model.SiteDefaultGroupKey, GroupName: model.SiteDefaultGroupName, Enabled: true})
-	groupToken := model.SiteToken{Name: "default", Token: token, GroupKey: model.SiteDefaultGroupKey, GroupName: model.SiteDefaultGroupName, Enabled: true, Source: source, IsDefault: true}
+	groupToken := defaultSiteToken(token, source)
 	siteModels := buildSiteModels(models, model.SiteDefaultGroupKey, source)
 	siteModels = applyDetectedRoutesToSiteModels(
 		ctx,

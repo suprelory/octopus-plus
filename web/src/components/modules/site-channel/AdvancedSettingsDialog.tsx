@@ -16,7 +16,8 @@ import { useSettingStore } from '@/stores/setting';
 import { useTranslations } from 'next-intl';
 import { useCallback, useState } from 'react';
 import { translateSiteMessage } from '../site/site-message';
-import { getErrorMessage, routeTypeLabel } from './utils';
+import { getErrorMessage } from '@/lib/errors';
+import { routeTypeLabel } from './utils';
 
 export function AdvancedSettingsDialog({
     editingAdvancedGroup,

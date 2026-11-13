@@ -14,6 +14,7 @@ import {
     useUpdateSiteGroupProjection,
 } from '@/api/endpoints/site-channel';
 import { toast } from '@/components/common/Toast';
+import { getErrorMessage } from '@/lib/errors';
 import { useSettingStore } from '@/stores/setting';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -47,7 +48,6 @@ import {
     createGroupFilter,
     filterGroups,
     flattenAccountModels,
-    getErrorMessage,
     isSameGroupFilter,
 } from './utils';
 

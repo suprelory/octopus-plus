@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/common/Toast';
+import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { useJumpStore } from '@/stores/jump';
 import { useProxyPoolDialogStore } from './dialog-store';
@@ -56,15 +57,6 @@ function maskProxyURL(value: string) {
     } catch {
         return value;
     }
-}
-
-function errorMessage(error: unknown, fallback: string) {
-    if (error instanceof Error) return error.message;
-    if (typeof error === 'object' && error !== null && 'message' in error) {
-        const message = (error as { message?: unknown }).message;
-        if (typeof message === 'string') return message;
-    }
-    return fallback;
 }
 
 function createFormFromProxy(proxy: ProxyConfiguration): FormState {
@@ -278,7 +270,7 @@ export function ProxyPoolDialog() {
                     toast.success(t('updated'));
                     resetForm();
                 },
-                onError: (err) => toast.error(errorMessage(err, t('operationFailed'))),
+                onError: (err) => toast.error(getErrorMessage(err, t('operationFailed'))),
             });
             return;
         }
@@ -287,7 +279,7 @@ export function ProxyPoolDialog() {
                 toast.success(t('created'));
                 resetForm();
             },
-            onError: (err) => toast.error(errorMessage(err, t('operationFailed'))),
+            onError: (err) => toast.error(getErrorMessage(err, t('operationFailed'))),
         });
     }
 
@@ -301,7 +293,7 @@ export function ProxyPoolDialog() {
                 toast.success(t('deleted'));
                 if (form.id === proxy.id) resetForm();
             },
-            onError: (err) => toast.error(errorMessage(err, t('operationFailed'))),
+            onError: (err) => toast.error(getErrorMessage(err, t('operationFailed'))),
         });
     }
 
@@ -320,7 +312,7 @@ export function ProxyPoolDialog() {
                         toast.error(t('testFailed'), { description: result.message });
                     }
                 },
-                onError: (err) => toast.error(errorMessage(err, t('operationFailed'))),
+                onError: (err) => toast.error(getErrorMessage(err, t('operationFailed'))),
                 onSettled: () => setTestingKey(null),
             }
         );
@@ -361,7 +353,7 @@ export function ProxyPoolDialog() {
                             {isLoading ? (
                                 <div className="rounded-2xl border bg-muted/30 p-4 text-sm text-muted-foreground">{t('loading')}</div>
                             ) : error ? (
-                                <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{t('loadFailed', { message: errorMessage(error, t('operationFailed')) })}</div>
+                                <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{t('loadFailed', { message: getErrorMessage(error, t('operationFailed')) })}</div>
                             ) : filteredProxies.length === 0 ? (
                                 <div className="rounded-2xl border bg-muted/30 p-8 text-center text-sm text-muted-foreground">{t('empty')}</div>
                             ) : filteredProxies.map((proxy) => (
@@ -468,7 +460,7 @@ export function ProxyPoolDialog() {
                             <div className="rounded-2xl border bg-muted/30 p-4 text-sm text-muted-foreground">{t('loading')}</div>
                         ) : referencesError ? (
                             <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-                                {t('loadFailed', { message: errorMessage(referencesError, t('operationFailed')) })}
+                                {t('loadFailed', { message: getErrorMessage(referencesError, t('operationFailed')) })}
                             </div>
                         ) : references.length === 0 ? (
                             <div className="rounded-2xl border bg-muted/30 p-8 text-center text-sm text-muted-foreground">

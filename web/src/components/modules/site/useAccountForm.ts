@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from '@/components/common/Toast';
+import { getErrorMessage } from '@/lib/errors';
 import { useSettingStore } from '@/stores/setting';
 import {
     Site as SiteRecord,
@@ -21,7 +22,6 @@ import {
     createEmptyAccountForm,
     credentialOptions,
     parseTokenExpiresAtInput,
-    getErrorMessage,
 } from './account-form';
 
 export function useAccountForm({ site, account, onOpenChange }: {
@@ -168,7 +168,7 @@ export function useAccountForm({ site, account, onOpenChange }: {
             try {
                 parsedTokenExpiresAt = parseTokenExpiresAtInput(accountForm.token_expires_at);
             } catch (error) {
-                toast.error(translateSiteMessage(locale, getErrorMessage(error), t));
+                toast.error(translateSiteMessage(locale, getErrorMessage(error, '操作失败'), t));
                 return;
             }
 
@@ -229,7 +229,7 @@ export function useAccountForm({ site, account, onOpenChange }: {
                 }
                 onOpenChange(false);
             } catch (submitError) {
-                toast.error(translateSiteMessage(locale, getErrorMessage(submitError), t));
+                toast.error(translateSiteMessage(locale, getErrorMessage(submitError, '操作失败'), t));
             }
         },
         [

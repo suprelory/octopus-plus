@@ -9,22 +9,10 @@ import { useLastSyncTime, useSyncChannel } from '@/api/endpoints/channel';
 import { useLastUpdateTime, useUpdateModelPrice } from '@/api/endpoints/model';
 import { useCheckinAllSites, useLatestSiteCheckinBatch, useSiteLastCheckinTime, useSiteLastSyncTime, useSyncAllSites, type SiteCheckinBatchJob } from '@/api/endpoints/site';
 import { toast } from '@/components/common/Toast';
+import { getErrorMessage } from '@/lib/errors';
 import { useSettingStore } from '@/stores/setting';
 import { translateSiteMessage } from '@/components/modules/site/site-message';
 import { SettingCard, useSettingField } from './shared';
-
-function getErrorMessage(error: unknown, fallback: string) {
-    if (error instanceof Error && error.message.trim()) {
-        return error.message;
-    }
-    if (error && typeof error === 'object' && 'message' in error) {
-        const message = (error as { message?: unknown }).message;
-        if (typeof message === 'string' && message.trim()) {
-            return message;
-        }
-    }
-    return fallback;
-}
 
 // 每行一个定时任务：自动执行间隔（小时）+ 手动触发，可选展示上次执行时间
 function TaskRow({ icon: Icon, label, settingKey, last, running, runLabel, pendingLabel, onRun }: {

@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTestCheckinRewardExtractor } from '@/api/endpoints/site-checkin';
-import { getErrorMessage, type SiteFormFieldsProps } from './site-form';
+import { getErrorMessage } from '@/lib/errors';
+import type { SiteFormFieldsProps } from './site-form';
 
 const templates = {
     generic: {
@@ -40,7 +41,7 @@ export function CheckinRewardExtractorField({ siteForm, setSiteForm }: SiteFormF
             }
             response = JSON.parse(sample);
         } catch (error) {
-            setResult({ code, sample: sampleKey, failed: true, message: error instanceof SyntaxError ? '请输入有效的 JSON 响应样例' : getErrorMessage(error) });
+            setResult({ code, sample: sampleKey, failed: true, message: error instanceof SyntaxError ? '请输入有效的 JSON 响应样例' : getErrorMessage(error, '操作失败') });
             return;
         }
         try {
@@ -49,7 +50,7 @@ export function CheckinRewardExtractorField({ siteForm, setSiteForm }: SiteFormF
                 ? `提取结果：$${output.reward}`
                 : '未提取到奖励；实际签到时将继续尝试 data.reward 和关联账号余额差。' });
         } catch (error) {
-            setResult({ code, sample: sampleKey, failed: true, message: getErrorMessage(error) });
+            setResult({ code, sample: sampleKey, failed: true, message: getErrorMessage(error, '操作失败') });
         }
     }
 

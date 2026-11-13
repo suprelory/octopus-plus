@@ -13,6 +13,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/components/common/Toast';
+import { getErrorMessage } from '@/lib/errors';
 import { type CustomHeader, useSiteBatchEdit } from '@/api/endpoints/site';
 import { TagInput } from './TagInput';
 
@@ -35,15 +36,6 @@ interface BatchEditDialogProps {
 
 function createEmptyRow(): HeaderRow {
     return { mode: 'set', header_key: '', header_value: '' };
-}
-
-function getErrorMessage(error: unknown) {
-    if (error instanceof Error) return error.message;
-    if (typeof error === 'object' && error !== null && 'message' in error) {
-        const message = (error as { message?: unknown }).message;
-        if (typeof message === 'string') return message;
-    }
-    return '批量编辑失败';
 }
 
 /**
@@ -139,7 +131,7 @@ export function BatchEditDialog({
                 toast.success(`操作完成：成功 ${successCount}，失败 ${failedCount}`);
                 handleOpenChange(false);
             } catch (submitError) {
-                toast.error(getErrorMessage(submitError));
+                toast.error(getErrorMessage(submitError, '批量编辑失败'));
             }
         },
         [rows, addTags, removeTags, selectedSiteIds, batchEdit, handleOpenChange],

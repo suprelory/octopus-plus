@@ -3,6 +3,7 @@
 import { useCallback, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from '@/components/common/Toast';
+import { getErrorMessage } from '@/lib/errors';
 import { useSettingStore } from '@/stores/setting';
 import {
     Site as SiteRecord,
@@ -20,7 +21,6 @@ import {
     normalizeSiteRecord,
     trimHeaders,
     trimRouteBaseURLs,
-    getErrorMessage,
     PLATFORM_LABELS,
 } from './site-form';
 
@@ -209,7 +209,7 @@ export function useSiteForm({ site, onOpenChange, onCreated, kind = 'relay' }: {
                 }
             } catch (submitError) {
                 toast.error(
-                    translateSiteMessage(locale, getErrorMessage(submitError), t),
+                    translateSiteMessage(locale, getErrorMessage(submitError, '操作失败'), t),
                 );
             }
         },
