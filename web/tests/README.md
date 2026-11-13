@@ -1,6 +1,7 @@
 # Frontend regression tests
 
-Run commands in this document from `web/`, using Node.js 24 and pnpm. The helper
+Run commands in this document from `web/`, using Node.js 24 and the exact pnpm
+version declared by `packageManager` in [package.json](../package.json). The helper
 tests in `tests/*.test.mjs` run with `pnpm test`; some transpile TypeScript fixtures.
 Use a build-capable development environment or the repository's remote CI.
 

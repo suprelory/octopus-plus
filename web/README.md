@@ -6,7 +6,14 @@
 
 ## 开发联调
 
-使用 Node.js 24 和 pnpm，与当前 CI / 发布工作流一致。后端需要 Go 1.25+。以下开发、安装、测试和构建命令应在允许构建的环境执行，资源受限时可使用仓库的远程 CI。
+使用 Node.js 24 和 [package.json](package.json) 的 `packageManager` 指定的 pnpm 精确版本。Node.js 版本范围由同一文件的 `engines.node` 声明，构建、CI 和发布工作流均读取这两个字段。后端需要 Go 1.25+。以下开发、安装、测试和构建命令应在允许构建的环境执行，资源受限时可使用仓库的远程 CI。
+
+在允许构建的环境中，可按版本声明安装 pnpm：
+
+```sh
+cd web
+npm install --global "$(node -p 'require("./package.json").packageManager')"
+```
 
 先在项目根目录启动后端。全新检出没有 `static/out`，需要占位文件满足 `go:embed`：
 

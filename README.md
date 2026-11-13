@@ -48,7 +48,7 @@ Gemini 当前作为上游适配器使用，未提供 Gemini 原生客户端入�
 | 前端样式与组件 | Tailwind CSS 4、Radix UI、shadcn/ui、Lucide |
 | 前端状态 | Zustand、TanStack React Query |
 | 国际化 | next-intl；简体中文、繁体中文、英文 |
-| 构建与发布 | Node.js 24（CI / 发布）、pnpm、Python 3、GitHub Actions、多架构 Docker、Ed25519 |
+| 构建与发布 | Node.js 24、pnpm（版本声明见 web/package.json）、Python 3、GitHub Actions、多架构 Docker、Ed25519 |
 
 ## 架构
 
@@ -125,7 +125,7 @@ OCTOPUS_ADMIN_PASSWORD='至少 12 个字符的强密码' ./octopus start
 
 ### 从源码构建
 
-开发环境需要 Go 1.25+、Node.js 24 和 pnpm；使用构建脚本还需要 Python 3、Bash、Git、curl、zip、unzip、tar 和 md5sum（macOS 可用 md5）。Node.js 24 与当前 CI 和发布工作流一致。
+开发环境需要 Go 1.25+、Node.js 24 和 pnpm；使用构建脚本还需要 Python 3、Bash、Git、curl、zip、unzip、tar 和 md5sum（macOS 可用 md5）。Node.js 的版本范围和 pnpm 的精确版本统一声明在 [web/package.json](web/package.json) 的 `engines.node` 和 `packageManager` 中，构建、CI 和发布工作流均从该文件读取；开发环境也应使用相同版本。
 
 前端开发服务器与后端分开运行。全新检出时 `static/out` 不在版本控制中，需先在项目根目录创建占位文件，以满足 Go 的静态资源嵌入要求，再启动后端：
 

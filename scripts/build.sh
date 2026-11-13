@@ -106,7 +106,7 @@ prepare_environment() {
 
     # Check pnpm
     if ! command_exists pnpm; then
-        log_error "pnpm is not installed. Please install pnpm: npm install -g pnpm"
+        log_error "pnpm is not installed. Please install the version declared by packageManager in web/package.json."
         return 1
     fi
 
@@ -245,7 +245,7 @@ build_frontend() {
 
     # Install dependencies
     log_info "Installing frontend dependencies..."
-    if ! pnpm install; then
+    if ! pnpm install --frozen-lockfile; then
         log_error "Failed to install frontend dependencies"
         cd ..
         return 1
