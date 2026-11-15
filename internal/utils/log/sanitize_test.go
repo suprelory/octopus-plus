@@ -59,3 +59,17 @@ func TestSafeTextRedactsHeadersAndSQLLiterals(t *testing.T) {
 		}
 	}
 }
+
+func TestSafeTextRedactsSOCKSProxyCredentials(t *testing.T) {
+	for _, scheme := range []string{"socks", "socks5", "socks5h", "SOCKS5H"} {
+		t.Run(scheme, func(t *testing.T) {
+			message := SafeText("proxy failed: " + scheme + "://alice:proxy-credential@proxy.example:1080")
+			if strings.Contains(message, "alice") || strings.Contains(message, "proxy-credential") {
+				t.Fatalf("proxy credentials leaked: %q", message)
+			}
+			if !strings.Contains(message, "proxy.example:1080") {
+				t.Fatalf("proxy endpoint missing: %q", message)
+			}
+		})
+	}
+}

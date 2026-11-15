@@ -1692,7 +1692,7 @@
             "deleteBlocked": "Still referenced, cannot delete",
             "formTitleCreate": "New proxy configuration",
             "formTitleEdit": "Edit proxy configuration",
-            "formDescription": "URL supports http, https, socks, and socks5.",
+            "formDescription": "URL supports http, https, socks, socks5, and socks5h. Use socks5h to resolve target hostnames through the proxy.",
             "new": "New",
             "name": "Name",
             "url": "Proxy URL",

@@ -94,7 +94,7 @@ func NormalizeProxyURL(value string) (string, error) {
 	parsed.Scheme = strings.ToLower(strings.TrimSpace(parsed.Scheme))
 	parsed.Host = strings.ToLower(strings.TrimSpace(parsed.Host))
 	switch parsed.Scheme {
-	case "http", "https", "socks", "socks5":
+	case "http", "https", "socks", "socks5", "socks5h":
 	default:
 		return "", fmt.Errorf("unsupported proxy scheme: %s", parsed.Scheme)
 	}

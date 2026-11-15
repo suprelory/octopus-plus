@@ -384,14 +384,23 @@ func newProxyTestHTTPClient(proxyURLStr string) (*http.Client, error) {
 	switch proxyURL.Scheme {
 	case "http", "https":
 		cloned.Proxy = http.ProxyURL(proxyURL)
-	case "socks", "socks5":
-		socksDialer, err := proxy.FromURL(proxyURL, proxy.Direct)
+	case "socks", "socks5", "socks5h":
+		if proxyURL.Scheme == "socks" {
+			proxyURL.Scheme = "socks5"
+		}
+		socksDialer, err := proxy.FromURL(proxyURL, &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second})
 		if err != nil {
 			return nil, fmt.Errorf("invalid socks proxy: %w", err)
 		}
+		contextDialer, ok := socksDialer.(proxy.ContextDialer)
+		if !ok {
+			return nil, fmt.Errorf("socks proxy does not support cancellation")
+		}
 		cloned.Proxy = nil
 		cloned.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return socksDialer.Dial(network, addr)
+			ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+			return contextDialer.DialContext(ctx, network, addr)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported proxy scheme: %s", proxyURL.Scheme)
@@ -436,6 +445,7 @@ func ProxyConfigurationTest(req model.ProxyTestRequest, ctx context.Context) (mo
 		return model.ProxyTestResult{Success: false, Message: err.Error()}, nil
 	}
 	httpClient.Timeout = 20 * time.Second
+	defer httpClient.CloseIdleConnections()
 
 	start := time.Now()
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)

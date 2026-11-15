@@ -420,7 +420,7 @@ export function ProxyPoolDialog() {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">{t('url')}</label>
-                                <Input value={form.url} onChange={(event) => setForm({ ...form, url: event.target.value })} placeholder="socks5://127.0.0.1:1080" className="rounded-xl" required />
+                                <Input value={form.url} onChange={(event) => setForm({ ...form, url: event.target.value })} placeholder="socks5h://127.0.0.1:1080" className="rounded-xl" required />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">{t('remark')}</label>

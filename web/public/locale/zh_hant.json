@@ -1692,7 +1692,7 @@
             "deleteBlocked": "仍被引用，不能刪除",
             "formTitleCreate": "新增代理設定",
             "formTitleEdit": "編輯代理設定",
-            "formDescription": "URL 支援 http、https、socks、socks5。",
+            "formDescription": "URL 支援 http、https、socks、socks5、socks5h。使用 socks5h 可由代理解析目標網域名稱。",
             "new": "新增",
             "name": "名稱",
             "url": "代理 URL",

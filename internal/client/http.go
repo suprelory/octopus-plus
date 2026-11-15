@@ -176,7 +176,8 @@ func GetHTTPClientSystemProxy(useProxy bool) (*http.Client, error) {
 // GetHTTPClientCustomProxy returns a cached http.Client keyed by the
 // normalized proxy URL, so connections are reused across requests
 // (keepalive survives; no per-request TCP+TLS+CONNECT handshake).
-// proxyURL supports: http, https, socks, socks5
+// proxyURL supports: http, https, socks, socks5, socks5h.
+// SOCKS proxies resolve target hostnames remotely.
 func GetHTTPClientCustomProxy(proxyURL string) (*http.Client, error) {
 	if proxyURL == "" {
 		return nil, fmt.Errorf("proxy url is empty")
@@ -240,7 +241,10 @@ func newHTTPClientCustomProxy(proxyURLStr string) (*http.Client, error) {
 	switch proxyURL.Scheme {
 	case "http", "https":
 		cloned.Proxy = http.ProxyURL(proxyURL)
-	case "socks", "socks5":
+	case "socks", "socks5", "socks5h":
+		if proxyURL.Scheme == "socks" {
+			proxyURL.Scheme = "socks5"
+		}
 		socksDialer, err := proxy.FromURL(proxyURL, &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second})
 		if err != nil {
 			return nil, fmt.Errorf("invalid socks proxy: %w", err)

@@ -5,6 +5,28 @@ import (
 	"testing"
 )
 
+func TestProxyURLSetting(t *testing.T) {
+	for _, test := range []struct {
+		value string
+		valid bool
+	}{
+		{"", true},
+		{"http://proxy.example:8080", true},
+		{"https://proxy.example:8443", true},
+		{"socks://proxy.example:1080", true},
+		{"socks5://proxy.example:1080", true},
+		{"socks5h://proxy.example:1080", true},
+		{"socks5h://alice:p%40ss@[::1]:1080", true},
+		{"socks5h://", false},
+		{"socks4://proxy.example:1080", false},
+	} {
+		setting := Setting{Key: SettingKeyProxyURL, Value: test.value}
+		if err := setting.Validate(); (err == nil) != test.valid {
+			t.Errorf("proxy URL %q: %v", test.value, err)
+		}
+	}
+}
+
 func TestCheckinNotificationSettings(t *testing.T) {
 	for _, tc := range []struct {
 		key   SettingKey

@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	logURLPattern    = regexp.MustCompile(`(?i)\b(?:https?|socks5?|postgres(?:ql)?|mysql|redis)://[^\s<>"']+`)
+	logURLPattern    = regexp.MustCompile(`(?i)\b(?:https?|socks(?:5h?)?|postgres(?:ql)?|mysql|redis)://[^\s<>"']+`)
 	logAuthPattern   = regexp.MustCompile(`(?i)\b(?:Bearer|Basic)\s+[^\s,"';]+`)
 	logHeaderPattern = regexp.MustCompile(`(?im)\b(?:authorization|cookie|set-cookie)\s*[:=][^\r\n]*`)
 	logSecretPattern = regexp.MustCompile(`(?i)\b(?:password|passwd|pwd|api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret)\s*["']?\s*[:=]\s*(?:"(?:\\.|[^"\\])*"|'[^']*'|[^\s&,;]+)`)

@@ -259,12 +259,14 @@ func (s *Setting) Validate() error {
 			return fmt.Errorf("proxy URL is invalid: %w", err)
 		}
 		validSchemes := map[string]bool{
-			"http":   true,
-			"https":  true,
-			"socks5": true,
+			"http":    true,
+			"https":   true,
+			"socks":   true,
+			"socks5":  true,
+			"socks5h": true,
 		}
 		if !validSchemes[parsedURL.Scheme] {
-			return fmt.Errorf("proxy URL scheme must be http, https, socks, or socks5")
+			return fmt.Errorf("proxy URL scheme must be http, https, socks, socks5, or socks5h")
 		}
 		if parsedURL.Host == "" {
 			return fmt.Errorf("proxy URL must have a host")
