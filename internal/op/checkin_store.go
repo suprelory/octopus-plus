@@ -1,0 +1,361 @@
+package op
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"reflect"
+	"slices"
+	"time"
+
+	"github.com/suprelory/octopus-plus/internal/model"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"gorm.io/gorm/logger"
+)
+
+var (
+	ErrCheckinCredentialConflict = errors.New("checkin credential version conflict")
+	ErrCheckinCredentialInUse    = errors.New("checkin credential is still referenced")
+	ErrCheckinRefreshLease       = errors.New("checkin credential refresh lease is unavailable")
+)
+
+// CheckinStore has an explicit connection so schema migration and tests can use
+// the new tables without starting legacy caches, services or subscription jobs.
+type CheckinStore struct{ conn *gorm.DB }
+
+func NewCheckinStore(conn *gorm.DB) *CheckinStore {
+	// GORM debug SQL can contain bound secret values during writes.
+	return &CheckinStore{conn: conn.Session(&gorm.Session{Logger: logger.Discard})}
+}
+
+func (s *CheckinStore) CreateSite(ctx context.Context, site model.CheckinSite) (*model.CheckinSite, error) {
+	site.ID = 0
+	site.VerificationFingerprint, site.VerificationStatus, site.VerifiedAt = "", model.SiteCheckinSupportUnknown, nil
+	if err := site.Validate(); err != nil {
+		return nil, err
+	}
+	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := validateCheckinProxy(tx, site.CheckinNetwork); err != nil {
+			return err
+		}
+		return tx.Create(&site).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &site, nil
+}
+
+func (s *CheckinStore) GetSite(ctx context.Context, id int) (*model.CheckinSite, error) {
+	var site model.CheckinSite
+	if err := s.conn.WithContext(ctx).First(&site, id).Error; err != nil {
+		return nil, err
+	}
+	return &site, nil
+}
+
+func (s *CheckinStore) CreateCredential(ctx context.Context, credential model.CheckinCredential) (*model.CheckinCredential, error) {
+	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error { return createCheckinCredential(tx, &credential) })
+	if err != nil {
+		return nil, err
+	}
+	return &credential, nil
+}
+
+func createCheckinCredential(tx *gorm.DB, credential *model.CheckinCredential) error {
+	credential.ID = 0
+	credential.CredentialVersion, credential.IdentityRevision = 0, 0
+	credential.TokenRefreshLease, credential.TokenRefreshLeaseUntil, credential.TokenRefreshedAt = "", 0, 0
+	if err := credential.Validate(); err != nil {
+		return err
+	}
+	if err := validateCheckinProxy(tx, credential.CheckinNetwork); err != nil {
+		return err
+	}
+	return tx.Create(credential).Error
+}
+
+func (s *CheckinStore) GetCredential(ctx context.Context, id int) (*model.CheckinCredential, error) {
+	var credential model.CheckinCredential
+	if err := s.conn.WithContext(ctx).First(&credential, id).Error; err != nil {
+		return nil, err
+	}
+	return &credential, nil
+}
+
+func (s *CheckinStore) ListCredentials(ctx context.Context) ([]model.CheckinCredential, error) {
+	var credentials []model.CheckinCredential
+	err := s.conn.WithContext(ctx).Order("id ASC").Find(&credentials).Error
+	return credentials, err
+}
+
+// EditCredential accepts a complete candidate assembled by the API from an
+// explicit field patch. The caller's observed version is mandatory; runtime
+// coordination fields always come from storage, never from the candidate.
+func (s *CheckinStore) EditCredential(ctx context.Context, candidate model.CheckinCredential, expectedVersion int64) (*model.CheckinCredential, error) {
+	var result model.CheckinCredential
+	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var current model.CheckinCredential
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, candidate.ID).Error; err != nil {
+			return err
+		}
+		if expectedVersion < 0 || current.CredentialVersion != expectedVersion {
+			return ErrCheckinCredentialConflict
+		}
+		candidate.CredentialVersion = current.CredentialVersion
+		candidate.IdentityRevision = current.IdentityRevision
+		candidate.TokenRefreshedAt = current.TokenRefreshedAt
+		candidate.TokenRefreshLease, candidate.TokenRefreshLeaseUntil = current.TokenRefreshLease, current.TokenRefreshLeaseUntil
+		if err := candidate.Validate(); err != nil {
+			return err
+		}
+		if err := validateCheckinProxy(tx, candidate.CheckinNetwork); err != nil {
+			return err
+		}
+		if identityChanged(current, candidate) {
+			candidate.IdentityRevision++
+		}
+		// Setting edits must not release the lease of an already-consumed refresh
+		// token. A genuinely different login identity can retire the old lease.
+		if !sameCheckinSession(current, candidate) {
+			candidate.TokenRefreshLease, candidate.TokenRefreshLeaseUntil, candidate.TokenRefreshedAt = "", 0, 0
+		}
+		if err := validateCredentialReferences(tx, candidate); err != nil {
+			return err
+		}
+		candidate.CredentialVersion++
+		written := tx.Model(&model.CheckinCredential{}).Where("id = ? AND credential_version = ?", current.ID, expectedVersion).
+			Select("*").Omit("id").Updates(&candidate)
+		if written.Error != nil {
+			return written.Error
+		}
+		if written.RowsAffected != 1 {
+			return ErrCheckinCredentialConflict
+		}
+		result = candidate
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func identityChanged(a, b model.CheckinCredential) bool {
+	a.Name, b.Name = "", ""
+	a.TokenExpiresAt, b.TokenExpiresAt = 0, 0
+	a.TokenRefreshedAt, b.TokenRefreshedAt = 0, 0
+	a.CredentialVersion, b.CredentialVersion = 0, 0
+	a.IdentityRevision, b.IdentityRevision = 0, 0
+	a.TokenRefreshLease, b.TokenRefreshLease = "", ""
+	a.TokenRefreshLeaseUntil, b.TokenRefreshLeaseUntil = 0, 0
+	return !reflect.DeepEqual(a, b)
+}
+
+func sameCheckinSession(a, b model.CheckinCredential) bool {
+	return a.ID == b.ID && a.Type == b.Type && a.Platform == b.Platform && a.AuthBaseURL == b.AuthBaseURL &&
+		a.Username == b.Username && a.Password == b.Password && a.AccessToken == b.AccessToken && a.RefreshToken == b.RefreshToken && a.APIKey == b.APIKey && a.Cookie == b.Cookie
+}
+
+type CheckinCredentialReferences struct {
+	PrimaryAccountIDs []int `json:"primary_account_ids"`
+	BalanceAccountIDs []int `json:"balance_account_ids"`
+}
+
+func (s *CheckinStore) CredentialReferences(ctx context.Context, id int) (CheckinCredentialReferences, error) {
+	return checkinCredentialReferences(s.conn.WithContext(ctx), id)
+}
+
+func checkinCredentialReferences(tx *gorm.DB, id int) (CheckinCredentialReferences, error) {
+	refs := CheckinCredentialReferences{PrimaryAccountIDs: []int{}, BalanceAccountIDs: []int{}}
+	var accounts []model.CheckinAccount
+	// Balance configuration is JSON. Use portable decoding rather than a
+	// different JSON predicate for each of the three supported SQL dialects.
+	if err := tx.Select("id", "credential_id", "balance_config").Order("id ASC").Find(&accounts).Error; err != nil {
+		return refs, err
+	}
+	for _, account := range accounts {
+		if account.CredentialID == id {
+			refs.PrimaryAccountIDs = append(refs.PrimaryAccountIDs, account.ID)
+		}
+		if account.BalanceConfig.Mode == model.CheckinBalanceCustom && account.BalanceConfig.CredentialID != nil && *account.BalanceConfig.CredentialID == id {
+			refs.BalanceAccountIDs = append(refs.BalanceAccountIDs, account.ID)
+		}
+	}
+	return refs, nil
+}
+
+func (s *CheckinStore) DeleteCredential(ctx context.Context, id int) error {
+	return s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var credential model.CheckinCredential
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&credential, id).Error; err != nil {
+			return err
+		}
+		refs, err := checkinCredentialReferences(tx, id)
+		if err != nil {
+			return err
+		}
+		if len(refs.PrimaryAccountIDs)+len(refs.BalanceAccountIDs) > 0 {
+			return ErrCheckinCredentialInUse
+		}
+		if credential.TokenRefreshLease != "" && credential.TokenRefreshLeaseUntil > time.Now().UnixMilli() {
+			return ErrCheckinRefreshLease
+		}
+		return tx.Delete(&credential).Error
+	})
+}
+
+func (s *CheckinStore) CreateAccount(ctx context.Context, account model.CheckinAccount, inline *model.CheckinCredential) (*model.CheckinAccount, error) {
+	if inline != nil && account.CredentialID != 0 {
+		return nil, errors.New("provide a credential or credential ID, not both")
+	}
+	account.ID = 0
+	account.CheckinPending, account.NextAutoCheckinAt, account.LastCheckinAt, account.LastCheckinSuccessAt = nil, nil, nil, nil
+	account.LastCheckinStatus, account.LastCheckinMessage, account.CheckinFailureCount = model.SiteExecutionStatusIdle, "", 0
+	account.Balance, account.BalanceUsed, account.TodayIncome = 0, 0, 0
+	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var site model.CheckinSite
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&site, account.SiteID).Error; err != nil {
+			return err
+		}
+		if inline != nil {
+			credential := *inline
+			if err := createCheckinCredential(tx, &credential); err != nil {
+				return err
+			}
+			account.CredentialID = credential.ID
+		}
+		if err := account.Validate(); err != nil {
+			return err
+		}
+		if err := validateCheckinAccountReferences(tx, site, account); err != nil {
+			return err
+		}
+		return tx.Create(&account).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+func (s *CheckinStore) GetAccount(ctx context.Context, id int) (*model.CheckinAccount, error) {
+	var account model.CheckinAccount
+	if err := s.conn.WithContext(ctx).First(&account, id).Error; err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+// DeleteAccount preserves logs and shared credentials. Orphaned credentials are
+// deleted explicitly, so an independent refresh operation cannot lose its owner.
+func (s *CheckinStore) DeleteAccount(ctx context.Context, id int) error {
+	result := s.conn.WithContext(ctx).Delete(&model.CheckinAccount{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func validateCheckinAccountReferences(tx *gorm.DB, site model.CheckinSite, account model.CheckinAccount) error {
+	ids := []int{account.CredentialID}
+	if account.BalanceConfig.Mode == model.CheckinBalanceCustom {
+		ids = append(ids, *account.BalanceConfig.CredentialID)
+	}
+	slices.Sort(ids)
+	credentials := make(map[int]model.CheckinCredential)
+	for _, id := range slices.Compact(ids) {
+		var credential model.CheckinCredential
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&credential, id).Error; err != nil {
+			return err
+		}
+		credentials[id] = credential
+	}
+	if err := model.ValidateCheckinIdentity(site, account, credentials[account.CredentialID]); err != nil {
+		return err
+	}
+	if err := validateCheckinProxy(tx, account.CheckinNetwork); err != nil {
+		return err
+	}
+	if account.BalanceConfig.Mode == model.CheckinBalanceCustom {
+		if err := validateCheckinBalanceCredential(account.BalanceConfig, credentials[*account.BalanceConfig.CredentialID]); err != nil {
+			return err
+		}
+		if err := validateCheckinProxy(tx, account.BalanceConfig.CheckinNetwork); err != nil {
+			return err
+		}
+	} else if account.BalanceConfig.Mode == model.CheckinBalancePrimary {
+		credential := credentials[account.CredentialID]
+		if err := validateCheckinBalanceCredential(model.CheckinBalanceConfig{Platform: credential.Platform}, credential); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateCredentialReferences(tx *gorm.DB, candidate model.CheckinCredential) error {
+	var accounts []model.CheckinAccount
+	if err := tx.Find(&accounts).Error; err != nil {
+		return err
+	}
+	for _, account := range accounts {
+		if account.CredentialID == candidate.ID {
+			var site model.CheckinSite
+			if err := tx.First(&site, account.SiteID).Error; err != nil {
+				return err
+			}
+			if err := model.ValidateCheckinIdentity(site, account, candidate); err != nil {
+				return err
+			}
+			if account.BalanceConfig.Mode == model.CheckinBalancePrimary {
+				if err := validateCheckinBalanceCredential(model.CheckinBalanceConfig{Platform: candidate.Platform}, candidate); err != nil {
+					return err
+				}
+			}
+		}
+		if account.BalanceConfig.Mode == model.CheckinBalanceCustom && account.BalanceConfig.CredentialID != nil && *account.BalanceConfig.CredentialID == candidate.ID {
+			if err := validateCheckinBalanceCredential(account.BalanceConfig, candidate); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateCheckinBalanceCredential(config model.CheckinBalanceConfig, credential model.CheckinCredential) error {
+	if config.Platform != credential.Platform {
+		return errors.New("balance platform must match its credential")
+	}
+	switch config.Platform {
+	case model.SitePlatformSub2API:
+		if credential.Type == model.CheckinCredentialAccessToken || credential.Type == model.CheckinCredentialAPIKey {
+			return nil
+		}
+	case model.SitePlatformNewAPI, model.SitePlatformAnyRouter, model.SitePlatformAgentRouter, model.SitePlatformOneAPI, model.SitePlatformOneHub, model.SitePlatformDoneHub:
+		if credential.Type == model.CheckinCredentialAccessToken || credential.Type == model.CheckinCredentialPassword {
+			return nil
+		}
+	}
+	return errors.New("credential cannot query platform balances")
+}
+
+func validateCheckinProxy(tx *gorm.DB, network model.CheckinNetwork) error {
+	if network.ProxyMode != model.ProxyUsageModePool {
+		return nil
+	}
+	if network.ProxyConfigID == nil {
+		return errors.New("checkin proxy ID is required")
+	}
+	var proxy model.ProxyConfiguration
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&proxy, *network.ProxyConfigID).Error; err != nil {
+		return fmt.Errorf("load checkin proxy: %w", err)
+	}
+	if !proxy.Enabled {
+		return errors.New("checkin proxy is disabled")
+	}
+	return nil
+}

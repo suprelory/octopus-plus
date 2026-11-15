@@ -1,0 +1,25 @@
+package db
+
+import (
+	"errors"
+
+	"github.com/suprelory/octopus-plus/internal/model"
+	"gorm.io/gorm"
+)
+
+// PrepareCheckinSchema is an explicit migration building block. Runtime startup
+// will call it at cutover, after preflight and backup support have been completed.
+// It does not create or read subscription tables or copy legacy credentials.
+func PrepareCheckinSchema(conn *gorm.DB) error {
+	if conn == nil {
+		return errors.New("checkin schema requires a database")
+	}
+	for _, table := range []any{&model.CheckinSite{}, &model.CheckinCredential{}, &model.CheckinAccount{}} {
+		if !conn.Migrator().HasTable(table) {
+			if err := conn.Migrator().CreateTable(table); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
