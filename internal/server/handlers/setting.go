@@ -170,7 +170,7 @@ func importDB(c *gin.Context) {
 	}
 	middleware.AuditFields(c, "rows_affected", result.RowsAffected)
 
-	if err := op.RefreshCacheAfterImport(dump.IncludeStats); err != nil {
+	if err := op.RefreshCacheAfterImport(); err != nil {
 		resp.InternalErrorWithLog(c, fmt.Errorf("database imported but runtime refresh failed: %w", err))
 		return
 	}

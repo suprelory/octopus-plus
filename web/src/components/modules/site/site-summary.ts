@@ -4,7 +4,7 @@ import { normalizedStatus } from "./site-display";
 import { siteAccountHasActiveSyncFailure } from "./sync-health";
 import { SiteSummary, VisibleSite } from "./types";
 
-export function accountHasCheckinFailure(site: SiteRecord, account: SiteAccount, now = new Date()) {
+function accountHasCheckinFailure(site: SiteRecord, account: SiteAccount, now = new Date()) {
   return deriveCheckinStatus(site, account, now) === "failed";
 }
 

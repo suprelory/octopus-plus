@@ -3,6 +3,8 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
+
+	wire "github.com/suprelory/octopus-plus/polywire/protocol/openai"
 )
 
 // Request types
@@ -120,10 +122,7 @@ type ResponsesItem struct {
 
 // ResponsesInputAudio mirrors OpenAI's `input_audio` content shape used for
 // audio inputs on Responses requests. O-H6.
-type ResponsesInputAudio struct {
-	Data   string `json:"data"`
-	Format string `json:"format,omitempty"`
-}
+type ResponsesInputAudio = wire.ResponsesInputAudio
 
 func (item ResponsesItem) isOutputMessageContent() bool {
 	if item.Content == nil || len(item.Content.Items) == 0 {
@@ -160,10 +159,7 @@ type ResponsesContentItem struct {
 	Text string `json:"text,omitempty"`
 }
 
-type ResponsesReasoningSummary struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-}
+type ResponsesReasoningSummary = wire.ResponsesReasoningSummary
 
 type ResponsesAnnotation struct {
 	Raw        json.RawMessage `json:"-"`
@@ -212,25 +208,9 @@ func (t *ResponsesToolChoice) UnmarshalJSON(data []byte) error {
 	return fmt.Errorf("invalid tool choice format")
 }
 
-type ResponsesTextOptions struct {
-	Format    *ResponsesTextFormat `json:"format,omitempty"`
-	Verbosity *string              `json:"verbosity,omitempty"`
-}
-
-type ResponsesTextFormat struct {
-	Strict      *bool           `json:"strict,omitempty"`
-	Description string          `json:"description,omitempty"`
-	Type        string          `json:"type,omitempty"`
-	Name        string          `json:"name,omitempty"`
-	Schema      json.RawMessage `json:"schema,omitempty"`
-}
-
-type ResponsesReasoning struct {
-	Effort          string  `json:"effort,omitempty"`
-	MaxTokens       *int64  `json:"max_tokens,omitempty"`
-	Summary         *string `json:"summary,omitempty"`
-	GenerateSummary *string `json:"generate_summary,omitempty"`
-}
+type ResponsesTextOptions = wire.ResponsesTextOptions
+type ResponsesTextFormat = wire.ResponsesTextFormat
+type ResponsesReasoning = wire.ResponsesReasoning
 
 // Response types
 
@@ -246,17 +226,7 @@ type ResponsesResponse struct {
 	Error      *ResponsesError `json:"error,omitempty"`
 }
 
-type ResponsesUsage struct {
-	InputTokens       int64 `json:"input_tokens"`
-	InputTokenDetails struct {
-		CachedTokens int64 `json:"cached_tokens"`
-	} `json:"input_tokens_details"`
-	OutputTokens       int64 `json:"output_tokens"`
-	OutputTokenDetails struct {
-		ReasoningTokens int64 `json:"reasoning_tokens"`
-	} `json:"output_tokens_details"`
-	TotalTokens int64 `json:"total_tokens"`
-}
+type ResponsesUsage = wire.ResponsesUsage
 
 type ResponsesError struct {
 	Code    int    `json:"code"`

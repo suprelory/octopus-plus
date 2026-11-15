@@ -317,22 +317,6 @@ func reasoningCharsFromResponse(resp *transformerModel.InternalLLMResponse) int 
 	return total
 }
 
-func updateFinalChannelUsageStats(channelID int, metrics model.StatsMetrics) {
-	if channelID == 0 {
-		return
-	}
-	usageStats := model.StatsMetrics{
-		InputToken:  metrics.InputToken,
-		OutputToken: metrics.OutputToken,
-		InputCost:   metrics.InputCost,
-		OutputCost:  metrics.OutputCost,
-	}
-	if usageStats.InputToken == 0 && usageStats.OutputToken == 0 && usageStats.InputCost == 0 && usageStats.OutputCost == 0 {
-		return
-	}
-	op.StatsChannelUpdate(channelID, usageStats)
-}
-
 func intPtr(value int) *int {
 	return &value
 }

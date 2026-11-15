@@ -72,7 +72,6 @@ func (ra *relayAttempt) attempt() attemptResult {
 
 	if fwdErr == nil {
 		// ====== 成功 ======
-		// Passthrough handlers collect response at stream end via PassthroughConfig.CollectMetrics
 		ra.collectResponse()
 		op.ChannelKeyUpdateWithDelta(ra.usedKey, ra.metrics.Stats.InputCost+ra.metrics.Stats.OutputCost)
 

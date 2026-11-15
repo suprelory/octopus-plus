@@ -123,7 +123,7 @@ func RestoreFromBackup(ctx context.Context, filename string) (*model.DBImportRes
 		return nil, fmt.Errorf("failed to import backup: %w", err)
 	}
 
-	if err := op.RefreshCacheAfterImport(dump.IncludeStats); err != nil {
+	if err := op.RefreshCacheAfterImport(); err != nil {
 		return result, fmt.Errorf("backup imported but runtime refresh failed: %w", err)
 	}
 

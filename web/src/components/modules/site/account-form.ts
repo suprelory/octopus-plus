@@ -25,7 +25,7 @@ export type SiteAccountFormState = {
     checkin_random_window_minutes: number;
 };
 
-export function defaultCredentialType(platform?: SitePlatform): SiteCredentialType {
+function defaultCredentialType(platform?: SitePlatform): SiteCredentialType {
     return platform === SitePlatform.AgentRouter ? SiteCredentialType.UsernamePassword : SiteCredentialType.AccessToken;
 }
 

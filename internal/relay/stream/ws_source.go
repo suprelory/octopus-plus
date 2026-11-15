@@ -35,15 +35,6 @@ func NewWSSource(reader WSUpstreamReader, inspectors ...model.SourceEventInspect
 	return source
 }
 
-// ReadEvent reads the next WebSocket event.
-func (s *WSSource) ReadEvent(ctx context.Context) ([]byte, error) {
-	event, err := s.ReadSourceEvent(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return event.Data, nil
-}
-
 // ReadSourceEvent normalizes WebSocket messages into the same envelope used by
 // SSE and raw sources. WebSocket has no separate event field, so type and ID
 // are read from the JSON envelope when present.

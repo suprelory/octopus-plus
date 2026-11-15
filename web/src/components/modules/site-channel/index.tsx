@@ -8,11 +8,11 @@ import { useSettingStore } from '@/stores/setting';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { translateSiteMessage } from '../site/site-message';
-import { useCompletionStateSync } from './completion';
 import { useCompletionStore } from './completion-store';
 import { SiteChannelGrid } from './SiteChannelGrid';
 import { SiteChannelPendingJump } from './types';
 import { UnifiedCompletionDialog } from './UnifiedCompletionDialog';
+import { collectPendingCompletionSites } from './utils';
 import { ChannelListSummary } from '../channel/ListSummary';
 import { Network, SearchX } from 'lucide-react';
 
@@ -37,7 +37,11 @@ export function SiteChannelSection({
     const siteCardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
     // 同步补全状态到 store，并暴露对话框控制
-    const { pendingCompletionSites, totalPendingCompletionCount } = useCompletionStateSync();
+    const pendingCompletionSites = useMemo(() => collectPendingCompletionSites(data ?? []), [data]);
+    const totalPendingCompletionCount = useMemo(
+        () => pendingCompletionSites.reduce((sum, site) => sum + site.pending_count, 0),
+        [pendingCompletionSites],
+    );
     const setPendingCount = useCompletionStore((s) => s.setPendingCount);
     const completionDialogOpen = useCompletionStore((s) => s.dialogOpen);
     const setCompletionDialogOpen = useCompletionStore((s) => s.setDialogOpen);
@@ -158,5 +162,3 @@ export function SiteChannelSection({
         </>
     );
 }
-
-export { SiteChannelCompletionAction, useCompletionStateSync } from './completion';

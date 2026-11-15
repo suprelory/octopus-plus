@@ -31,22 +31,14 @@ var ErrDownstreamWrite = errors.New("downstream write failed")
 
 // StreamSource abstracts different event sources (SSE, WebSocket, raw bytes).
 type StreamSource interface {
-	// ReadEvent blocks until the next event is available or returns an error.
-	// Returns io.EOF when the stream ends normally.
-	ReadEvent(ctx context.Context) ([]byte, error)
+	SourceEventSource
 
 	// Close releases resources. Must be idempotent.
 	Close() error
 }
 
-// StreamTransform converts raw event data to the client's expected format.
-// Returns nil/empty slice to skip writing (e.g., keep-alive events).
-// For passthrough, set to nil in StreamConfig.
-type StreamTransform func(ctx context.Context, data []byte) ([]byte, error)
-
-// StreamEventTransform is the preferred transform contract. It receives the
-// source envelope so protocol adapters can use event type and provenance
-// without reconstructing them from payload JSON.
+// StreamEventTransform receives the source envelope so protocol adapters can use
+// event type and provenance without reconstructing them from payload JSON.
 type StreamEventTransform func(ctx context.Context, event SourceEvent) ([]byte, error)
 
 // StreamObserver receives raw bytes without changing what is forwarded. It is
@@ -72,9 +64,8 @@ type StreamWriter interface {
 type StreamConfig struct {
 	// Core dependencies
 	Source         StreamSource
-	Transform      StreamTransform // nil for passthrough
-	TransformEvent StreamEventTransform
-	Observer       StreamObserver // optional sidecar for passthrough observation
+	TransformEvent StreamEventTransform // nil for passthrough
+	Observer       StreamObserver       // optional sidecar for passthrough observation
 	Writer         StreamWriter
 	Context        context.Context
 
@@ -189,23 +180,12 @@ func (p *StreamProcessor) Run() error {
 		err   error
 	}
 	results := make(chan readResult, 1)
-	sourceEvents, _ := p.config.Source.(SourceEventSource)
-	typedSource, _ := p.config.Source.(TypedStreamSource)
 	var sourceSequence int64
 	safe.Go("stream-processor-read", func() {
 		defer close(readDone)
 		defer close(results)
 		for {
-			var event SourceEvent
-			var err error
-			switch {
-			case sourceEvents != nil:
-				event, err = sourceEvents.ReadSourceEvent(readCtx)
-			case typedSource != nil:
-				event, err = typedSource.ReadEventWithType(readCtx)
-			default:
-				event.Data, err = p.config.Source.ReadEvent(readCtx)
-			}
+			event, err := p.config.Source.ReadSourceEvent(readCtx)
 			if event.Sequence <= sourceSequence {
 				sourceSequence++
 				event.Sequence = sourceSequence
@@ -259,8 +239,8 @@ func (p *StreamProcessor) Run() error {
 			}
 
 			// A typed SSE terminal event may legitimately have an empty data
-			// field. Keep it in the pipeline so TransformEvent (or the legacy
-			// normalizer) can handle the envelope type.
+			// field. Keep it in the pipeline so TransformEvent can handle the
+			// envelope type.
 			if len(r.event.Data) == 0 && r.event.Type == "" {
 				continue
 			}
@@ -311,18 +291,6 @@ func (p *StreamProcessor) processEvent(event SourceEvent) error {
 		}
 		if len(output) == 0 {
 			return nil
-		}
-	} else if p.config.Transform != nil {
-		data := event.Data
-		if event.Type != "" {
-			data = NormalizeEventData(event.Type, data)
-		}
-		output, err = p.config.Transform(p.config.Context, data)
-		if err != nil {
-			return fmt.Errorf("transform error: %w", err)
-		}
-		if len(output) == 0 {
-			return nil // Skip empty output
 		}
 	} else {
 		output = event.Data // Passthrough

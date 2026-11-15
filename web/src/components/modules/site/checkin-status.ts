@@ -6,7 +6,6 @@ import {
 } from "./checkin-summary";
 import { siteAccountHasActiveSyncFailure } from "./sync-health";
 
-export { createEmptyCheckinSummary } from "./checkin-summary";
 export type { CheckinSummary } from "./checkin-summary";
 
 export type CheckinFilterStatus =
@@ -47,7 +46,7 @@ export function accountHasCheckinEnabled(
   return siteHasCheckinEnabled(site) && account.auto_checkin;
 }
 
-export function accountIsDisabled(
+function accountIsDisabled(
   site: Pick<Site, "enabled">,
   account: Pick<SiteAccount, "enabled">,
 ) {

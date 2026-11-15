@@ -47,7 +47,7 @@ func TestTaskIntervalsApplyOnSettingWritesAndRestore(t *testing.T) {
 	if _, err := op.DBImportIncremental(context.Background(), &dump); err != nil {
 		t.Fatal(err)
 	}
-	if err := op.RefreshCacheAfterImport(false); err != nil {
+	if err := op.RefreshCacheAfterImport(); err != nil {
 		t.Fatal(err)
 	}
 	for _, spec := range intervalTasks() {
@@ -58,7 +58,7 @@ func TestTaskIntervalsApplyOnSettingWritesAndRestore(t *testing.T) {
 	if _, err := op.DBImportIncremental(context.Background(), &dump); err != nil {
 		t.Fatal(err)
 	}
-	if err := op.RefreshCacheAfterImport(false); err == nil {
+	if err := op.RefreshCacheAfterImport(); err == nil {
 		t.Fatal("invalid imported schedule was reported as successfully applied")
 	}
 	assertInterval(intervalTask{name: TaskStatsSave, unit: time.Minute}, 0)

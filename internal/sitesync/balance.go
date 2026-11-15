@@ -251,10 +251,6 @@ func supportsTodayIncomeLogFallback(platform model.SitePlatform) bool {
 	}
 }
 
-func fetchTodayIncomeFromLogs(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string, userID int) (float64, bool) {
-	return fetchTodayIncomeFromLogsWithQuota(ctx, siteRecord, account, accessToken, userID, siteBalanceQuotaPerUSD)
-}
-
 func fetchTodayIncomeFromLogsWithQuota(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string, userID int, quotaPerUnit float64) (float64, bool) {
 	if strings.TrimSpace(accessToken) == "" {
 		return 0, false

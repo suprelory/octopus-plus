@@ -15,9 +15,8 @@ func InitCache() error {
 
 // DBImportIncremental publishes restored statistics atomically with its commit.
 // This follow-up only refreshes configuration: reloading stats here could erase
-// requests that settled after the import returned. includeStats is retained for
-// compatibility with callers of the former two-step restore API.
-func RefreshCacheAfterImport(includeStats bool) error {
+// requests that settled after the import returned.
+func RefreshCacheAfterImport() error {
 	refreshErr := refreshCache(false)
 	return errors.Join(refreshErr, ApplyRuntimeSettings())
 }

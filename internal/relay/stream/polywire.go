@@ -10,7 +10,6 @@ import (
 // downstream commitment, retries, timeouts and heartbeat policy.
 type SourceEvent = streamio.SourceEvent
 type SourceEventSource = streamio.SourceEventSource
-type TypedStreamSource = streamio.TypedStreamSource
 type SSESource = streamio.SSESource
 type SSEDecoder = streamio.SSEDecoder
 type SSEEventObserver = streamio.SSEEventObserver
@@ -37,8 +36,4 @@ func NewIncrementalSSEObserver(maxEventSize int, terminal map[string]struct{}, o
 
 func NewIncrementalSourceEventObserver(maxEventSize int, terminal map[string]struct{}, observe SourceEventObserver) *IncrementalSSEObserver {
 	return streamio.NewIncrementalSourceEventObserver(maxEventSize, terminal, observe)
-}
-
-func NormalizeEventData(eventType string, data []byte) []byte {
-	return streamio.NormalizeEventData(eventType, data)
 }

@@ -52,13 +52,13 @@ func newMockStreamSource(events [][]byte) *mockStreamSource {
 	return &mockStreamSource{events: events}
 }
 
-func (m *mockStreamSource) ReadEvent(ctx context.Context) ([]byte, error) {
+func (m *mockStreamSource) ReadSourceEvent(ctx context.Context) (SourceEvent, error) {
 	if m.index >= len(m.events) {
-		return nil, io.EOF
+		return SourceEvent{}, io.EOF
 	}
 	data := m.events[m.index]
 	m.index++
-	return data, nil
+	return SourceEvent{Data: data}, nil
 }
 
 func (m *mockStreamSource) Close() error {
@@ -110,16 +110,16 @@ func TestStreamProcessor_WithTransform(t *testing.T) {
 	writer := newMockStreamWriter()
 	ctx := context.Background()
 
-	transform := func(ctx context.Context, data []byte) ([]byte, error) {
+	transform := func(ctx context.Context, event SourceEvent) ([]byte, error) {
 		// Wrap in SSE format
-		return []byte("data: " + string(data) + "\n\n"), nil
+		return []byte("data: " + string(event.Data) + "\n\n"), nil
 	}
 
 	processor := NewStreamProcessor(StreamConfig{
-		Source:    source,
-		Writer:    writer,
-		Context:   ctx,
-		Transform: transform,
+		Source:         source,
+		Writer:         writer,
+		Context:        ctx,
+		TransformEvent: transform,
 	})
 
 	err := processor.Run()
@@ -196,8 +196,8 @@ func TestStreamProcessor_PrecommitWaitsForMeaningfulPayload(t *testing.T) {
 		Source:  newMockStreamSource(events),
 		Writer:  writer,
 		Context: context.Background(),
-		Transform: func(_ context.Context, data []byte) ([]byte, error) {
-			return append(append([]byte("data: "), data...), []byte("\n\n")...), nil
+		TransformEvent: func(_ context.Context, event SourceEvent) ([]byte, error) {
+			return append(append([]byte("data: "), event.Data...), []byte("\n\n")...), nil
 		},
 		PrecommitPredicate: isMeaningfulPayload,
 		OnFirstToken:       func() { firstTokenCalls++ },
@@ -220,8 +220,8 @@ func TestStreamProcessor_PrecommitRejectsMetadataOnlyStream(t *testing.T) {
 		Source:  newMockStreamSource([][]byte{[]byte(`{"type":"response.created"}`), []byte(`{"type":"response.completed"}`)}),
 		Writer:  writer,
 		Context: context.Background(),
-		Transform: func(_ context.Context, data []byte) ([]byte, error) {
-			return append(append([]byte("data: "), data...), []byte("\n\n")...), nil
+		TransformEvent: func(_ context.Context, event SourceEvent) ([]byte, error) {
+			return append(append([]byte("data: "), event.Data...), []byte("\n\n")...), nil
 		},
 		PrecommitPredicate: isMeaningfulPayload,
 	})
@@ -241,8 +241,8 @@ func TestStreamProcessor_PrecommitLimitFailsWithoutWriting(t *testing.T) {
 		Source:  newMockStreamSource([][]byte{[]byte(`{"type":"response.created"}`), []byte(`{"type":"response.in_progress"}`)}),
 		Writer:  writer,
 		Context: context.Background(),
-		Transform: func(_ context.Context, data []byte) ([]byte, error) {
-			return append(append([]byte("data: "), data...), []byte("\n\n")...), nil
+		TransformEvent: func(_ context.Context, event SourceEvent) ([]byte, error) {
+			return append(append([]byte("data: "), event.Data...), []byte("\n\n")...), nil
 		},
 		PrecommitPredicate: func(_, _ []byte) bool { return false },
 		PrecommitMaxEvents: 2,
@@ -266,8 +266,8 @@ func TestStreamProcessor_AllowEmptyPayloadFlushesMetadataOnlyStream(t *testing.T
 		Source:  newMockStreamSource([][]byte{[]byte(`{"type":"response.created"}`), []byte(`{"type":"response.completed"}`)}),
 		Writer:  writer,
 		Context: context.Background(),
-		Transform: func(_ context.Context, data []byte) ([]byte, error) {
-			return append(append([]byte("data: "), data...), []byte("\n\n")...), nil
+		TransformEvent: func(_ context.Context, event SourceEvent) ([]byte, error) {
+			return append(append([]byte("data: "), event.Data...), []byte("\n\n")...), nil
 		},
 		PrecommitPredicate: isMeaningfulPayload,
 		AllowEmptyPayload:  true,
@@ -290,8 +290,8 @@ func TestStreamProcessor_AllowEmptyPayloadCommitsAtPrecommitLimit(t *testing.T) 
 		Source:  newMockStreamSource([][]byte{[]byte(`{"type":"response.created"}`), []byte(`{"type":"response.in_progress"}`)}),
 		Writer:  writer,
 		Context: context.Background(),
-		Transform: func(_ context.Context, data []byte) ([]byte, error) {
-			return append(append([]byte("data: "), data...), []byte("\n\n")...), nil
+		TransformEvent: func(_ context.Context, event SourceEvent) ([]byte, error) {
+			return append(append([]byte("data: "), event.Data...), []byte("\n\n")...), nil
 		},
 		PrecommitPredicate: func(_, _ []byte) bool { return false },
 		PrecommitMaxEvents: 2,
@@ -314,7 +314,7 @@ func TestStreamProcessor_AllowEmptyPayloadStillRejectsSilentStream(t *testing.T)
 		Source:             newMockStreamSource(nil),
 		Writer:             writer,
 		Context:            context.Background(),
-		Transform:          func(context.Context, []byte) ([]byte, error) { return nil, nil },
+		TransformEvent:     func(context.Context, SourceEvent) ([]byte, error) { return nil, nil },
 		PrecommitPredicate: isMeaningfulPayload,
 		AllowEmptyPayload:  true,
 	})
@@ -366,13 +366,13 @@ type cancelTestSource struct {
 	closed bool
 }
 
-func (s *cancelTestSource) ReadEvent(ctx context.Context) ([]byte, error) {
+func (s *cancelTestSource) ReadSourceEvent(ctx context.Context) (SourceEvent, error) {
 	if !s.sent {
 		s.sent = true
-		return s.first, nil
+		return SourceEvent{Data: s.first}, nil
 	}
 	<-ctx.Done()
-	return nil, ctx.Err()
+	return SourceEvent{}, ctx.Err()
 }
 
 func (s *cancelTestSource) Close() error {
@@ -440,14 +440,14 @@ func TestStreamProcessor_FirstTokenTimeout(t *testing.T) {
 	}
 }
 
-// blockingStreamSource blocks forever in ReadEvent.
+// blockingStreamSource blocks forever in ReadSourceEvent.
 type blockingStreamSource struct {
 	closed bool
 }
 
-func (s *blockingStreamSource) ReadEvent(ctx context.Context) ([]byte, error) {
+func (s *blockingStreamSource) ReadSourceEvent(ctx context.Context) (SourceEvent, error) {
 	<-ctx.Done()
-	return nil, ctx.Err()
+	return SourceEvent{}, ctx.Err()
 }
 
 func (s *blockingStreamSource) Close() error {
@@ -525,15 +525,15 @@ func TestRawSource(t *testing.T) {
 
 	var chunks [][]byte
 	for {
-		chunk, err := source.ReadEvent(context.Background())
+		event, err := source.ReadSourceEvent(context.Background())
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(chunk) > 0 {
-			chunks = append(chunks, chunk)
+		if len(event.Data) > 0 {
+			chunks = append(chunks, event.Data)
 		}
 	}
 
@@ -560,14 +560,14 @@ data: event3
 	var events []string
 
 	for {
-		data, err := source.ReadEvent(context.Background())
+		event, err := source.ReadSourceEvent(context.Background())
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		events = append(events, string(data))
+		events = append(events, string(event.Data))
 	}
 
 	if len(events) != len(expected) {

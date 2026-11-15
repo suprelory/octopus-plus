@@ -12,15 +12,15 @@ type heartbeatFragmentSource struct {
 	fragments chan []byte
 }
 
-func (s *heartbeatFragmentSource) ReadEvent(ctx context.Context) ([]byte, error) {
+func (s *heartbeatFragmentSource) ReadSourceEvent(ctx context.Context) (SourceEvent, error) {
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return SourceEvent{}, ctx.Err()
 	case data, ok := <-s.fragments:
 		if !ok {
-			return nil, io.EOF
+			return SourceEvent{}, io.EOF
 		}
-		return data, nil
+		return SourceEvent{Data: data}, nil
 	}
 }
 

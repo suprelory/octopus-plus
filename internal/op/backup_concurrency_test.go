@@ -71,7 +71,7 @@ func TestRestorePublishesStatsBeforeReturning(t *testing.T) {
 	if err := StatsRecordRequest(ctx, key.ID, channel.ID, model.StatsMetrics{InputCost: 1}, true, nil, ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := RefreshCacheAfterImport(true); err != nil {
+	if err := RefreshCacheAfterImport(); err != nil {
 		t.Fatal(err)
 	}
 	assertRestoredCost(t, channel.ID, key.ID, 101)
@@ -151,7 +151,7 @@ func TestConfigurationOnlyRestorePreservesPendingStatsAndKeyRuntime(t *testing.T
 	if _, err := DBImportIncremental(ctx, dump); err != nil {
 		t.Fatal(err)
 	}
-	if err := RefreshCacheAfterImport(false); err != nil {
+	if err := RefreshCacheAfterImport(); err != nil {
 		t.Fatal(err)
 	}
 	assertRestoredCost(t, channel.ID, key.ID, 4)

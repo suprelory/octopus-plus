@@ -2,8 +2,6 @@ package relay
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/suprelory/octopus-plus/internal/conf"
@@ -11,7 +9,6 @@ import (
 	"github.com/suprelory/octopus-plus/internal/op"
 	"github.com/suprelory/octopus-plus/internal/price"
 	"github.com/suprelory/octopus-plus/internal/relay/balancer"
-	"github.com/suprelory/octopus-plus/internal/relay/bodycache"
 	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
@@ -34,9 +31,6 @@ type imagesRelayMetrics struct {
 	FirstToken     time.Time
 
 	Stats model.StatsMetrics
-
-	RequestContent  string
-	ResponseContent string
 }
 
 func newImagesRelayMetrics(apiKeyID int, requestModel, clientIP string) *imagesRelayMetrics {
@@ -135,8 +129,6 @@ func (m *imagesRelayMetrics) saveLog(ctx context.Context, success bool, err erro
 		UseTime:          int(duration.Milliseconds()),
 		Attempts:         attempts,
 		TotalAttempts:    len(attempts),
-		RequestContent:   m.RequestContent,
-		ResponseContent:  m.ResponseContent,
 	}
 
 	if apiKey, getErr := op.APIKeyGet(m.APIKeyID, ctx); getErr == nil {
@@ -163,53 +155,4 @@ func (m *imagesRelayMetrics) saveLog(ctx context.Context, success bool, err erro
 	if logErr := op.RelayLogAdd(relayLog); logErr != nil {
 		log.Warnf("failed to save relay log: %v", logErr)
 	}
-}
-
-func buildImagesRequestContentForLog(isMultipart bool, bc *bodycache.BodyCache, jsonPayload map[string]any) string {
-	if isMultipart {
-		// multipart 可能包含图片文件，避免落库
-		return fmt.Sprintf(`{"content_type":"multipart/form-data","size_bytes":%d,"note":"multipart request content omitted for storage"}`, bc.Size())
-	}
-	if jsonPayload == nil {
-		return ""
-	}
-	b, err := json.Marshal(jsonPayload)
-	if err != nil {
-		return ""
-	}
-	return truncateString(string(b), 8*1024)
-}
-
-func buildImagesResponseContentForLog(stream bool, upstreamCT string, usage *imagesUsage) string {
-	if usage == nil {
-		return ""
-	}
-	// 不记录 b64_json，仅记录 usage
-	type respForLog struct {
-		Stream      bool         `json:"stream"`
-		ContentType string       `json:"content_type,omitempty"`
-		Usage       *imagesUsage `json:"usage,omitempty"`
-		Note        string       `json:"note,omitempty"`
-	}
-	obj := respForLog{
-		Stream:      stream,
-		ContentType: upstreamCT,
-		Usage:       usage,
-		Note:        "image data omitted for storage",
-	}
-	b, err := json.Marshal(obj)
-	if err != nil {
-		return ""
-	}
-	return string(b)
-}
-
-func truncateString(s string, max int) string {
-	if max <= 0 {
-		return ""
-	}
-	if len(s) <= max {
-		return s
-	}
-	return s[:max] + "...(truncated)"
 }

@@ -28,15 +28,6 @@ func NewRawSource(reader io.ReadCloser, bufSize int) *RawSource {
 	}
 }
 
-// ReadEvent reads the next chunk of raw bytes.
-func (s *RawSource) ReadEvent(ctx context.Context) ([]byte, error) {
-	event, err := s.ReadSourceEvent(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return event.Data, nil
-}
-
 // ReadSourceEvent returns raw chunks with a stable source identity and sequence
 // number. Raw chunks intentionally have no event type.
 func (s *RawSource) ReadSourceEvent(ctx context.Context) (SourceEvent, error) {
@@ -52,11 +43,8 @@ func (s *RawSource) ReadSourceEvent(ctx context.Context) (SourceEvent, error) {
 	n, err := s.reader.Read(buf)
 	if n > 0 {
 		s.pendingErr = err
-		// Return a copy to avoid buffer reuse issues
-		chunk := make([]byte, n)
-		copy(chunk, buf[:n])
 		s.sequence++
-		return SourceEvent{Data: chunk, Sequence: s.sequence, Transport: SourceTransportRaw}, nil
+		return SourceEvent{Data: buf[:n], Sequence: s.sequence, Transport: SourceTransportRaw}, nil
 	}
 	if err != nil {
 		return SourceEvent{}, err

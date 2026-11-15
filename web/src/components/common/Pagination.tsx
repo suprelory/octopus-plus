@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
-export const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
+const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
 type PageToken = number | 'ellipsis';
 
@@ -19,7 +19,7 @@ type PageToken = number | 'ellipsis';
  * 生成页码序列：首尾页常驻，中间用省略号收敛，最多渲染 4 个数字按钮。
  * 页数较少时全部平铺，避免出现"1 ... 2"这种反而更长的形态。
  */
-export function getPageNumbers(currentPage: number, totalPages: number): PageToken[] {
+function getPageNumbers(currentPage: number, totalPages: number): PageToken[] {
     const maxVisible = 4;
     if (totalPages <= maxVisible) {
         return Array.from({ length: totalPages }, (_, index) => index + 1);

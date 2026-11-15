@@ -423,20 +423,6 @@ func StatsChannelDel(id int) error {
 	return db.GetDB().Delete(&model.StatsChannel{}, id).Error
 }
 
-func StatsAPIKeyDel(id int) error {
-	apiKeyWriteLock.Lock()
-	defer apiKeyWriteLock.Unlock()
-	statsLifecycleLock.RLock()
-	defer statsLifecycleLock.RUnlock()
-	statsPersistenceLock.Lock()
-	defer statsPersistenceLock.Unlock()
-	if err := db.GetDB().Where("api_key_id = ?", id).Delete(&model.StatsAPIKey{}).Error; err != nil {
-		return err
-	}
-	clearAPIKeyStatsCache(id)
-	return nil
-}
-
 func clearAPIKeyStatsCache(id int) {
 	statsAPIKeyCache.Del(id)
 	statsAPIKeyCacheNeedUpdateLock.Lock()

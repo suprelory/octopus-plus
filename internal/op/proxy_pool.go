@@ -139,14 +139,6 @@ func ProxyConfigurationDelete(id int, ctx context.Context) error {
 	return nil
 }
 
-func ProxyConfigurationReferenceCount(id int, ctx context.Context) (int, error) {
-	counts, err := ProxyConfigurationReferenceCounts(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return counts[id], nil
-}
-
 func ProxyConfigurationReferences(id int, ctx context.Context) ([]model.ProxyConfigurationReference, error) {
 	if _, err := ProxyConfigurationGet(id, ctx); err != nil {
 		return nil, fmt.Errorf("proxy configuration not found")

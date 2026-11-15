@@ -57,52 +57,8 @@ func relayLogCleanup(ctx context.Context) error {
 	}
 
 	cutoffTime := time.Now().Add(-time.Duration(keepPeriod) * 24 * time.Hour).Unix()
-	start := time.Now()
-	deletedRows := int64(0)
-	batchCount := 0
-	dbConn := db.GetDB().WithContext(ctx)
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		var ids []int64
-		if err := dbConn.Model(&model.RelayLog{}).
-			Where("time < ?", cutoffTime).
-			Order("time ASC").
-			Order("id ASC").
-			Limit(relayLogCleanupBatchSize).
-			Pluck("id", &ids).Error; err != nil {
-			return err
-		}
-		if len(ids) == 0 {
-			break
-		}
-		count, err := deleteRelayLogRows(dbConn, ids)
-		if err != nil {
-			return err
-		}
-		deletedRows += count
-		batchCount++
-		if len(ids) < relayLogCleanupBatchSize {
-			break
-		}
-		if relayLogCleanupBatchWait > 0 {
-			timer := time.NewTimer(relayLogCleanupBatchWait)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return ctx.Err()
-			case <-timer.C:
-			}
-		}
-	}
-	if deletedRows > 0 {
-		log.Debugw("relay_log.cleanup", "deleted_rows", deletedRows, "batch_count", batchCount, "duration", time.Since(start).String())
-	}
-	return nil
+	query := db.GetDB().WithContext(ctx).Model(&model.RelayLog{}).Where("time < ?", cutoffTime)
+	return deleteRelayLogBatches(ctx, query, "relay_log.cleanup")
 }
 
 func RelayLogClear(ctx context.Context) error {
@@ -142,6 +98,11 @@ func RelayLogClear(ctx context.Context) error {
 	// 缓存的 total 在删除后立刻失效，否则清空日志后列表还会显示旧总数。
 	defer RelayLogTotalCacheInvalidate()
 
+	query := db.GetDB().WithContext(ctx).Model(&model.RelayLog{}).Where("id <= ?", clearThroughID)
+	return deleteRelayLogBatches(ctx, query, "relay_log.clear")
+}
+
+func deleteRelayLogBatches(ctx context.Context, query *gorm.DB, event string) error {
 	start := time.Now()
 	deletedRows := int64(0)
 	batchCount := 0
@@ -153,8 +114,7 @@ func RelayLogClear(ctx context.Context) error {
 		default:
 		}
 		var ids []int64
-		if err := dbConn.Model(&model.RelayLog{}).
-			Where("id <= ?", clearThroughID).
+		if err := query.Session(&gorm.Session{}).
 			Order("time ASC").
 			Order("id ASC").
 			Limit(relayLogCleanupBatchSize).
@@ -184,7 +144,7 @@ func RelayLogClear(ctx context.Context) error {
 		}
 	}
 	if deletedRows > 0 {
-		log.Debugw("relay_log.clear", "deleted_rows", deletedRows, "batch_count", batchCount, "duration", time.Since(start).String())
+		log.Debugw(event, "deleted_rows", deletedRows, "batch_count", batchCount, "duration", time.Since(start).String())
 	}
 	return nil
 }

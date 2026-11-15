@@ -88,7 +88,7 @@ func TestAPIKeyCostReservationSurvivesRefreshAndLimitChanges(t *testing.T) {
 	if err := APIKeyUpdate(&key, ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := RefreshCacheAfterImport(false); err != nil {
+	if err := RefreshCacheAfterImport(); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := APIKeyReserveCost(key.ID); !errors.Is(err, ErrAPIKeyCostInFlight) {

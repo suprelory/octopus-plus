@@ -5,7 +5,6 @@ import { useTranslations } from 'next-intl';
 import { motion } from 'motion/react';
 import { useChannelList } from '@/api/endpoints/channel';
 import { useSiteChannelList } from '@/api/endpoints/site-channel';
-import { SiteChannelCompletionAction } from '@/components/modules/site-channel/completion';
 import { cn } from '@/lib/utils';
 import { useChannelTabStore, type ChannelTab } from './tab-store';
 
@@ -67,10 +66,4 @@ export function ChannelTabSwitcher({ className }: Props) {
             })}
         </div>
     );
-}
-
-export function ChannelHeaderActions() {
-    const activeTab = useChannelTabStore((s) => s.activeTab);
-    if (activeTab !== 'site') return null;
-    return <SiteChannelCompletionAction />;
 }

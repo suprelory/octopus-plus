@@ -180,9 +180,8 @@ type PassthroughConfig struct {
 	// for OpenAI Responses), the relay can treat client disconnection as success rather than failure.
 	TerminalEvents map[string]struct{}
 
-	// CollectMetrics defines whether to call collectResponse() after passthrough stream ends.
-	// Set to true for protocols that require full response aggregation for cost/token tracking
-	// (Anthropic), false for protocols with different metrics semantics (OpenAI Responses).
+	// Deprecated: relay collects metrics through canonical stream events for all
+	// protocols. Retained for callers of earlier versions.
 	CollectMetrics bool
 }
 
