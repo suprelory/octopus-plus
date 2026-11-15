@@ -18,6 +18,9 @@ var (
 	ErrCheckinCredentialConflict = errors.New("checkin credential version conflict")
 	ErrCheckinCredentialInUse    = errors.New("checkin credential is still referenced")
 	ErrCheckinRefreshLease       = errors.New("checkin credential refresh lease is unavailable")
+	ErrCheckinSiteArchived       = errors.New("checkin site is archived")
+	ErrCheckinSiteInUse          = errors.New("checkin site still has accounts")
+	ErrCheckinWorkflowPending    = errors.New("checkin account has an unfinished submitted workflow")
 )
 
 // CheckinStore has an explicit connection so schema migration and tests can use
@@ -31,6 +34,7 @@ func NewCheckinStore(conn *gorm.DB) *CheckinStore {
 
 func (s *CheckinStore) CreateSite(ctx context.Context, site model.CheckinSite) (*model.CheckinSite, error) {
 	site.ID = 0
+	site.Archived, site.ArchivedAt = false, nil
 	site.VerificationFingerprint, site.VerificationStatus, site.VerifiedAt = "", model.SiteCheckinSupportUnknown, nil
 	if err := site.Validate(); err != nil {
 		return nil, err
@@ -64,16 +68,20 @@ func (s *CheckinStore) CreateCredential(ctx context.Context, credential model.Ch
 }
 
 func createCheckinCredential(tx *gorm.DB, credential *model.CheckinCredential) error {
-	credential.ID = 0
-	credential.CredentialVersion, credential.IdentityRevision = 0, 0
-	credential.TokenRefreshLease, credential.TokenRefreshLeaseUntil, credential.TokenRefreshedAt = "", 0, 0
-	if err := credential.Validate(); err != nil {
+	if err := prepareCheckinCredential(credential); err != nil {
 		return err
 	}
 	if err := validateCheckinProxy(tx, credential.CheckinNetwork); err != nil {
 		return err
 	}
 	return tx.Create(credential).Error
+}
+
+func prepareCheckinCredential(credential *model.CheckinCredential) error {
+	credential.ID = 0
+	credential.CredentialVersion, credential.IdentityRevision = 0, 0
+	credential.TokenRefreshLease, credential.TokenRefreshLeaseUntil, credential.TokenRefreshedAt = "", 0, 0
+	return credential.Validate()
 }
 
 func (s *CheckinStore) GetCredential(ctx context.Context, id int) (*model.CheckinCredential, error) {
@@ -90,19 +98,32 @@ func (s *CheckinStore) ListCredentials(ctx context.Context) ([]model.CheckinCred
 	return credentials, err
 }
 
-// EditCredential accepts a complete candidate assembled by the API from an
-// explicit field patch. The caller's observed version is mandatory; runtime
-// coordination fields always come from storage, never from the candidate.
+// EditCredential accepts a complete internal candidate. API editors should use
+// PatchCredential so omitted secrets are merged from storage inside the lock.
 func (s *CheckinStore) EditCredential(ctx context.Context, candidate model.CheckinCredential, expectedVersion int64) (*model.CheckinCredential, error) {
+	return s.editCredential(ctx, candidate.ID, expectedVersion, func(current *model.CheckinCredential) { *current = candidate })
+}
+
+func (s *CheckinStore) PatchCredential(ctx context.Context, id int, patch model.CheckinCredentialPatch) (*model.CheckinCredential, error) {
+	if !patch.ExpectedVersion.Present || patch.ExpectedVersion.Value < 0 {
+		return nil, errors.New("expected credential version is required")
+	}
+	return s.editCredential(ctx, id, patch.ExpectedVersion.Value, patch.Apply)
+}
+
+func (s *CheckinStore) editCredential(ctx context.Context, id int, expectedVersion int64, apply func(*model.CheckinCredential)) (*model.CheckinCredential, error) {
 	var result model.CheckinCredential
 	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var current model.CheckinCredential
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, candidate.ID).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, id).Error; err != nil {
 			return err
 		}
 		if expectedVersion < 0 || current.CredentialVersion != expectedVersion {
 			return ErrCheckinCredentialConflict
 		}
+		candidate := current
+		apply(&candidate)
+		candidate.ID = current.ID
 		candidate.CredentialVersion = current.CredentialVersion
 		candidate.IdentityRevision = current.IdentityRevision
 		candidate.TokenRefreshedAt = current.TokenRefreshedAt
@@ -219,9 +240,17 @@ func (s *CheckinStore) CreateAccount(ctx context.Context, account model.CheckinA
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&site, account.SiteID).Error; err != nil {
 			return err
 		}
+		if site.Archived {
+			return ErrCheckinSiteArchived
+		}
 		if inline != nil {
 			credential := *inline
-			if err := createCheckinCredential(tx, &credential); err != nil {
+			if err := prepareCheckinCredential(&credential); err != nil {
+				return err
+			}
+			// Defer proxy locks until all referenced credentials are locked below.
+			// A missing/deleted proxy then rolls back the entire inline creation.
+			if err := tx.Create(&credential).Error; err != nil {
 				return err
 			}
 			account.CredentialID = credential.ID
@@ -229,7 +258,7 @@ func (s *CheckinStore) CreateAccount(ctx context.Context, account model.CheckinA
 		if err := account.Validate(); err != nil {
 			return err
 		}
-		if err := validateCheckinAccountReferences(tx, site, account); err != nil {
+		if err := validateCheckinAccounts(tx, site, []model.CheckinAccount{account}); err != nil {
 			return err
 		}
 		return tx.Create(&account).Error
@@ -248,23 +277,21 @@ func (s *CheckinStore) GetAccount(ctx context.Context, id int) (*model.CheckinAc
 	return &account, nil
 }
 
-// DeleteAccount preserves logs and shared credentials. Orphaned credentials are
-// deleted explicitly, so an independent refresh operation cannot lose its owner.
-func (s *CheckinStore) DeleteAccount(ctx context.Context, id int) error {
-	result := s.conn.WithContext(ctx).Delete(&model.CheckinAccount{}, id)
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
-}
-
-func validateCheckinAccountReferences(tx *gorm.DB, site model.CheckinSite, account model.CheckinAccount) error {
-	ids := []int{account.CredentialID}
-	if account.BalanceConfig.Mode == model.CheckinBalanceCustom {
-		ids = append(ids, *account.BalanceConfig.CredentialID)
+// All configuration writes use site -> account -> sorted credentials -> sorted
+// proxies. Credential edits only read dependents, so they never lock backwards.
+func validateCheckinAccounts(tx *gorm.DB, site model.CheckinSite, accounts []model.CheckinAccount) error {
+	var ids []int
+	networks := []model.CheckinNetwork{site.CheckinNetwork}
+	for _, account := range accounts {
+		ids = append(ids, account.CredentialID)
+		networks = append(networks, account.CheckinNetwork)
+		if account.BalanceConfig.Mode == model.CheckinBalanceCustom {
+			if account.BalanceConfig.CredentialID == nil {
+				return errors.New("balance credential ID is required")
+			}
+			ids = append(ids, *account.BalanceConfig.CredentialID)
+			networks = append(networks, account.BalanceConfig.CheckinNetwork)
+		}
 	}
 	slices.Sort(ids)
 	credentials := make(map[int]model.CheckinCredential)
@@ -274,18 +301,22 @@ func validateCheckinAccountReferences(tx *gorm.DB, site model.CheckinSite, accou
 			return err
 		}
 		credentials[id] = credential
+		networks = append(networks, credential.CheckinNetwork)
 	}
+	for _, account := range accounts {
+		if err := validateCheckinAccountIdentity(site, account, credentials); err != nil {
+			return err
+		}
+	}
+	return validateCheckinProxies(tx, networks...)
+}
+
+func validateCheckinAccountIdentity(site model.CheckinSite, account model.CheckinAccount, credentials map[int]model.CheckinCredential) error {
 	if err := model.ValidateCheckinIdentity(site, account, credentials[account.CredentialID]); err != nil {
-		return err
-	}
-	if err := validateCheckinProxy(tx, account.CheckinNetwork); err != nil {
 		return err
 	}
 	if account.BalanceConfig.Mode == model.CheckinBalanceCustom {
 		if err := validateCheckinBalanceCredential(account.BalanceConfig, credentials[*account.BalanceConfig.CredentialID]); err != nil {
-			return err
-		}
-		if err := validateCheckinProxy(tx, account.BalanceConfig.CheckinNetwork); err != nil {
 			return err
 		}
 	} else if account.BalanceConfig.Mode == model.CheckinBalancePrimary {
@@ -344,18 +375,29 @@ func validateCheckinBalanceCredential(config model.CheckinBalanceConfig, credent
 }
 
 func validateCheckinProxy(tx *gorm.DB, network model.CheckinNetwork) error {
-	if network.ProxyMode != model.ProxyUsageModePool {
-		return nil
+	return validateCheckinProxies(tx, network)
+}
+
+func validateCheckinProxies(tx *gorm.DB, networks ...model.CheckinNetwork) error {
+	var ids []int
+	for _, network := range networks {
+		if network.ProxyMode != model.ProxyUsageModePool {
+			continue
+		}
+		if network.ProxyConfigID == nil || *network.ProxyConfigID <= 0 {
+			return errors.New("checkin proxy ID is required")
+		}
+		ids = append(ids, *network.ProxyConfigID)
 	}
-	if network.ProxyConfigID == nil {
-		return errors.New("checkin proxy ID is required")
-	}
-	var proxy model.ProxyConfiguration
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&proxy, *network.ProxyConfigID).Error; err != nil {
-		return fmt.Errorf("load checkin proxy: %w", err)
-	}
-	if !proxy.Enabled {
-		return errors.New("checkin proxy is disabled")
+	slices.Sort(ids)
+	for _, id := range slices.Compact(ids) {
+		var proxy model.ProxyConfiguration
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&proxy, id).Error; err != nil {
+			return fmt.Errorf("load checkin proxy: %w", err)
+		}
+		if !proxy.Enabled {
+			return errors.New("checkin proxy is disabled")
+		}
 	}
 	return nil
 }

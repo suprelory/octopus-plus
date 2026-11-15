@@ -131,6 +131,13 @@ func ProxyConfigurationDelete(id int, ctx context.Context) error {
 				return fmt.Errorf("proxy configuration is still referenced")
 			}
 		}
+		checkinRefs, err := checkinProxyReferences(tx)
+		if err != nil {
+			return err
+		}
+		if len(checkinRefs[id]) > 0 {
+			return fmt.Errorf("proxy configuration is still referenced by checkin")
+		}
 		return tx.Delete(&item).Error
 	}); err != nil {
 		return err
@@ -223,7 +230,11 @@ func ProxyConfigurationReferences(id int, ctx context.Context) ([]model.ProxyCon
 		refs = append(refs, ref)
 	}
 
-	return refs, nil
+	checkinRefs, err := checkinProxyReferences(db.GetDB().WithContext(ctx))
+	if err != nil {
+		return nil, err
+	}
+	return append(refs, checkinRefs[id]...), nil
 }
 
 func ProxyConfigurationReferenceCounts(ctx context.Context) (map[int]int, error) {
@@ -236,6 +247,13 @@ func ProxyConfigurationReferenceCounts(ctx context.Context) (map[int]int, error)
 	}
 	if err := countManualChannelProxyReferences(ctx, counts); err != nil {
 		return nil, err
+	}
+	checkinRefs, err := checkinProxyReferences(db.GetDB().WithContext(ctx))
+	if err != nil {
+		return nil, err
+	}
+	for id, refs := range checkinRefs {
+		counts[id] += len(refs)
 	}
 	return counts, nil
 }

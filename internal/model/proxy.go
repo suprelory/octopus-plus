@@ -51,23 +51,34 @@ type ProxyTestResult struct {
 type ProxyConfigurationReferenceType string
 
 const (
-	ProxyConfigurationReferenceTypeSite           ProxyConfigurationReferenceType = "site"
-	ProxyConfigurationReferenceTypeSiteAccount    ProxyConfigurationReferenceType = "site_account"
-	ProxyConfigurationReferenceTypeChannel        ProxyConfigurationReferenceType = "channel"
-	ProxyConfigurationReferenceTypeManagedChannel ProxyConfigurationReferenceType = "managed_channel"
+	ProxyConfigurationReferenceTypeSite              ProxyConfigurationReferenceType = "site"
+	ProxyConfigurationReferenceTypeSiteAccount       ProxyConfigurationReferenceType = "site_account"
+	ProxyConfigurationReferenceTypeChannel           ProxyConfigurationReferenceType = "channel"
+	ProxyConfigurationReferenceTypeManagedChannel    ProxyConfigurationReferenceType = "managed_channel"
+	ProxyConfigurationReferenceTypeCheckinSite       ProxyConfigurationReferenceType = "checkin_site"
+	ProxyConfigurationReferenceTypeCheckinAccount    ProxyConfigurationReferenceType = "checkin_account"
+	ProxyConfigurationReferenceTypeCheckinCredential ProxyConfigurationReferenceType = "checkin_credential"
+	ProxyConfigurationReferenceTypeCheckinBalance    ProxyConfigurationReferenceType = "checkin_balance"
 )
 
 type ProxyConfigurationReference struct {
-	Type            ProxyConfigurationReferenceType `json:"type"`
-	SiteID          int                             `json:"site_id,omitempty"`
-	SiteName        string                          `json:"site_name,omitempty"`
-	SiteArchived    bool                            `json:"site_archived,omitempty"`
-	SiteAccountID   int                             `json:"site_account_id,omitempty"`
-	SiteAccountName string                          `json:"site_account_name,omitempty"`
-	ChannelID       int                             `json:"channel_id,omitempty"`
-	ChannelName     string                          `json:"channel_name,omitempty"`
-	Managed         bool                            `json:"managed,omitempty"`
-	ManagedSource   *ManagedChannelSource           `json:"managed_source,omitempty"`
+	Type                  ProxyConfigurationReferenceType `json:"type"`
+	SiteID                int                             `json:"site_id,omitempty"`
+	SiteName              string                          `json:"site_name,omitempty"`
+	SiteArchived          bool                            `json:"site_archived,omitempty"`
+	SiteAccountID         int                             `json:"site_account_id,omitempty"`
+	SiteAccountName       string                          `json:"site_account_name,omitempty"`
+	ChannelID             int                             `json:"channel_id,omitempty"`
+	ChannelName           string                          `json:"channel_name,omitempty"`
+	Managed               bool                            `json:"managed,omitempty"`
+	ManagedSource         *ManagedChannelSource           `json:"managed_source,omitempty"`
+	CheckinSiteID         int                             `json:"checkin_site_id,omitempty"`
+	CheckinSiteName       string                          `json:"checkin_site_name,omitempty"`
+	CheckinSiteArchived   bool                            `json:"checkin_site_archived,omitempty"`
+	CheckinAccountID      int                             `json:"checkin_account_id,omitempty"`
+	CheckinAccountName    string                          `json:"checkin_account_name,omitempty"`
+	CheckinCredentialID   int                             `json:"checkin_credential_id,omitempty"`
+	CheckinCredentialName string                          `json:"checkin_credential_name,omitempty"`
 }
 
 func (m ProxyUsageMode) Validate(allowInherit bool) error {
