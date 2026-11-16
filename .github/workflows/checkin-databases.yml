@@ -1,0 +1,52 @@
+name: Check-in database integration
+
+on:
+  pull_request:
+    branches: [v2, dev, master]
+  push:
+    branches: [v2]
+
+permissions:
+  contents: read
+
+jobs:
+  sessions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: checkin-test-only
+          MYSQL_DATABASE: checkin_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pcheckin-test-only"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: checkin-test-only
+          POSTGRES_DB: checkin_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d checkin_test"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      GOWORK: 'off'
+      CHECKIN_TEST_MYSQL_DSN: root:checkin-test-only@tcp(127.0.0.1:3306)/checkin_test?parseTime=true
+      CHECKIN_TEST_POSTGRES_DSN: host=127.0.0.1 port=5432 user=postgres password=checkin-test-only dbname=checkin_test sslmode=disable
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Prepare embedded static directory
+        run: mkdir -p static/out && touch static/out/.keep
+      - name: Verify concurrent ownership and reference protection
+        run: go test -race ./internal/op -run '^TestIndependentCheckinDatabases$' -count=1 -v
+      - name: Verify independent session orchestration
+        run: go test -race ./internal/checkin

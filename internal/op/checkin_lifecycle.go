@@ -32,7 +32,7 @@ func (s *CheckinStore) ListAccounts(ctx context.Context, siteID int) ([]model.Ch
 
 func (s *CheckinStore) PatchSite(ctx context.Context, id int, patch model.CheckinSitePatch) (*model.CheckinSite, error) {
 	var result model.CheckinSite
-	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := s.transaction(ctx, func(tx *gorm.DB) error {
 		var current model.CheckinSite
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, id).Error; err != nil {
 			return err
@@ -97,7 +97,7 @@ func (s *CheckinStore) RestoreSite(ctx context.Context, id int) (*model.CheckinS
 
 func (s *CheckinStore) setSiteArchived(ctx context.Context, id int, archived bool) (*model.CheckinSite, error) {
 	var site model.CheckinSite
-	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := s.transaction(ctx, func(tx *gorm.DB) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&site, id).Error; err != nil {
 			return err
 		}
@@ -131,7 +131,7 @@ func (s *CheckinStore) setSiteArchived(ctx context.Context, id int, archived boo
 
 // DeleteSite never cascades to accounts, credentials, channels or historical logs.
 func (s *CheckinStore) DeleteSite(ctx context.Context, id int) error {
-	return s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return s.transaction(ctx, func(tx *gorm.DB) error {
 		var site model.CheckinSite
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&site, id).Error; err != nil {
 			return err
@@ -163,7 +163,7 @@ func lockCheckinAccount(tx *gorm.DB, id int) (model.CheckinSite, model.CheckinAc
 
 func (s *CheckinStore) PatchAccount(ctx context.Context, id int, patch model.CheckinAccountPatch) (*model.CheckinAccount, error) {
 	var result model.CheckinAccount
-	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := s.transaction(ctx, func(tx *gorm.DB) error {
 		site, current, err := lockCheckinAccount(tx, id)
 		if err != nil {
 			return err
@@ -201,7 +201,7 @@ func (s *CheckinStore) PatchAccount(ctx context.Context, id int, patch model.Che
 // A submitted unfinished workflow is retained for confirmation. Completed
 // accounts can be removed without deleting logs or shared credential owners.
 func (s *CheckinStore) DeleteAccount(ctx context.Context, id int) error {
-	return s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return s.transaction(ctx, func(tx *gorm.DB) error {
 		_, account, err := lockCheckinAccount(tx, id)
 		if err != nil {
 			return err

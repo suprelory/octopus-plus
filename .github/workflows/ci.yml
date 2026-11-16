@@ -11,10 +11,12 @@ on:
     branches:
       - dev
       - master
+      - v2
   push:
     branches:
       - dev
       - master
+      - v2
 
 permissions:
   contents: read
@@ -93,7 +95,7 @@ jobs:
 
       - name: Check backend concurrency
         timeout-minutes: 15
-        run: go test -race ./internal/op ./internal/relay/... ./internal/sitesync ./internal/task ./internal/server/... ./internal/webdav
+        run: go test -race ./internal/checkin ./internal/op ./internal/relay/... ./internal/sitesync ./internal/task ./internal/server/... ./internal/webdav
 
       - name: Build backend
         run: go build -tags=jsoniter ./...

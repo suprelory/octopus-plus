@@ -139,7 +139,7 @@ func TestIndependentCheckinSessionOwnershipAndVersions(t *testing.T) {
 		t.Fatal(err)
 	}
 	var wg sync.WaitGroup
-	claims := make(chan *CheckinRefreshClaim, 2)
+	claims := make(chan *CheckinSessionClaim, 2)
 	errorsSeen := make(chan error, 2)
 	for range 2 {
 		wg.Go(func() {
@@ -151,7 +151,7 @@ func TestIndependentCheckinSessionOwnershipAndVersions(t *testing.T) {
 	wg.Wait()
 	close(claims)
 	close(errorsSeen)
-	var claim *CheckinRefreshClaim
+	var claim *CheckinSessionClaim
 	count := 0
 	for candidate := range claims {
 		if candidate != nil {

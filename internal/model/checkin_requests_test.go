@@ -96,3 +96,23 @@ func TestCheckinCredentialSummaryAndBackupBoundary(t *testing.T) {
 		t.Fatal("credential backup lost secrets, versions or configuration")
 	}
 }
+
+func TestCheckinCredentialBackupRetainsUncertainSessionWithoutLease(t *testing.T) {
+	c := CheckinCredential{TokenRefreshStarted: true, TokenRefreshLease: "private-owner", TokenRefreshLeaseUntil: 1, TokenRefreshRetryAt: 123}
+	summary := c.Summary(0, 0)
+	if summary.SessionState != "needs_credentials" {
+		t.Fatal("uncertain session was hidden from configuration summary")
+	}
+	encoded, err := json.Marshal(ExportCheckinCredential(c))
+	if err != nil || strings.Contains(string(encoded), "private-owner") || strings.Contains(string(encoded), "token_refresh_lease") {
+		t.Fatal("backup exposed runtime refresh ownership")
+	}
+	var backup CheckinCredentialBackup
+	if err := json.Unmarshal(encoded, &backup); err != nil {
+		t.Fatal(err)
+	}
+	restored := backup.Credential()
+	if !restored.TokenRefreshStarted || restored.TokenRefreshLease != "" || restored.TokenRefreshLeaseUntil != 0 || restored.TokenRefreshRetryAt != 0 {
+		t.Fatal("backup made an uncertain refresh token reusable or restored runtime ownership")
+	}
+}

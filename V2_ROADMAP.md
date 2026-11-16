@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | P0 分支与路线 | 已完成 | 创建 v2，保存设计、阶段和验收标准 |
 | P1 行为基线与迁移预检 | 已完成 | 已实现离线 JSON/ZIP 配置预检、转换清单、异常分类和样本回归 |
-| P2 新签到数据与会话 | 进行中 | 独立模型、事务 CRUD、字段补丁、凭据摘要/导出 DTO、代理引用及刷新事务已实现；运行时会话编排与跨数据库并发验证待完成 |
+| P2 新签到数据与会话 | 进行中 | 独立 CRUD、凭据与代理保护、会话登录/刷新编排已实现；MySQL/PostgreSQL 实际并发验证待完成 |
 | P3 独立签到执行 | 未开始 | 签到、状态、调度、余额和通知不再依赖订阅实体 |
 | P4 新 API 与前端 | 未开始 | 用户可通过独立签到页面管理全部配置，渠道统一展示 |
 | P5 数据迁移与备份 | 未开始 | 渠道转换、新旧备份、重入及三种数据库迁移验证 |
@@ -71,7 +71,15 @@ flowchart LR
 
 迁移现有 Sub2API 并发合并、数据库刷新租约、Token 成对保存、取消后限时完成保存及保存失败恢复逻辑。不能在多份记录上轮转同一个 Refresh Token。人工编辑与刷新冲突时，保留现有判断会话是否已更换的语义，设置编辑不能丢弃已签发的新令牌。
 
+会话管理器 `internal/checkin.Sessions` 每个服务实例长期复用，按 `credential_id` 合并请求；数据库租约协调不同实例。`Ensure` 获取当前会话，`RecoverRead` 接受被拒绝的会话快照，为一次状态/余额重查获取新会话，不负责重发业务请求。密码凭据的用户名/密码变更会清除旧登录产生的 Token、Cookie 和用户 ID；自动登录与刷新只增加写入版本，不增加身份修订号。
+
+在发送登录/刷新请求前持久化 `token_refresh_started`，不把租约过期当作可以重用 Refresh Token 的证据。请求超时、响应损坏、HTTP 5xx 等结果不明确时，保留标记并要求恢复已收到的结果或更换凭据；明确未消费的失败（发送前代理失败、HTTP 429）写入跨实例退避时间。认证交换单次上限 30 秒，保存总上限 5 秒、最多 3 次并指数退避；调用方取消不撤销共享交换或已签发凭据的保存。保存失败时在当前进程保留新 Token 对，后续仅重试保存；进程退出后没有新 Token 对可恢复，数据库标记阻止重复兑换，需人工获取新的登录凭据。
+
+凭据摘要返回 `session_state: idle | exchanging | cooldown | needs_credentials`，不返回刷新所有者和秘密。会话备份以 `session_needs_repair` 保留结果不明确状态，不导出或恢复租约、锁及退避时间，避免导入后重用可能已消费的 Refresh Token。
+
 AgentRouter 登录本身触发签到，不能在普通凭据测试或余额查询中自动登录。各平台的能力差异由适配器约束，不能把 API Key 一概作为平台签到凭据。
+
+已实现 NewAPI/OneAPI/OneHub/DoneHub 的用户名密码登录、AnyRouter 的 Token/Cookie 登录、Sub2API 的 Access/Refresh Token 轮转，以及已有 Cookie/API Key 的读取。认证使用凭据自己的地址、代理和 Header；认证请求不携带过期 Bearer，不跟随重定向，不自动重发 POST。AnyRouter Cookie 使用独立 cookie jar 校验域、路径、过期状态；挑战处理、后续业务请求中的 Cookie 更新和用户 ID 探测在 P3 提取平台执行适配时接入。AgentRouter 已有会话可供读取；通用会话服务与存储层均拒绝隐式登录，显式登录签到留给 P3 的提交工作流。
 
 ## 地址、代理与认证
 
@@ -213,7 +221,9 @@ go run . migrate v2-preflight --input D:\Backups\octopus-backup.zip > v2-preflig
 | proxy_unavailable / proxy_reference_missing | 不允许静默回退直连，需保留不可用状态或修复引用 |
 | invalid_binding_source / binding_channel_missing | 渠道绑定不完整，不能通过业务删除接口清理 |
 
-P2 的 `PrepareCheckinSchema` 和 `CheckinStore` 是显式调用的开发基础，尚未接入应用启动、公开 API 或备份。开发测试使用独立 SQLite 数据库，不创建订阅表；共享代理兼容测试另用现有测试初始化入口验证新旧引用共存。线上运行时仍使用现有路径；新模型的切换依赖 P3–P5。`CheckinCredentialInput` 仅用于明确提交秘密；普通响应使用 `CheckinCredentialSummary`，备份 DTO `CheckinCredentialBackup` 显式导出秘密且不携带刷新租约，完整 v2 备份导入/导出仍属于 P5。
+P2 的 `PrepareCheckinSchema`、`CheckinStore` 和 `internal/checkin.Sessions` 是显式调用的开发基础，尚未接入应用启动、公开 API 或备份。开发测试使用独立 SQLite 数据库，不创建订阅表；共享代理兼容测试另用现有测试初始化入口验证新旧引用共存。线上运行时仍使用现有路径；新模型的切换依赖 P3–P5。`CheckinCredentialInput` 仅用于明确提交秘密；普通响应使用 `CheckinCredentialSummary`，备份 DTO `CheckinCredentialBackup` 显式导出秘密且不携带刷新租约，完整 v2 备份导入/导出仍属于 P5。
+
+数据库集成测试入口：设置 `CHECKIN_TEST_MYSQL_DSN` 或 `CHECKIN_TEST_POSTGRES_DSN` 后运行 `go test -race ./internal/op -run '^TestIndependentCheckinDatabases$' -count=1 -v`。DSN 应指向可创建数据库的专用测试服务器；每次创建随机名称的测试数据库并仅删除该数据库，不改动已有业务库。未设置 DSN 时明确跳过对应测试。`.github/workflows/checkin-databases.yml` 为 v2 提供 MySQL 8.4 / PostgreSQL 17 服务，覆盖多连接租约竞争、已发送租约过期、设置编辑与刷新保存、旧版本冲突、凭据创建引用与删除竞争。独立存储在 MySQL/PostgreSQL 上显式使用 READ COMMITTED，避免引用检查读取到加锁前的旧快照。
 
 P2 已完成的子项：
 
@@ -224,8 +234,9 @@ P2 已完成的子项：
 - [x] 自动 Token 轮转与人工身份修订分离；工作流指纹验证。
 - [x] 站点/账号补丁编辑、列表、归档/恢复及删除保护；保留提交标记与历史执行字段；新代理引用的计数、报告与删除保护。
 - [x] API 用的字段补丁与凭据状态摘要、备份用的明确秘密导出 DTO；省略/清空/零值与秘密导出边界回归通过。
-- [ ] 平台会话编排、并发请求合并、有限超时保存重试及失败退避接入。
-- [ ] MySQL/PostgreSQL 的并发租约与引用锁验证。
+- [x] 独立平台会话编排、并发请求合并、有限超时保存重试及失败退避；已收到结果仅重试保存、未知结果禁止重新兑换；不依赖订阅实体。
+- [x] 登录平台差异、AgentRouter 隐式登录保护、认证地址/代理/Header 与 Cookie 隔离回归；新增会话字段的幂等建表升级和备份待修复标记。
+- [ ] MySQL/PostgreSQL 的并发租约与引用锁实际验证（测试与 CI 服务配置已加入，本地缺少服务器/DSN，尚未执行）。
 
 ## 开发记录
 
@@ -235,3 +246,6 @@ P2 已完成的子项：
 - 2026-11-16：上一阶段以 `ebff5c9`（`feat(v2): add migration preflight and independent check-in foundations`）提交并推送至 `origin/v2`。
 - 2026-11-16：继续 P2；实现 `internal/model/checkin_requests.go`、`checkin_credential_dto.go`、`internal/op/checkin_lifecycle.go` 与 `checkin_proxy.go`。覆盖待确认任务保留、归档恢复、无级联删除、引用变更回滚、凭据补丁/刷新冲突，以及认证/余额/站点/账号代理保护。
 - 2026-11-16：本轮验证通过 `go test ./...`、`go test -race ./internal/model ./internal/op -run 'TestIndependentCheckin|TestCheckin|TestProxyConfiguration'` 和 `git diff --check`。并发用例仍基于 SQLite，不能替代 MySQL/PostgreSQL 的行锁与隔离级别验证。P2 保持进行中，后续接入平台会话编排、有限超时保存重试及失败退避。
+- 2026-11-17：继续 P2，在 `internal/checkin` 增加独立会话服务与 HTTP 认证适配，接入 `CheckinStore` 登录/刷新事务、持久化发送标记及退避；保存不受原请求取消影响，保留人工配置及身份修改。增加认证代理的实时可用性查询，已有 P2 schema 可幂等增加会话字段。
+- 2026-11-17：加入 MySQL/PostgreSQL 多连接集成测试及独立 CI workflow，主 CI 的 v2 分支与新包竞态检测已启用。当前本地无数据库服务或测试 DSN，两种数据库用例明确 SKIP，P2 不标记整体完成。后续先取得数据库集成结果，再进入 P3 的提交/确认工作流、平台挑战与会话更新、调度及余额收益。
+- 2026-11-17：本轮验证通过 `go test ./...`、`go test -race ./internal/checkin ./internal/db ./internal/model ./internal/op -run 'TestSessions|TestSessionJWT|TestHTTPAuth|TestIndependentCheckin|TestCheckin|TestPrepareCheckinSchema'`、`go vet ./internal/checkin ./internal/op ./internal/model ./internal/db` 和 `git diff --check`。最终 HTTP 请求重放/响应校验补充后，完整 Go 测试、新会话包竞态检测及上述 vet 再次通过。尚未执行远端 CI，尚未接入新生产运行路径。

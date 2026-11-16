@@ -21,5 +21,13 @@ func PrepareCheckinSchema(conn *gorm.DB) error {
 			}
 		}
 	}
+	// Upgrade the explicit P2 development schema without touching legacy tables.
+	for _, field := range []string{"TokenRefreshStarted", "TokenRefreshRetryAt"} {
+		if !conn.Migrator().HasColumn(&model.CheckinCredential{}, field) {
+			if err := conn.Migrator().AddColumn(&model.CheckinCredential{}, field); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }

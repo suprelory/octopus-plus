@@ -125,6 +125,21 @@ type CheckinCredential struct {
 	IdentityRevision       int64          `json:"identity_revision" gorm:"not null"`
 	TokenRefreshLease      string         `json:"-" gorm:"size:64;not null"`
 	TokenRefreshLeaseUntil int64          `json:"-" gorm:"not null"`
+	TokenRefreshStarted    bool           `json:"-" gorm:"not null;default:false"`
+	TokenRefreshRetryAt    int64          `json:"-" gorm:"not null;default:0"`
+}
+
+// AgentRouter login submits a check-in, so generic session acquisition cannot
+// use it. That platform's login is owned by the explicit execution workflow.
+func (c CheckinCredential) SupportsSessionLogin() bool {
+	if c.Type != CheckinCredentialPassword {
+		return false
+	}
+	switch c.Platform {
+	case SitePlatformNewAPI, SitePlatformOneAPI, SitePlatformOneHub, SitePlatformDoneHub, SitePlatformAnyRouter:
+		return true
+	}
+	return false
 }
 
 // ConfigFingerprint excludes cosmetic/availability settings and login tokens.

@@ -2,6 +2,7 @@ package op
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"reflect"
@@ -21,6 +22,8 @@ var (
 	ErrCheckinSiteArchived       = errors.New("checkin site is archived")
 	ErrCheckinSiteInUse          = errors.New("checkin site still has accounts")
 	ErrCheckinWorkflowPending    = errors.New("checkin account has an unfinished submitted workflow")
+	ErrCheckinSessionUncertain   = errors.New("checkin session exchange needs reconciliation")
+	ErrCheckinSessionBackoff     = errors.New("checkin session exchange is cooling down")
 )
 
 // CheckinStore has an explicit connection so schema migration and tests can use
@@ -32,6 +35,16 @@ func NewCheckinStore(conn *gorm.DB) *CheckinStore {
 	return &CheckinStore{conn: conn.Session(&gorm.Session{Logger: logger.Discard})}
 }
 
+// Dependency checks must see the latest committed references after acquiring
+// their owner locks. MySQL's default repeatable-read snapshot is unsuitable here.
+func (s *CheckinStore) transaction(ctx context.Context, work func(*gorm.DB) error) error {
+	conn := s.conn.WithContext(ctx)
+	if conn.Dialector.Name() == "sqlite" {
+		return conn.Transaction(work)
+	}
+	return conn.Transaction(work, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+}
+
 func (s *CheckinStore) CreateSite(ctx context.Context, site model.CheckinSite) (*model.CheckinSite, error) {
 	site.ID = 0
 	site.Archived, site.ArchivedAt = false, nil
@@ -39,7 +52,7 @@ func (s *CheckinStore) CreateSite(ctx context.Context, site model.CheckinSite) (
 	if err := site.Validate(); err != nil {
 		return nil, err
 	}
-	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := s.transaction(ctx, func(tx *gorm.DB) error {
 		if err := validateCheckinProxy(tx, site.CheckinNetwork); err != nil {
 			return err
 		}
@@ -60,7 +73,7 @@ func (s *CheckinStore) GetSite(ctx context.Context, id int) (*model.CheckinSite,
 }
 
 func (s *CheckinStore) CreateCredential(ctx context.Context, credential model.CheckinCredential) (*model.CheckinCredential, error) {
-	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error { return createCheckinCredential(tx, &credential) })
+	err := s.transaction(ctx, func(tx *gorm.DB) error { return createCheckinCredential(tx, &credential) })
 	if err != nil {
 		return nil, err
 	}
@@ -81,6 +94,7 @@ func prepareCheckinCredential(credential *model.CheckinCredential) error {
 	credential.ID = 0
 	credential.CredentialVersion, credential.IdentityRevision = 0, 0
 	credential.TokenRefreshLease, credential.TokenRefreshLeaseUntil, credential.TokenRefreshedAt = "", 0, 0
+	credential.TokenRefreshStarted, credential.TokenRefreshRetryAt = false, 0
 	return credential.Validate()
 }
 
@@ -113,7 +127,7 @@ func (s *CheckinStore) PatchCredential(ctx context.Context, id int, patch model.
 
 func (s *CheckinStore) editCredential(ctx context.Context, id int, expectedVersion int64, apply func(*model.CheckinCredential)) (*model.CheckinCredential, error) {
 	var result model.CheckinCredential
-	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := s.transaction(ctx, func(tx *gorm.DB) error {
 		var current model.CheckinCredential
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, id).Error; err != nil {
 			return err
@@ -128,8 +142,26 @@ func (s *CheckinStore) editCredential(ctx context.Context, id int, expectedVersi
 		candidate.IdentityRevision = current.IdentityRevision
 		candidate.TokenRefreshedAt = current.TokenRefreshedAt
 		candidate.TokenRefreshLease, candidate.TokenRefreshLeaseUntil = current.TokenRefreshLease, current.TokenRefreshLeaseUntil
+		candidate.TokenRefreshStarted, candidate.TokenRefreshRetryAt = current.TokenRefreshStarted, current.TokenRefreshRetryAt
 		if err := candidate.Validate(); err != nil {
 			return err
+		}
+		if candidate.Type == model.CheckinCredentialPassword && (candidate.Type != current.Type || candidate.Platform != current.Platform || candidate.AuthBaseURL != current.AuthBaseURL || candidate.Username != current.Username || candidate.Password != current.Password) {
+			// A password/principal change must not keep a session issued to the old
+			// login. Explicitly supplied replacement session values are retained.
+			if candidate.AccessToken == current.AccessToken {
+				candidate.AccessToken = ""
+			}
+			if candidate.Cookie == current.Cookie {
+				candidate.Cookie = ""
+			}
+			if candidate.RefreshToken == current.RefreshToken {
+				candidate.RefreshToken = ""
+			}
+			if reflect.DeepEqual(candidate.PlatformUserID, current.PlatformUserID) {
+				candidate.PlatformUserID = nil
+			}
+			candidate.TokenExpiresAt = 0
 		}
 		if err := validateCheckinProxy(tx, candidate.CheckinNetwork); err != nil {
 			return err
@@ -141,6 +173,7 @@ func (s *CheckinStore) editCredential(ctx context.Context, id int, expectedVersi
 		// token. A genuinely different login identity can retire the old lease.
 		if !sameCheckinSession(current, candidate) {
 			candidate.TokenRefreshLease, candidate.TokenRefreshLeaseUntil, candidate.TokenRefreshedAt = "", 0, 0
+			candidate.TokenRefreshStarted, candidate.TokenRefreshRetryAt = false, 0
 		}
 		if err := validateCredentialReferences(tx, candidate); err != nil {
 			return err
@@ -171,6 +204,8 @@ func identityChanged(a, b model.CheckinCredential) bool {
 	a.IdentityRevision, b.IdentityRevision = 0, 0
 	a.TokenRefreshLease, b.TokenRefreshLease = "", ""
 	a.TokenRefreshLeaseUntil, b.TokenRefreshLeaseUntil = 0, 0
+	a.TokenRefreshStarted, b.TokenRefreshStarted = false, false
+	a.TokenRefreshRetryAt, b.TokenRefreshRetryAt = 0, 0
 	return !reflect.DeepEqual(a, b)
 }
 
@@ -208,7 +243,7 @@ func checkinCredentialReferences(tx *gorm.DB, id int) (CheckinCredentialReferenc
 }
 
 func (s *CheckinStore) DeleteCredential(ctx context.Context, id int) error {
-	return s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return s.transaction(ctx, func(tx *gorm.DB) error {
 		var credential model.CheckinCredential
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&credential, id).Error; err != nil {
 			return err
@@ -220,7 +255,7 @@ func (s *CheckinStore) DeleteCredential(ctx context.Context, id int) error {
 		if len(refs.PrimaryAccountIDs)+len(refs.BalanceAccountIDs) > 0 {
 			return ErrCheckinCredentialInUse
 		}
-		if credential.TokenRefreshLease != "" && credential.TokenRefreshLeaseUntil > time.Now().UnixMilli() {
+		if credential.TokenRefreshStarted || (credential.TokenRefreshLease != "" && credential.TokenRefreshLeaseUntil > time.Now().UnixMilli()) {
 			return ErrCheckinRefreshLease
 		}
 		return tx.Delete(&credential).Error
@@ -235,7 +270,7 @@ func (s *CheckinStore) CreateAccount(ctx context.Context, account model.CheckinA
 	account.CheckinPending, account.NextAutoCheckinAt, account.LastCheckinAt, account.LastCheckinSuccessAt = nil, nil, nil, nil
 	account.LastCheckinStatus, account.LastCheckinMessage, account.CheckinFailureCount = model.SiteExecutionStatusIdle, "", 0
 	account.Balance, account.BalanceUsed, account.TodayIncome = 0, 0, 0
-	err := s.conn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := s.transaction(ctx, func(tx *gorm.DB) error {
 		var site model.CheckinSite
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&site, account.SiteID).Error; err != nil {
 			return err
