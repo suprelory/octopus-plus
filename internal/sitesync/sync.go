@@ -4,25 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/suprelory/octopus-plus/internal/apperror"
+	"github.com/suprelory/octopus-plus/internal/checkin/rules"
 	"github.com/suprelory/octopus-plus/internal/model"
 )
 
-var (
-	alreadyCheckedInEnglishPattern = regexp.MustCompile(`(?i)\b(?:already\s+(?:been\s+)?(?:checked[ -]in|signed[ -]in)|(?:checked[ -]in|signed[ -]in)\s+(?:already|today))\b`)
-	alreadyCheckedInChinesePattern = regexp.MustCompile(`(?:已(?:经)?签到|签到过(?:了)?)(?:$|[了，。！!\s]|无法重复|不能重复)`)
-	negativeCheckinPattern         = regexp.MustCompile(`(?i)\b(?:not|never|haven't|hasn't|didn't)\s+(?:(?:yet|already)\s+)?(?:checked[ -]in|signed[ -]in)\b|(?:未|没|没有)(?:曾经|曾|有|进行|完成)?签到`)
-)
-
 func isAlreadyCheckedInMessage(message string) bool {
-	lowered := strings.ToLower(strings.TrimSpace(message))
-	if lowered == "" || negativeCheckinPattern.MatchString(lowered) {
-		return false
-	}
-	return alreadyCheckedInEnglishPattern.MatchString(lowered) || alreadyCheckedInChinesePattern.MatchString(message)
+	return rules.AlreadyCheckedIn(message)
 }
 
 func isUnsupportedCheckinError(err error) bool {

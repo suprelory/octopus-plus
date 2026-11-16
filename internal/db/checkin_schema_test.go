@@ -3,6 +3,7 @@ package db
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"github.com/suprelory/octopus-plus/internal/model"
@@ -59,5 +60,63 @@ func TestPrepareCheckinSchemaAddsSessionStateWithoutChangingCredentials(t *testi
 		if conn.Migrator().HasTable(name) {
 			t.Fatalf("checkin schema created legacy table %s", name)
 		}
+	}
+}
+
+type accountBeforeWorkflowVersion struct {
+	ID             int                       `gorm:"primaryKey"`
+	CheckinPending *model.SiteCheckinPending `gorm:"type:text;serializer:json"`
+}
+
+func (accountBeforeWorkflowVersion) TableName() string { return "checkin_accounts" }
+
+func TestPrepareCheckinSchemaPreservesSubmittedWorkflowAndHistory(t *testing.T) {
+	conn, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "workflow-upgrade.db")), &gorm.Config{Logger: logger.Discard})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool, err := conn.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = pool.Close() })
+	for _, table := range []any{&accountBeforeWorkflowVersion{}, &model.SiteCheckinLog{}} {
+		if err := conn.Migrator().CreateTable(table); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before := accountBeforeWorkflowVersion{ID: 5, CheckinPending: &model.SiteCheckinPending{
+		LogID: 42, Date: "2026-11-17", Fingerprint: "original", Submitted: true, BeforeUnchecked: true,
+		StartedAt: time.Now().UTC(), Deadline: time.Now().UTC().Add(time.Hour), Status: model.SiteExecutionStatusPending,
+	}}
+	entry := model.SiteCheckinLog{ID: 42, SiteID: 3, AccountID: before.ID, SiteName: "historical site", AccountName: "historical account",
+		Platform: model.SitePlatformAPI, Source: "manual", Status: model.SiteExecutionStatusPending, Reason: "pending_confirmation"}
+	if err := conn.Create(&before).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.Create(&entry).Error; err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := PrepareCheckinSchema(conn); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !conn.Migrator().HasColumn(&model.CheckinAccount{}, "CheckinWorkflowVersion") {
+		t.Fatal("workflow version column was not added")
+	}
+	var account model.CheckinAccount
+	if err := conn.First(&account, before.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if account.CheckinWorkflowVersion != 0 || account.CheckinPending == nil || *account.CheckinPending != *before.CheckinPending {
+		t.Fatal("schema upgrade changed the submitted workflow or its authorization")
+	}
+	var stored model.CheckinLog
+	if err := conn.First(&stored, entry.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if stored != entry || conn.Migrator().HasTable("checkin_logs") {
+		t.Fatal("new history model did not preserve the existing log table and snapshots")
 	}
 }

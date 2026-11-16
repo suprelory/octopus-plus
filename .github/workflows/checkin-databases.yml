@@ -46,7 +46,7 @@ jobs:
           cache-dependency-path: go.sum
       - name: Prepare embedded static directory
         run: mkdir -p static/out && touch static/out/.keep
-      - name: Verify concurrent ownership and reference protection
+      - name: Verify concurrent sessions, workflows and reference protection
         run: go test -race ./internal/op -run '^TestIndependentCheckinDatabases$' -count=1 -v
-      - name: Verify independent session orchestration
-        run: go test -race ./internal/checkin
+      - name: Verify independent check-in execution
+        run: go test -race ./internal/checkin/...

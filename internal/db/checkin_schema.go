@@ -14,7 +14,7 @@ func PrepareCheckinSchema(conn *gorm.DB) error {
 	if conn == nil {
 		return errors.New("checkin schema requires a database")
 	}
-	for _, table := range []any{&model.CheckinSite{}, &model.CheckinCredential{}, &model.CheckinAccount{}} {
+	for _, table := range []any{&model.CheckinSite{}, &model.CheckinCredential{}, &model.CheckinAccount{}, &model.CheckinLog{}} {
 		if !conn.Migrator().HasTable(table) {
 			if err := conn.Migrator().CreateTable(table); err != nil {
 				return err
@@ -27,6 +27,11 @@ func PrepareCheckinSchema(conn *gorm.DB) error {
 			if err := conn.Migrator().AddColumn(&model.CheckinCredential{}, field); err != nil {
 				return err
 			}
+		}
+	}
+	if !conn.Migrator().HasColumn(&model.CheckinAccount{}, "CheckinWorkflowVersion") {
+		if err := conn.Migrator().AddColumn(&model.CheckinAccount{}, "CheckinWorkflowVersion"); err != nil {
+			return err
 		}
 	}
 	return nil

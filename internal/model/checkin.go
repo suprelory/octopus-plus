@@ -91,6 +91,7 @@ type CheckinAccount struct {
 	LastCheckinStatus          SiteExecutionStatus  `json:"last_checkin_status" gorm:"size:16"`
 	LastCheckinMessage         string               `json:"last_checkin_message" gorm:"type:text"`
 	CheckinPending             *SiteCheckinPending  `json:"checkin_pending,omitempty" gorm:"type:text;serializer:json"`
+	CheckinWorkflowVersion     int64                `json:"-" gorm:"not null;default:0"`
 }
 
 type CheckinCredentialType string

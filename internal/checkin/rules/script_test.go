@@ -1,4 +1,4 @@
-package sitesync
+package rules
 
 import (
 	"context"
@@ -78,7 +78,7 @@ func TestExtractCheckinReward(t *testing.T) {
 		{"throw", `throw new Error(response.secret);`, `{"secret":"private-response-value"}`, "", true},
 		{"invalid JSON", `return 1;`, `{`, "", true},
 		{"oversized code", strings.Repeat(" ", model.CheckinRewardExtractorMaxBytes+1), `{}`, "", true},
-		{"oversized response", `return 1;`, `"` + strings.Repeat("a", siteCheckinResponseLimit) + `"`, "", true},
+		{"oversized response", `return 1;`, `"` + strings.Repeat("a", ResponseLimit) + `"`, "", true},
 		{"null byte", "return 1;\x00", `{}`, "", true},
 		{"promise", `return Promise.resolve(1);`, `{}`, "", true},
 		{"no host globals", `return [typeof std, typeof os, typeof bjson, typeof print, typeof console, typeof fetch, typeof require, typeof process, typeof setTimeout, typeof QJS_PROXY_VALUE].every(v => v === "undefined") ? 1 : -1;`, `{}`, "1", false},

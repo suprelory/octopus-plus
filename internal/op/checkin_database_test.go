@@ -184,6 +184,16 @@ func TestIndependentCheckinDatabases(t *testing.T) {
 					t.Fatalf("unexpected reference/delete conflict: create=%v delete=%v", createErr, deleteErr)
 				}
 			}
+			site, err = store.PatchSite(ctx, site.ID, checkinPatch[model.CheckinSitePatch](t, `{"enabled":true}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			workflowCredential := testCheckinCredential()
+			workflowAccount, err := store.CreateAccount(ctx, model.CheckinAccount{SiteID: site.ID, Name: "workflow", Enabled: true, AuthMode: model.CheckinAuthBearer}, &workflowCredential)
+			if err != nil {
+				t.Fatal(err)
+			}
+			testWorkflowReservationCAS(t, store, workflowAccount.ID)
 		})
 	}
 }

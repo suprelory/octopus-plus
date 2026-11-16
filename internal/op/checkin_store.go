@@ -267,6 +267,7 @@ func (s *CheckinStore) CreateAccount(ctx context.Context, account model.CheckinA
 		return nil, errors.New("provide a credential or credential ID, not both")
 	}
 	account.ID = 0
+	account.CheckinWorkflowVersion = 0
 	account.CheckinPending, account.NextAutoCheckinAt, account.LastCheckinAt, account.LastCheckinSuccessAt = nil, nil, nil, nil
 	account.LastCheckinStatus, account.LastCheckinMessage, account.CheckinFailureCount = model.SiteExecutionStatusIdle, "", 0
 	account.Balance, account.BalanceUsed, account.TodayIncome = 0, 0, 0
