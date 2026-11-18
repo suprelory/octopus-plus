@@ -19,6 +19,7 @@ type WorkflowStore interface {
 	BeginWorkflow(context.Context, int, model.CheckinTrigger, bool) (*op.CheckinExecution, error)
 	CheckWorkflow(context.Context, *op.CheckinExecution) (*op.CheckinExecution, error)
 	ReserveWorkflowSubmission(context.Context, *op.CheckinExecution, bool) (*op.CheckinExecution, error)
+	SaveWorkflowSession(context.Context, *op.CheckinExecution, op.CheckinLoginSession) (*model.CheckinCredential, error)
 	FinishWorkflow(context.Context, *op.CheckinExecution, model.CheckinOutcome) (*model.CheckinResult, error)
 	WorkflowResult(context.Context, int) (*model.CheckinResult, error)
 }
@@ -30,7 +31,7 @@ type SessionProvider interface {
 
 var ErrCheckinAlreadyRunning = errors.New("checkin is already running for this account")
 
-// Engine currently executes custom HTTP check-ins. Availability and reservations
+// Engine executes configured HTTP and built-in check-ins. Availability and reservations
 // are rechecked by the store; no production scheduler or public API starts it yet.
 type Engine struct {
 	store    WorkflowStore
@@ -85,14 +86,14 @@ func (e *Engine) run(ctx context.Context, id int, trigger model.CheckinTrigger, 
 	if _, err := run.reload(ctx); err != nil {
 		return nil, err
 	}
-	if !execution.Site.CheckinHTTPEnabled {
-		return nil, op.ErrCheckinAdapter
-	}
 	if err := execution.Site.Validate(); err != nil {
 		return nil, err
 	}
 	if !confirm && !e.now().Before(w.Deadline) {
 		return run.finish(ctx, failedOutcome("confirmation_expired", "签到确认期限已到，已提交请求不会重发"))
+	}
+	if !execution.Site.CheckinHTTPEnabled {
+		return run.platform(ctx, confirm)
 	}
 	if confirm && execution.Site.CheckinStatus == nil {
 		return nil, op.ErrCheckinAdapter

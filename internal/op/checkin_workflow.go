@@ -76,6 +76,17 @@ func checkinScheduleAllows(e *CheckinExecution, now time.Time) bool {
 	return clock >= e.Site.CheckinWindowStart && clock <= e.Site.CheckinWindowEnd
 }
 
+func checkinExecutionAllowed(e *CheckinExecution) error {
+	capability := e.Site.ResolveCheckinCapability()
+	if !capability.CanVerify {
+		return ErrCheckinAdapter
+	}
+	if e.Trigger != model.CheckinTriggerManual && !capability.Enabled {
+		return ErrCheckinUnavailable
+	}
+	return nil
+}
+
 // BeginWorkflow resumes an unfinished reservation before considering a new day.
 // Confirm never creates a workflow. A submitted reservation cannot be cleared by
 // changes to configuration, identity, clocks, or an omitted history backup.
@@ -122,8 +133,8 @@ func (s *CheckinStore) BeginWorkflow(ctx context.Context, id int, trigger model.
 			if resume {
 				return ensureCheckinWorkflowLog(tx, e)
 			}
-			if !e.Site.CheckinHTTPEnabled {
-				return ErrCheckinAdapter
+			if err := checkinExecutionAllowed(e); err != nil {
+				return err
 			}
 			if err := e.Site.Validate(); err != nil {
 				return err
@@ -261,6 +272,11 @@ func (s *CheckinStore) ReserveWorkflowSubmission(ctx context.Context, expected *
 		if w.Submitted || w.Finished {
 			return ErrCheckinWorkflowConflict
 		}
+		// A built-in adapter has already prepared its one mutation using this
+		// exact session. An intervening login or ID edit invalidates the send.
+		if !current.Site.CheckinHTTPEnabled && !sameWorkflowSession(current.Credential, expected.Credential) {
+			return ErrCheckinCredentialConflict
+		}
 		now := time.Now()
 		date, err := checkinCalendarDate(current.Site, now)
 		if err != nil {
@@ -271,6 +287,9 @@ func (s *CheckinStore) ReserveWorkflowSubmission(ctx context.Context, expected *
 		}
 		if !checkinScheduleAllows(current, now) {
 			return ErrCheckinNotDue
+		}
+		if err := checkinExecutionAllowed(current); err != nil {
+			return err
 		}
 		w.Submitted, w.BeforeUnchecked = true, beforeUnchecked
 		return writeCheckinWorkflow(tx, current)
@@ -344,6 +363,12 @@ func (s *CheckinStore) FinishWorkflow(ctx context.Context, expected *CheckinExec
 			}
 		} else if outcome.Status == model.SiteExecutionStatusFailed && priorStatus != model.SiteExecutionStatusFailed {
 			updates["checkin_failure_count"] = gorm.Expr("checkin_failure_count + 1")
+			if outcome.Reason == model.SiteCheckinReasonUnsupported {
+				if err := tx.Model(&model.CheckinSite{}).Where("id = ?", current.Site.ID).Updates(map[string]any{
+					"verification_status": model.SiteCheckinSupportUnsupported, "verification_fingerprint": current.Site.ConfigFingerprint(), "verified_at": now}).Error; err != nil {
+					return err
+				}
+			}
 		}
 		if err := tx.Model(&model.CheckinAccount{}).Where("id = ?", current.Account.ID).Updates(updates).Error; err != nil {
 			return err

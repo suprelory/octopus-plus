@@ -123,8 +123,12 @@ func prepareCheckinRequest(ctx context.Context, proxies ProxyResolver, execution
 		return nil, ErrCheckinRequest
 	}
 	client.Jar = nil // Custom HTTP credentials remain the explicit account cookie.
+	return prepareCheckinTransport(client, request, !query)
+}
+
+func prepareCheckinTransport(client *http.Client, request *http.Request, submission bool) (*preparedCheckinRequest, error) {
 	cleanup := func() {}
-	if !query {
+	if submission {
 		// GET can also submit a check-in. A fresh connection prevents net/http's
 		// automatic retry of a GET after a reused connection breaks.
 		transport, ok := client.Transport.(*http.Transport)

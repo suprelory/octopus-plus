@@ -143,6 +143,13 @@ func (s *CheckinStore) editCredential(ctx context.Context, id int, expectedVersi
 		candidate.TokenRefreshedAt = current.TokenRefreshedAt
 		candidate.TokenRefreshLease, candidate.TokenRefreshLeaseUntil = current.TokenRefreshLease, current.TokenRefreshLeaseUntil
 		candidate.TokenRefreshStarted, candidate.TokenRefreshRetryAt = current.TokenRefreshStarted, current.TokenRefreshRetryAt
+		candidate.SessionCookies = current.SessionCookies
+		if !sameCheckinSession(candidate, current) {
+			candidate.SessionCookies = nil
+			if candidate.Type != model.CheckinCredentialCookie && len(current.SessionCookies) > 0 && candidate.Cookie == current.Cookie {
+				candidate.Cookie = ""
+			}
+		}
 		if err := candidate.Validate(); err != nil {
 			return err
 		}
@@ -211,7 +218,7 @@ func identityChanged(a, b model.CheckinCredential) bool {
 
 func sameCheckinSession(a, b model.CheckinCredential) bool {
 	return a.ID == b.ID && a.Type == b.Type && a.Platform == b.Platform && a.AuthBaseURL == b.AuthBaseURL &&
-		a.Username == b.Username && a.Password == b.Password && a.AccessToken == b.AccessToken && a.RefreshToken == b.RefreshToken && a.APIKey == b.APIKey && a.Cookie == b.Cookie
+		a.Username == b.Username && a.Password == b.Password && a.AccessToken == b.AccessToken && a.RefreshToken == b.RefreshToken && a.APIKey == b.APIKey && a.Cookie == b.Cookie && reflect.DeepEqual(a.SessionCookies, b.SessionCookies)
 }
 
 type CheckinCredentialReferences struct {

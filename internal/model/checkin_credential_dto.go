@@ -87,11 +87,12 @@ func (c CheckinCredential) Summary(primaryRefs, balanceRefs int) CheckinCredenti
 // exported as a repair flag so importing cannot re-use a possibly consumed token.
 type CheckinCredentialBackup struct {
 	CheckinCredentialInput
-	SessionNeedsRepair bool  `json:"session_needs_repair,omitempty"`
-	ID                 int   `json:"id"`
-	CredentialVersion  int64 `json:"credential_version"`
-	IdentityRevision   int64 `json:"identity_revision"`
-	TokenRefreshedAt   int64 `json:"token_refreshed_at"`
+	SessionNeedsRepair bool                   `json:"session_needs_repair,omitempty"`
+	ID                 int                    `json:"id"`
+	CredentialVersion  int64                  `json:"credential_version"`
+	IdentityRevision   int64                  `json:"identity_revision"`
+	TokenRefreshedAt   int64                  `json:"token_refreshed_at"`
+	SessionCookies     []CheckinSessionCookie `json:"session_cookies,omitempty"`
 }
 
 func ExportCheckinCredential(c CheckinCredential) CheckinCredentialBackup {
@@ -103,6 +104,7 @@ func ExportCheckinCredential(c CheckinCredential) CheckinCredentialBackup {
 			RefreshToken: c.RefreshToken, Cookie: c.Cookie, PlatformUserID: c.PlatformUserID, TokenExpiresAt: c.TokenExpiresAt,
 		},
 		ID: c.ID, CredentialVersion: c.CredentialVersion, IdentityRevision: c.IdentityRevision, TokenRefreshedAt: c.TokenRefreshedAt, SessionNeedsRepair: c.TokenRefreshStarted,
+		SessionCookies: c.SessionCookies,
 	}
 }
 
@@ -111,5 +113,6 @@ func (b CheckinCredentialBackup) Credential() CheckinCredential {
 	c := b.CheckinCredentialInput.Credential()
 	c.ID, c.CredentialVersion, c.IdentityRevision, c.TokenRefreshedAt = b.ID, b.CredentialVersion, b.IdentityRevision, b.TokenRefreshedAt
 	c.TokenRefreshStarted = b.SessionNeedsRepair
+	c.SessionCookies = b.SessionCookies
 	return c
 }

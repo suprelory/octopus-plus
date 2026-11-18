@@ -179,10 +179,11 @@ func (s *CheckinStore) RetrySessionExchange(ctx context.Context, claim CheckinSe
 }
 
 type CheckinLoginSession struct {
-	AccessToken    string `json:"-"`
-	Cookie         string `json:"-"`
-	PlatformUserID *int   `json:"-"`
-	TokenExpiresAt int64  `json:"-"`
+	AccessToken    string                       `json:"-"`
+	Cookie         string                       `json:"-"`
+	PlatformUserID *int                         `json:"-"`
+	TokenExpiresAt int64                        `json:"-"`
+	SessionCookies []model.CheckinSessionCookie `json:"-"`
 }
 
 func (s *CheckinStore) CommitLogin(ctx context.Context, claim CheckinSessionClaim, session CheckinLoginSession) (*model.CheckinCredential, error) {
@@ -203,6 +204,7 @@ func (s *CheckinStore) CommitLogin(ctx context.Context, claim CheckinSessionClai
 		}
 		committed := claim.Before
 		committed.AccessToken, committed.Cookie = session.AccessToken, session.Cookie
+		committed.SessionCookies = session.SessionCookies
 		if sameCheckinSession(committed, current) && current.CredentialVersion > claim.Before.CredentialVersion && current.TokenRefreshedAt > claim.Before.TokenRefreshedAt {
 			result = current
 			return nil
@@ -215,6 +217,7 @@ func (s *CheckinStore) CommitLogin(ctx context.Context, claim CheckinSessionClai
 		}
 		result = current
 		result.AccessToken, result.Cookie, result.TokenExpiresAt = session.AccessToken, session.Cookie, session.TokenExpiresAt
+		result.SessionCookies = session.SessionCookies
 		if session.PlatformUserID != nil && reflect.DeepEqual(current.PlatformUserID, claim.Before.PlatformUserID) {
 			result.PlatformUserID = session.PlatformUserID
 		}
@@ -227,9 +230,8 @@ func (s *CheckinStore) CommitLogin(ctx context.Context, claim CheckinSessionClai
 		}
 		written := tx.Model(&model.CheckinCredential{}).
 			Where("id = ? AND credential_version = ? AND token_refresh_lease = ?", current.ID, current.CredentialVersion, claim.Lease).
-			Updates(map[string]any{"access_token": result.AccessToken, "cookie": result.Cookie, "platform_user_id": result.PlatformUserID,
-				"token_expires_at": result.TokenExpiresAt, "token_refreshed_at": result.TokenRefreshedAt, "credential_version": result.CredentialVersion,
-				"token_refresh_lease": "", "token_refresh_lease_until": 0, "token_refresh_started": false, "token_refresh_retry_at": 0})
+			Select("access_token", "cookie", "session_cookies", "platform_user_id", "token_expires_at", "token_refreshed_at", "credential_version",
+				"token_refresh_lease", "token_refresh_lease_until", "token_refresh_started", "token_refresh_retry_at").Updates(&result)
 		if written.Error != nil {
 			return written.Error
 		}

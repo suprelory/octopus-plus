@@ -8,16 +8,14 @@ import (
 	"io"
 	"math"
 	"net/http"
-	"net/http/cookiejar"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/suprelory/octopus-plus/internal/checkin/router"
 	"github.com/suprelory/octopus-plus/internal/client"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/op"
-	"golang.org/x/net/publicsuffix"
 )
 
 const authUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
@@ -59,28 +57,30 @@ func (a *HTTPAuthenticator) httpClient(ctx context.Context, network model.Checki
 	}
 	clone := *base
 	clone.Timeout = 30 * time.Second
-	clone.Jar, _ = cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	clone.Jar = nil
 	// Login and refresh are mutations. A redirect must not replay the body or
 	// forward passwords, clearance cookies or refresh tokens to another endpoint.
 	clone.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return &clone, nil
 }
 
-func (a *HTTPAuthenticator) exchange(ctx context.Context, c model.CheckinCredential, path string, body any, login bool) (map[string]any, string, error) {
+func (a *HTTPAuthenticator) exchange(ctx context.Context, c model.CheckinCredential, path string, body any, login bool) (map[string]any, *router.Cookies, error) {
 	if err := c.Validate(); err != nil {
-		return nil, "", &ExchangeError{Failure: ExchangeRejected}
+		return nil, nil, &ExchangeError{Failure: ExchangeRejected}
 	}
 	httpClient, err := a.httpClient(ctx, c.CheckinNetwork)
 	if err != nil {
-		return nil, "", &ExchangeError{Failure: ExchangeRetryable}
+		return nil, nil, &ExchangeError{Failure: ExchangeRetryable}
 	}
+	jar := router.NewCookies(c.AuthBaseURL, "", nil)
+	httpClient.Jar = jar
 	encoded, err := json.Marshal(body)
 	if err != nil {
-		return nil, "", &ExchangeError{Failure: ExchangeRejected}
+		return nil, nil, &ExchangeError{Failure: ExchangeRejected}
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.AuthBaseURL+path, bytes.NewReader(encoded))
 	if err != nil {
-		return nil, "", &ExchangeError{Failure: ExchangeRejected}
+		return nil, nil, &ExchangeError{Failure: ExchangeRejected}
 	}
 	// Even a user-supplied Idempotency-Key must not let net/http replay a refresh
 	// body after a broken reused connection. Only the caller owns recovery.
@@ -98,24 +98,27 @@ func (a *HTTPAuthenticator) exchange(ctx context.Context, c model.CheckinCredent
 		request.Header.Set("X-Requested-With", "XMLHttpRequest")
 	}
 	if ctx.Err() != nil {
-		return nil, "", &ExchangeError{Failure: ExchangeRetryable}
+		return nil, nil, &ExchangeError{Failure: ExchangeRetryable}
 	}
 	response, err := httpClient.Do(request)
 	if err != nil {
-		return nil, "", &ExchangeError{Failure: ExchangeUncertain}
+		return nil, nil, &ExchangeError{Failure: ExchangeUncertain}
 	}
 	defer response.Body.Close()
 	if response.StatusCode == http.StatusTooManyRequests {
-		return nil, "", &ExchangeError{Failure: ExchangeRetryable, AllowAccessFallback: true}
+		return nil, nil, &ExchangeError{Failure: ExchangeRetryable, AllowAccessFallback: true}
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, authResponseLimit+1))
 	if err != nil || len(data) > authResponseLimit {
-		return nil, "", &ExchangeError{Failure: ExchangeUncertain}
+		return nil, nil, &ExchangeError{Failure: ExchangeUncertain}
 	}
 	var payload map[string]any
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 	decodeErr := decoder.Decode(&payload)
+	if login && requiresVerification(response.Header, data, payload) {
+		return nil, nil, &ExchangeError{Failure: ExchangeVerification}
+	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		failure := ExchangeRejected
 		if response.StatusCode >= 500 {
@@ -128,31 +131,15 @@ func (a *HTTPAuthenticator) exchange(ctx context.Context, c model.CheckinCredent
 				fallback = true
 			}
 		}
-		return nil, "", &ExchangeError{Failure: failure, AllowAccessFallback: fallback}
+		return nil, nil, &ExchangeError{Failure: failure, AllowAccessFallback: fallback}
 	}
 	if decodeErr != nil || payload == nil || decoder.Decode(new(any)) != io.EOF {
-		return nil, "", &ExchangeError{Failure: ExchangeUncertain}
+		return nil, nil, &ExchangeError{Failure: ExchangeUncertain}
 	}
 	if strings.EqualFold(response.Header.Get("Cf-Mitigated"), "challenge") {
-		return nil, "", &ExchangeError{Failure: ExchangeRejected}
+		return nil, nil, &ExchangeError{Failure: ExchangeRejected}
 	}
-	// Export only session cookies valid at the service's authenticated endpoints.
-	// Clearance cookies are not themselves proof of a successful login session.
-	u, _ := url.Parse(c.AuthBaseURL + "/api/user/self")
-	cookieRequest := &http.Request{Header: make(http.Header)}
-	hasSession := false
-	for _, cookie := range httpClient.Jar.Cookies(u) {
-		cookieRequest.AddCookie(cookie)
-		name := strings.ToLower(cookie.Name)
-		if cookie.Value != "" && (strings.Contains(name, "session") || strings.Contains(name, "token") || strings.Contains(name, "auth")) {
-			hasSession = true
-		}
-	}
-	cookie := ""
-	if hasSession {
-		cookie = cookieRequest.Header.Get("Cookie")
-	}
-	return payload, cookie, nil
+	return payload, jar, nil
 }
 
 func (a *HTTPAuthenticator) Refresh(ctx context.Context, c model.CheckinCredential) (op.CheckinTokenPair, error) {
@@ -189,33 +176,25 @@ func (a *HTTPAuthenticator) Login(ctx context.Context, c model.CheckinCredential
 	if !c.SupportsSessionLogin() {
 		return op.CheckinLoginSession{}, ErrUnsupportedSession
 	}
-	payload, cookie, err := a.exchange(ctx, c, "/api/user/login", map[string]string{"username": c.Username, "password": c.Password}, true)
+	payload, jar, err := a.exchange(ctx, c, "/api/user/login", map[string]string{"username": c.Username, "password": c.Password}, true)
 	if err != nil {
 		return op.CheckinLoginSession{}, err
 	}
 	if payload["success"] != true {
 		return op.CheckinLoginSession{}, &ExchangeError{Failure: ExchangeRejected}
 	}
-	data, _ := payload["data"].(map[string]any)
-	token := stringValue(payload["data"])
-	for _, object := range []map[string]any{data, payload} {
-		for _, key := range []string{"token", "access_token", "accessToken"} {
-			if token == "" {
-				token = strings.TrimSpace(stringValue(object[key]))
-			}
-		}
+	token := platformLoginToken(payload)
+	cookie := jar.Header(c.AuthBaseURL + "/api/user/self")
+	if !router.HasSession(cookie) {
+		cookie = ""
 	}
 	if token == "" && cookie == "" {
 		return op.CheckinLoginSession{}, &ExchangeError{Failure: ExchangeUncertain}
 	}
-	session := op.CheckinLoginSession{AccessToken: model.NormalizeSiteAccessToken(token), Cookie: cookie}
-	c.AccessToken = session.AccessToken
+	session := op.CheckinLoginSession{AccessToken: token, Cookie: cookie, SessionCookies: jar.Snapshot(), PlatformUserID: platformUserID(payload)}
+	c.AccessToken, c.SessionCookies = session.AccessToken, session.SessionCookies
 	if c.Validate() != nil || (cookie != "" && model.ValidateSiteCheckinCookie(cookie) != nil) {
 		return op.CheckinLoginSession{}, &ExchangeError{Failure: ExchangeUncertain}
-	}
-	if id, ok := integer(data["id"]); ok && id > 0 && id <= int64(math.MaxInt) {
-		value := int(id)
-		session.PlatformUserID = &value
 	}
 	return session, nil
 }

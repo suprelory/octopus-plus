@@ -25,9 +25,10 @@ var (
 type ExchangeFailure string
 
 const (
-	ExchangeRetryable ExchangeFailure = "retryable" // Definitely not consumed, e.g. HTTP 429 or failure before dispatch.
-	ExchangeRejected  ExchangeFailure = "rejected"
-	ExchangeUncertain ExchangeFailure = "uncertain" // Request might have consumed the token; never resend it automatically.
+	ExchangeRetryable    ExchangeFailure = "retryable" // Definitely not consumed, e.g. HTTP 429 or failure before dispatch.
+	ExchangeRejected     ExchangeFailure = "rejected"
+	ExchangeVerification ExchangeFailure = "verification_required"
+	ExchangeUncertain    ExchangeFailure = "uncertain" // Request might have consumed the token; never resend it automatically.
 )
 
 // ExchangeError deliberately carries no raw response, URL, headers or tokens.
@@ -42,9 +43,15 @@ func (e *ExchangeError) Error() string {
 		return "checkin authentication is temporarily unavailable"
 	case ExchangeRejected:
 		return "checkin authentication was rejected; check login credentials and network configuration"
+	case ExchangeVerification:
+		return errVerificationRequired.Error()
 	default:
 		return ErrSessionUncertain.Error()
 	}
+}
+
+func (e *ExchangeError) Is(target error) bool {
+	return e.Failure == ExchangeVerification && target == errVerificationRequired
 }
 
 // Authenticator performs exactly one HTTP exchange. Coordination and saving

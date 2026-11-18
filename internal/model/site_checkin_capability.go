@@ -75,20 +75,27 @@ func (s *Site) CheckinAdapter() SiteCheckinAdapter {
 }
 
 func (s *Site) ResolveCheckinCapability() SiteCheckinCapability {
-	defaults := PlatformCheckinDefaults(s.Platform)
+	verifiedAt := s.CheckinVerifiedAt
+	if verifiedAt != nil && s.CheckinVerificationFingerprint != s.CheckinConfigFingerprint() {
+		verifiedAt = nil
+	}
+	return resolveCheckinCapability(s.Platform, s.CheckinMode, s.CheckinAdapter(), s.CheckinVerificationStatus, verifiedAt)
+}
+
+func resolveCheckinCapability(platform SitePlatform, mode SiteCheckinMode, adapter SiteCheckinAdapter, status SiteCheckinSupport, verifiedAt *time.Time) SiteCheckinCapability {
+	defaults := PlatformCheckinDefaults(platform)
 	capability := SiteCheckinCapability{
 		Enabled: defaults.Enabled, DefaultEnabled: defaults.Enabled,
-		CanVerify: s.CheckinAdapter() != "", Source: "platform_default", Support: SiteCheckinSupportUnknown,
+		CanVerify: adapter != "", Source: "platform_default", Support: SiteCheckinSupportUnknown,
 	}
-	if s.CheckinVerifiedAt != nil && s.CheckinVerificationFingerprint == s.CheckinConfigFingerprint() &&
-		(s.CheckinVerificationStatus == SiteCheckinSupportSupported || s.CheckinVerificationStatus == SiteCheckinSupportUnsupported) {
-		capability.Support, capability.VerifiedAt = s.CheckinVerificationStatus, s.CheckinVerifiedAt
+	if verifiedAt != nil && (status == SiteCheckinSupportSupported || status == SiteCheckinSupportUnsupported) {
+		capability.Support, capability.VerifiedAt = status, verifiedAt
 		capability.Enabled = capability.Support == SiteCheckinSupportSupported
 		capability.Source = "verified"
-	} else if s.CheckinHTTPEnabled {
+	} else if adapter == SiteCheckinAdapterHTTP {
 		capability.Enabled, capability.Source = true, "custom_http"
 	}
-	switch s.CheckinMode {
+	switch mode {
 	case SiteCheckinModeDisabled:
 		capability.Enabled, capability.CanVerify, capability.Source = false, false, "disabled"
 	case SiteCheckinModeEnabled:

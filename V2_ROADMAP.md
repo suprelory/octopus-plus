@@ -11,7 +11,7 @@
 | P0 分支与路线 | 已完成 | 创建 v2，保存设计、阶段和验收标准 |
 | P1 行为基线与迁移预检 | 已完成 | 已实现离线 JSON/ZIP 配置预检、转换清单、异常分类和样本回归 |
 | P2 新签到数据与会话 | 已完成 | 独立 CRUD、凭据与代理保护、会话登录/刷新编排完成；MySQL/PostgreSQL 实际并发验证通过 |
-| P3 独立签到执行 | 进行中 | 自定义 HTTP 提交、状态确认与历史持久化已实现；内置平台、调度/批次、余额收益和通知待完成 |
+| P3 独立签到执行 | 进行中 | 自定义 HTTP 和内置平台签到、会话更新与历史持久化已实现。剩余调度与批次、余额收益和通知 |
 | P4 新 API 与前端 | 未开始 | 用户可通过独立签到页面管理全部配置，渠道统一展示 |
 | P5 数据迁移与备份 | 未开始 | 渠道转换、新旧备份、重入及三种数据库迁移验证 |
 | P6 删除旧模块与发布验收 | 未开始 | 移除订阅/投影运行时、更新文档、完成完整回归 |
@@ -79,7 +79,7 @@ flowchart LR
 
 AgentRouter 登录本身触发签到，不能在普通凭据测试或余额查询中自动登录。各平台的能力差异由适配器约束，不能把 API Key 一概作为平台签到凭据。
 
-已实现 NewAPI/OneAPI/OneHub/DoneHub 的用户名密码登录、AnyRouter 的 Token/Cookie 登录、Sub2API 的 Access/Refresh Token 轮转，以及已有 Cookie/API Key 的读取。认证使用凭据自己的地址、代理和 Header；认证请求不携带过期 Bearer，不跟随重定向，不自动重发 POST。AnyRouter Cookie 使用独立 cookie jar 校验域、路径、过期状态；挑战处理、后续业务请求中的 Cookie 更新和用户 ID 探测在 P3 提取平台执行适配时接入。AgentRouter 已有会话可供读取；通用会话服务与存储层均拒绝隐式登录，显式登录签到留给 P3 的提交工作流。
+已实现 NewAPI/OneAPI/OneHub/DoneHub 的用户名密码登录、AnyRouter 的 Token/Cookie 登录、Sub2API 的 Access/Refresh Token 轮转，以及已有 Cookie/API Key 的读取。认证使用凭据自己的地址、代理和 Header。AgentRouter 的显式登录经过签到提交预占，通用会话服务只读取已有 AgentRouter 会话。AnyRouter 使用个人资料接口核对用户 ID，登录和后续请求收到的 Cookie 按来源、路径、Secure、失效时间和删除状态保存在凭据内。备份 DTO 携带这些属性，普通凭据响应仅返回配置摘要。
 
 ## 地址、代理与认证
 
@@ -127,6 +127,10 @@ P3 当前实现 `internal/checkin.Engine` 的自定义 HTTP 工作流：`Execute
 前置状态为已签到时直接记录成功且不记奖励；未知状态不提交。已提交任务在取消、重启、日志缺失后仍只确认状态，缺失日志按原 ID 重建。确认失败或过期后仍可显式 `Confirm`；同日已经结束的提交由 `Execute` 返回原结果。只有未提交且未成功的失败、过期或配置失效任务允许手动重新开始。提交前再次检查日期、期限、配置指纹、停用/归档和定时时间窗口，自动入口还要求账号开启自动签到。
 
 跨日确认要求日期字段或显式 JavaScript 判定；仅返回“今日状态”的接口在请求前后都检查日期，避免午夜响应确认错误日期。状态和奖励脚本共用 `internal/checkin/rules` 的受限运行时，旧路径通过薄封装复用。奖励与日志、账号最近结果在同一事务保存，竞争确认只允许一次写入，保留有效 0；恢复确认仅使用明确选择的状态响应奖励，不补算丢失的提交响应或旧余额差。`TodayIncome` 聚合、余额与通知仍待后续子项实现。
+
+内置平台沿用同一账号工作流和日志。NewAPI、OneAPI、OneHub 和 DoneHub 使用管理签到接口。DoneHub 在自动模式下默认关闭，手动签到成功后按站点配置指纹保存可用性。AnyRouter 可使用独立 Cookie、Access Token 或密码凭据，按实际会话选择一次提交的接口。个人资料读取遇到 401 时，密码凭据可以恢复一次会话。服务端要求人机验证时返回 `verification_required`，由用户在站点完成验证。结果记录保留 `submitted`，供用户判断是否已有签到请求发出。
+
+AgentRouter 的登录本身就是签到。数据库确认提交预占后才发送登录，成功证据为当天登录响应的 `data.checked_in == true`，或原工作流日期内的签到成功日志。恢复时按站点时区查询原日期，已经发生的签到归为“已签到”，奖励留空。并发确认期间，其他实例可以读到待确认记录，原执行仍可保存登录结果。
 
 ## 后端边界
 
@@ -229,11 +233,13 @@ go run . migrate v2-preflight --input D:\Backups\octopus-backup.zip > v2-preflig
 
 P2 的 `PrepareCheckinSchema`、`CheckinStore` 和 `internal/checkin.Sessions` 是显式调用的开发基础，尚未接入应用启动、公开 API 或备份。开发测试使用独立 SQLite 数据库，不创建订阅表；共享代理兼容测试另用现有测试初始化入口验证新旧引用共存。线上运行时仍使用现有路径；新模型的切换依赖 P3–P5。`CheckinCredentialInput` 仅用于明确提交秘密；普通响应使用 `CheckinCredentialSummary`，备份 DTO `CheckinCredentialBackup` 显式导出秘密且不携带刷新租约，完整 v2 备份导入/导出仍属于 P5。
 
-P3 增加 `NewEngine(store, sessions, proxies)`、`Execute(ctx, accountID, trigger)` 和 `Confirm(ctx, accountID)` 开发入口，使用注入的独立存储与长期复用的会话服务。目前只支持自定义 HTTP Cookie/Bearer 签到，内置平台返回适配器尚不可用；trigger 用于入口约束与记录来源，不代表已经接入调度或批次服务。`CheckinLog` 映射已有 `site_checkin_logs`，旧模型暂以别名复用以保持生产路径兼容；显式 schema 准备可幂等补充工作流版本列，保留提交标记和历史。不启动新运行时，也不与旧路径双写。
+P3 的 `NewEngine(store, sessions, proxies)`、`Execute(ctx, accountID, trigger)` 和 `Confirm(ctx, accountID)` 使用注入的独立存储与长期复用的会话服务。`Execute` 支持自定义 HTTP 和上述六个内置平台，`Confirm` 支持配置了状态查询的 HTTP 任务和 AgentRouter 登录任务。`trigger` 用于入口条件和历史来源。`CheckinLog` 映射已有 `site_checkin_logs`。显式运行 `PrepareCheckinSchema` 可为旧开发库补充工作流版本列及凭据的 `session_cookies` 列。应用入口切换安排在 P3–P5 完成后。
 
 数据库集成测试入口：设置 `CHECKIN_TEST_MYSQL_DSN` 或 `CHECKIN_TEST_POSTGRES_DSN` 后运行 `go test -race ./internal/op -run '^TestIndependentCheckinDatabases$' -count=1 -v`。DSN 应指向可创建数据库的专用测试服务器；每次创建随机名称的测试数据库并仅删除该数据库，不改动已有业务库。未设置 DSN 时明确跳过对应测试。`.github/workflows/checkin-databases.yml` 为 v2 提供 MySQL 8.4 / PostgreSQL 17 服务，覆盖多连接租约竞争、已发送租约过期、设置编辑与刷新保存、旧版本冲突、凭据创建引用与删除竞争；P3 新增工作流提交预占与确认的 CAS 竞争。独立存储在 MySQL/PostgreSQL 上显式使用 READ COMMITTED，避免引用检查读取到加锁前的旧快照。
 
-远端验证：提交 `4621ea4` 的 [数据库集成 CI](https://github.com/suprelory/octopus-plus/actions/runs/43907612346) 已通过，MySQL 8.4 与 PostgreSQL 17 子测试均实际执行并 PASS；[完整 CI](https://github.com/suprelory/octopus-plus/actions/runs/43907612265) 的后端与前端均通过。上述结果覆盖 P2；本轮新增的 P3 工作流数据库用例尚未提交到远端执行，不能沿用 P2 结果宣称其已通过。
+提交 `4621ea4` 的 P2 会话及引用竞争测试在 MySQL 8.4 与 PostgreSQL 17 上通过，前后端 CI 均通过。[数据库集成](https://github.com/suprelory/octopus-plus/actions/runs/43907612346) · [完整 CI](https://github.com/suprelory/octopus-plus/actions/runs/43907612265)
+
+提交 `33ad874` 的 P3 签到提交预占与确认竞争测试在 MySQL 8.4 与 PostgreSQL 17 上通过，前后端 CI 均通过。[数据库集成](https://github.com/suprelory/octopus-plus/actions/runs/43912863414) · [完整 CI](https://github.com/suprelory/octopus-plus/actions/runs/43912863407)
 
 P2 已完成的子项：
 
@@ -254,8 +260,9 @@ P3 已完成的子项与剩余顺序：
 - [x] 账号互斥、数据库工作流版本 CAS、提交预占、重启/取消/缺失日志恢复、同日结果重放和显式确认。
 - [x] 抽取共享状态判定、已签到消息识别和受限 JavaScript 奖励规则；保留原有空响应脚本与奖励字符串规范化语义。
 - [x] 日志复用、账号最近结果与奖励的原子持久化；配置失效、跨日确认、并发提交/确认及提交确认丢失的 SQLite/HTTP 回归。
-- [ ] MySQL/PostgreSQL 上实际运行新增的工作流提交预占与确认竞争用例（已接入现有数据库 CI）。
-- [ ] 提取内置平台执行适配；处理 AgentRouter 显式登录即签到、AnyRouter 挑战、Cookie 更新及用户 ID 探测。
+- [x] MySQL/PostgreSQL 实际运行工作流提交预占与确认竞争用例（`33ad874`）。
+- [x] 内置管理平台、AgentRouter 显式登录与按日查证、AnyRouter 身份读取与 Cookie 更新、人机验证结果和提交保护。
+- [x] 共享平台凭据写入竞争用例已在 MySQL 8.4.4 和 PostgreSQL 17.5 上通过，并已接入数据库 CI。
 - [ ] 接入独立调度与批次：随机时间、下一次执行/失败退避、待确认调度、范围校验、并发控制与进度统计。
 - [ ] 接入独立余额查询、签到前后余额差、收益聚合和通知去重；余额失败不改变签到成功结果。
 - [ ] 完成 P3 服务验收后进入 P4 API/前端；生产切换仍等待 P3–P5 全部完成。
@@ -274,3 +281,4 @@ P3 已完成的子项与剩余顺序：
 - 2026-11-17：P2 会话管理以 `4621ea4`（`feat(v2): add independent check-in session management`）提交并推送至 `origin/v2`。远端完整 CI 与 MySQL/PostgreSQL 集成 CI 均通过，P2 标记完成。
 - 2026-11-17：进入 P3，新增 `internal/checkin/engine.go`、`http_checkin.go`、`internal/op/checkin_workflow.go` 与独立历史模型；共享规则迁入 `internal/checkin/rules`。实现自定义 HTTP 提交/确认闭环，覆盖取消、重启、缺失日志、401、配置变更、提交确认丢失和跨午夜响应。P3 保持进行中，内置平台、调度/批次、余额收益与通知尚未接入。
 - 2026-11-17：P3 本轮最终验证通过 `go test ./...`、`go test -race ./internal/checkin/... ./internal/db ./internal/model ./internal/op ./internal/sitesync -run 'TestWorkflow|TestSessions|TestSessionJWT|TestHTTPAuth|TestIndependentCheckin|TestCheckin|TestStatusCheckin|TestPrepareCheckinSchema|TestExtractCheckinReward' -count=1 -timeout 180s`、`go vet ./internal/checkin/... ./internal/op ./internal/model ./internal/db ./internal/sitesync`、gofmt 检查与 `git diff --check`。补充旧开发库 schema 幂等升级、历史表复用、空响应脚本和空格奖励的兼容回归。本地未配置 MySQL/PostgreSQL DSN，新增 P3 数据库用例明确跳过，待本轮提交后的远端 CI 执行。
+- 2026-11-18，`33ad874` 的数据库 CI 日志确认 MySQL 和 PostgreSQL 子测试均已执行并通过。继续 P3，内置签到入口位于 `internal/checkin/platform.go` 和 `agentrouter.go`，凭据更新位于 `internal/op/checkin_workflow_session.go`。SQLite 和 HTTP 回归覆盖多实例登录与确认、跨日查证、账号共享会话、人工换凭据、Cookie 删除及备份恢复、鉴权拒绝和人工验证。`go test ./...`、相关竞态测试、`go vet ./...`、gofmt 及差异检查通过。本轮在本地 MySQL 8.4.4 和 PostgreSQL 17.5 上执行 `go test -race ./internal/op -run '^TestIndependentCheckinDatabases$' -count=1 -v`，两个数据库子测试均通过，覆盖共享平台凭据并发写入。

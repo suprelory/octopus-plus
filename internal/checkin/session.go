@@ -238,7 +238,7 @@ func (s *Sessions) exchange(ctx context.Context, claim op.CheckinSessionClaim, l
 	if err != nil {
 		failure := exchangeFailure(err)
 		backoff := time.Duration(0)
-		if failure.Failure == ExchangeRetryable {
+		if failure.Failure == ExchangeRetryable || (login && failure.Failure == ExchangeVerification) {
 			backoff = s.policy.cooldown
 			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.policy.saveTimeout)
 			_ = s.store.RetrySessionExchange(cleanup, claim, time.Now().Add(backoff))
@@ -313,7 +313,7 @@ func (s *Sessions) clear(id int) {
 // Settings edits retain ownership of a received pair. Identity/session changes
 // invalidate it. Match the store's session comparison rather than versions.
 func sessionFingerprint(c model.CheckinCredential) [32]byte {
-	encoded, _ := json.Marshal([]any{c.ID, c.Type, c.Platform, c.AuthBaseURL, c.Username, c.Password, c.AccessToken, c.RefreshToken, c.APIKey, c.Cookie})
+	encoded, _ := json.Marshal([]any{c.ID, c.Type, c.Platform, c.AuthBaseURL, c.Username, c.Password, c.AccessToken, c.RefreshToken, c.APIKey, c.Cookie, c.SessionCookies})
 	return sha256.Sum256(encoded)
 }
 
@@ -324,6 +324,7 @@ func sessionAdvanced(current, original model.CheckinCredential) bool {
 
 func cloneCredential(c model.CheckinCredential) model.CheckinCredential {
 	c.AuthHeaders = append([]model.CustomHeader(nil), c.AuthHeaders...)
+	c.SessionCookies = append([]model.CheckinSessionCookie(nil), c.SessionCookies...)
 	if c.PlatformUserID != nil {
 		id := *c.PlatformUserID
 		c.PlatformUserID = &id

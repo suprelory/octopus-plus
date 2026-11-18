@@ -7,25 +7,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/suprelory/octopus-plus/internal/checkin/router"
 	"github.com/suprelory/octopus-plus/internal/model"
 )
+
+func decodeTokenClaims(token string, claims any) bool {
+	parts := strings.Split(model.NormalizeSiteAccessToken(token), ".")
+	if len(parts) != 3 || len(parts[1]) > 16<<10 {
+		return false
+	}
+	body, err := base64.RawURLEncoding.DecodeString(parts[1])
+	return err == nil && json.Unmarshal(body, claims) == nil
+}
 
 // Unverified JWT timestamps only schedule refreshes; they never authorize access.
 func tokenTimes(c model.CheckinCredential) (expires, issued int64) {
 	expires, issued = c.TokenExpiresAt, c.TokenRefreshedAt
-	parts := strings.Split(model.NormalizeSiteAccessToken(c.AccessToken), ".")
-	if len(parts) != 3 || len(parts[1]) > 16<<10 {
-		return
-	}
-	body, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return
-	}
 	var claims struct {
 		Exp json.Number `json:"exp"`
 		Iat json.Number `json:"iat"`
 	}
-	if json.Unmarshal(body, &claims) != nil {
+	if !decodeTokenClaims(c.AccessToken, &claims) {
 		return
 	}
 	if seconds, err := claims.Exp.Int64(); err == nil && seconds > 0 && seconds <= math.MaxInt64/1000 && (expires <= 0 || seconds*1000 < expires) {
@@ -35,6 +37,25 @@ func tokenTimes(c model.CheckinCredential) (expires, issued int64) {
 		issued = max(issued, seconds*1000)
 	}
 	return
+}
+
+// Only the profile response verifies the ID that may be persisted or used in a submission.
+func profileIDHint(token string) *int {
+	var claims struct{ ID, Sub json.RawMessage }
+	if !decodeTokenClaims(token, &claims) {
+		return nil
+	}
+	for _, raw := range []json.RawMessage{claims.ID, claims.Sub} {
+		var n json.Number
+		if err := json.Unmarshal(raw, &n); err != nil {
+			continue
+		}
+		if id, err := n.Int64(); err == nil && id > 0 && id <= math.MaxInt {
+			value := int(id)
+			return &value
+		}
+	}
+	return nil
 }
 
 func refreshDue(c model.CheckinCredential, now time.Time) bool {
@@ -56,7 +77,12 @@ func usable(c model.CheckinCredential, now time.Time) bool {
 	case model.CheckinCredentialAPIKey:
 		return c.APIKey != ""
 	case model.CheckinCredentialPassword:
-		if c.AccessToken == "" && c.Cookie == "" {
+		hasCookie := c.Cookie != ""
+		if len(c.SessionCookies) > 0 {
+			header := router.NewCookies(c.AuthBaseURL, "", c.SessionCookies).Header(c.AuthBaseURL + "/api/user/self")
+			hasCookie = router.HasSession(header)
+		}
+		if c.AccessToken == "" && !hasCookie {
 			return false
 		}
 	default:

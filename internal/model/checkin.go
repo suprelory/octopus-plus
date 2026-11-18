@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
 	"time"
 )
 
@@ -112,22 +113,45 @@ type CheckinCredential struct {
 	Platform               SitePlatform          `json:"platform" gorm:"size:32;not null"`
 	AuthBaseURL            string                `json:"auth_base_url" gorm:"type:text;not null"`
 	CheckinNetwork         `gorm:"embedded"`
-	AuthHeaders            []CustomHeader `json:"-" gorm:"type:text;serializer:json"`
-	Username               string         `json:"username"`
-	Password               string         `json:"-" gorm:"type:text"`
-	AccessToken            string         `json:"-" gorm:"type:text"`
-	APIKey                 string         `json:"-" gorm:"type:text"`
-	RefreshToken           string         `json:"-" gorm:"type:text"`
-	Cookie                 string         `json:"-" gorm:"type:text"`
-	PlatformUserID         *int           `json:"platform_user_id,omitempty"`
-	TokenExpiresAt         int64          `json:"token_expires_at"`
-	TokenRefreshedAt       int64          `json:"-"`
-	CredentialVersion      int64          `json:"credential_version" gorm:"not null"`
-	IdentityRevision       int64          `json:"identity_revision" gorm:"not null"`
-	TokenRefreshLease      string         `json:"-" gorm:"size:64;not null"`
-	TokenRefreshLeaseUntil int64          `json:"-" gorm:"not null"`
-	TokenRefreshStarted    bool           `json:"-" gorm:"not null;default:false"`
-	TokenRefreshRetryAt    int64          `json:"-" gorm:"not null;default:0"`
+	AuthHeaders            []CustomHeader         `json:"-" gorm:"type:text;serializer:json"`
+	Username               string                 `json:"username"`
+	Password               string                 `json:"-" gorm:"type:text"`
+	AccessToken            string                 `json:"-" gorm:"type:text"`
+	APIKey                 string                 `json:"-" gorm:"type:text"`
+	RefreshToken           string                 `json:"-" gorm:"type:text"`
+	Cookie                 string                 `json:"-" gorm:"type:text"`
+	SessionCookies         []CheckinSessionCookie `json:"-" gorm:"type:text;serializer:json"`
+	PlatformUserID         *int                   `json:"platform_user_id,omitempty"`
+	TokenExpiresAt         int64                  `json:"token_expires_at"`
+	TokenRefreshedAt       int64                  `json:"-"`
+	CredentialVersion      int64                  `json:"credential_version" gorm:"not null"`
+	IdentityRevision       int64                  `json:"identity_revision" gorm:"not null"`
+	TokenRefreshLease      string                 `json:"-" gorm:"size:64;not null"`
+	TokenRefreshLeaseUntil int64                  `json:"-" gorm:"not null"`
+	TokenRefreshStarted    bool                   `json:"-" gorm:"not null;default:false"`
+	TokenRefreshRetryAt    int64                  `json:"-" gorm:"not null;default:0"`
+}
+
+// Scoped cookies retain their origin, expiry and deletion markers across runs.
+// This is secret session state, not an editable account field.
+type CheckinSessionCookie struct {
+	URL    string      `json:"url"`
+	Cookie http.Cookie `json:"cookie"`
+}
+
+func (s CheckinSite) CheckinAdapter() SiteCheckinAdapter {
+	if s.CheckinHTTPEnabled {
+		return SiteCheckinAdapterHTTP
+	}
+	return PlatformCheckinDefaults(s.Platform).Adapter
+}
+
+func (s CheckinSite) ResolveCheckinCapability() SiteCheckinCapability {
+	verifiedAt := s.VerifiedAt
+	if verifiedAt != nil && s.VerificationFingerprint != s.ConfigFingerprint() {
+		verifiedAt = nil
+	}
+	return resolveCheckinCapability(s.Platform, s.CheckinMode, s.CheckinAdapter(), s.VerificationStatus, verifiedAt)
 }
 
 // AgentRouter login submits a check-in, so generic session acquisition cannot

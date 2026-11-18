@@ -51,7 +51,7 @@ func TestPrepareCheckinSchemaAddsSessionStateWithoutChangingCredentials(t *testi
 	if stored.AccessToken != before.AccessToken || stored.RefreshToken != before.RefreshToken || stored.TokenRefreshLease != before.TokenRefreshLease || stored.TokenRefreshLeaseUntil != before.TokenRefreshLeaseUntil || stored.TokenRefreshStarted || stored.TokenRefreshRetryAt != 0 {
 		t.Fatal("schema preparation modified existing credential or ownership state")
 	}
-	for _, field := range []string{"TokenRefreshStarted", "TokenRefreshRetryAt"} {
+	for _, field := range []string{"TokenRefreshStarted", "TokenRefreshRetryAt", "SessionCookies"} {
 		if !conn.Migrator().HasColumn(&model.CheckinCredential{}, field) {
 			t.Fatalf("missing new session field %s", field)
 		}

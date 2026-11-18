@@ -194,6 +194,7 @@ func TestIndependentCheckinDatabases(t *testing.T) {
 				t.Fatal(err)
 			}
 			testWorkflowReservationCAS(t, store, workflowAccount.ID)
+			testPlatformSessionCAS(t, store)
 		})
 	}
 }

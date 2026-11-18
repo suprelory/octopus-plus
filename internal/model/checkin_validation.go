@@ -227,6 +227,9 @@ func (c *CheckinCredential) Validate() error {
 	if err := validateCheckinHeaders(c.AuthHeaders); err != nil {
 		return err
 	}
+	if err := c.ValidateSessionCookies(); err != nil {
+		return err
+	}
 	if c.TokenExpiresAt < 0 || c.CredentialVersion < 0 || c.IdentityRevision < 0 {
 		return errors.New("invalid credential version or expiration")
 	}
@@ -286,6 +289,9 @@ func ValidateCheckinIdentity(site CheckinSite, account CheckinAccount, credentia
 	}
 	if site.Platform == SitePlatformAgentRouter && credential.Type != CheckinCredentialPassword {
 		return errors.New("AgentRouter checkin requires username and password")
+	}
+	if site.Platform == SitePlatformAnyRouter && credential.Type == CheckinCredentialCookie {
+		return nil
 	}
 	if credential.Type != CheckinCredentialPassword && credential.Type != CheckinCredentialAccessToken {
 		return errors.New("platform checkin requires username/password or Access Token")
