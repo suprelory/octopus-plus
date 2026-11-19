@@ -1,4 +1,5 @@
 import { lazyWithPreload } from './lazy-with-preload';
+import { CHECKIN_V2 } from '@/lib/checkin-v2';
 import { lazy, ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Home, Radio, Sparkles, FolderTree, Settings, Logs, Globe2, CalendarCheck2 } from 'lucide-react';
@@ -16,7 +17,9 @@ export interface RouteConfig {
 
 const Home_Module = lazyWithPreload(() => import('@/components/modules/home').then(m => ({ default: m.Home })));
 const Site_Module = lazyWithPreload(() => import('@/components/modules/site').then(m => ({ default: m.Site })));
-const Checkin_Module = lazyWithPreload(() => import('@/components/modules/checkin').then(m => ({ default: m.Checkin })));
+const Checkin_Module = CHECKIN_V2
+    ? lazyWithPreload(() => import('@/components/modules/checkin').then(m => ({ default: m.Checkin })))
+    : lazyWithPreload(() => import('@/components/modules/checkin/legacy').then(m => ({ default: m.LegacyCheckin })));
 const Channel_Module = lazyWithPreload(() => import('@/components/modules/channel').then(m => ({ default: m.Channel })));
 const Model_Module = lazyWithPreload(() => import('@/components/modules/model').then(m => ({ default: m.Model })));
 const Group_Module = lazyWithPreload(() => import('@/components/modules/group').then(m => ({ default: m.Group })));

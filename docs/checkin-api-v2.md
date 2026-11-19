@@ -1,12 +1,46 @@
-# 独立签到 API（P4.1）
+# 独立签到 API 与前端（P4.1 / P4.2）
 
-开发分支为 `v2`，接口前缀为 `/api/v1/checkin`。本契约供 P4.2 前端接入使用；生产启动入口在 P5 完成迁移与备份后切换。
+开发分支为 `v2`，接口前缀为 `/api/v1/checkin`。P4.2 独立签到前端已按本契约实现；生产启动入口在 P5 完成迁移与备份后切换。
 
 ## 装配与鉴权
 
 调用方先准备独立签到 schema，再构造一个长期复用的 `checkin.NewServices(store, notificationConfig)`，最后调用 `handlers.RegisterCheckinRoutes(engine, services)`。服务装配共享会话、执行器、余额、批次和通知实例；路由注册不迁移数据、不注册定时任务。`notificationConfig == nil` 表示关闭通知，生产配置需切换时显式注入 `checkin.LoadNotificationConfig`。
 
 所有接口使用现有管理员 Bearer JWT 鉴权，转发 API Key 不可调用。签到业务只依赖注入的 `CheckinStore`；管理员认证和共享代理/系统设置仍属于应用基础设施。停止产生执行/重试请求后，可调用 `Notifications.Wait(ctx)` 等待当前异步通知任务结束，再关闭存储；直接调用 `RunDue` 的任务由调用方等待。
+
+## 前端开发入口（P4.2）
+
+独立页面位于 `web/src/components/modules/checkin/`，专用类型与 hooks 位于 `web/src/api/endpoints/checkin-types.ts` 和 `checkin.ts`。站点与账号、凭据、历史与收益、批次、通知分别提供管理入口。创建账号可选择兼容的已有凭据，或同时创建凭据；余额可关闭、使用主凭据或独立配置。自定义 HTTP、状态查询、奖励提取和本地规则预览在站点编辑器中配置。
+
+生产切换前使用临时构建开关。在项目的 `web` 目录执行：
+
+```powershell
+$env:NEXT_PUBLIC_CHECKIN_V2 = '1'
+pnpm dev
+```
+
+构建静态文件时同样先设置该环境变量，再运行 `pnpm build`；开关在构建时决定页面实现，部署后修改环境变量需要重新构建。不设置开关时沿用旧页面。API 位于不同地址时设置现有的 `NEXT_PUBLIC_API_BASE_URL`。
+
+该开关只切换前端，不注册后端路由、不创建独立表、不迁移旧数据、不启动独立调度。联调后端必须按上文显式准备 schema 和注册独立服务；当前默认生产启动入口尚未完成 P5 切换。独立页面只请求 `/api/v1/checkin` 业务接口，查询失败会保留错误并提供刷新，不自动请求旧订阅 API。代理池和管理员登录继续复用公共基础设施。
+
+页面保留以下接口约束：
+
+- 凭据编辑只读取摘要；留空表示保留，清空秘密或替换认证 Header 必须明确选择。保存使用编辑器打开时的版本；冲突保留草稿并提示重新打开。切换凭据类型后不提交已隐藏的秘密字段。
+- 待确认任务使用确认入口；写操作不自动重试。批次明确区分全部站点和非空所选站点，创建后轮询进度。日志、批次、投递 ID 和游标始终作为字符串处理。
+- 历史筛选明确统计时区，收益与余额区分有效零和未知值，上游今日入账与本地签到奖励分别展示。未知通知投递需确认可能重复送达后才能请求重试。
+- 中英文及繁体界面提供稳定错误码翻译；桌面和移动端均提供表单、分页及错误恢复入口。
+
+前端验证命令（在 `web` 目录执行）：
+
+```text
+pnpm test
+pnpm exec tsc --noEmit
+pnpm lint
+pnpm test:e2e
+pnpm test:e2e:checkin
+```
+
+两组浏览器测试分别启动默认页面和独立页面，顺序运行；它们与构建共享 `.next`，不要并行启动。独立浏览器用例使用 API mock 校验请求契约、凭据版本、显式确认/重试、长 ID 和布局；后端行为由 P4.1 HTTP 集成测试覆盖，生产迁移与装配联调仍在 P5 验收。CI 已加入两组浏览器测试以及默认/独立两种构建。
 
 ## 通用约定
 
@@ -98,7 +132,7 @@
 
 ## 本地规则测试
 
-`POST /reward/test` 接受 `{code,response,status_response?}`，返回 `{reward,found}`，其中奖励 `"0"` 也视为找到。`POST /status/test` 接受 `{config,http_status,response,date}`，返回 `{state}`；日期格式 `YYYY-MM-DD`。
+`POST /reward/test` 接受 `{code,response,status_response?}`，返回 `{reward,found}`，其中奖励 `"0"` 也视为找到。`POST /status/test` 接受 `{config,http_status,response,date}`，返回 `{state}`，状态为 `checked_in`、`not_checked_in` 或 `unknown`；日期格式 `YYYY-MM-DD`。
 
 两个接口只计算用户提供的样例，不访问站点、不加载凭据、不登录或提交签到。运行共享的受限规则引擎；错误返回稳定代码和通用说明，不回显脚本异常中的秘密。
 

@@ -4,6 +4,7 @@ const baseURL = 'http://127.0.0.1:4173';
 
 export default defineConfig({
     testDir: './tests/e2e',
+    testIgnore: '**/independent-checkin*.spec.ts',
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: 0,

@@ -11,6 +11,7 @@ import { NavBar, useNavStore } from '@/components/modules/navbar';
 import { useProxyPoolDialogStore } from '@/components/modules/proxy-pool/dialog-store';
 import { ENTRANCE_VARIANTS } from '@/lib/animations/fluid-transitions';
 import { ContentLoader } from '@/route/content-loader';
+import { CHECKIN_V2 } from '@/lib/checkin-v2';
 
 const ChannelTabSwitcher = lazy(() =>
     import('@/components/modules/channel/TabSwitcher').then((module) => ({ default: module.ChannelTabSwitcher }))
@@ -30,7 +31,7 @@ export function AuthenticatedApp() {
     const prefetchStartedRef = useRef(false);
     const proxyPoolDialogOpen = useProxyPoolDialogStore((state) => state.isOpen);
     const showToolbar = visibleItem === 'site'
-        || visibleItem === 'checkin'
+        || (visibleItem === 'checkin' && !CHECKIN_V2)
         || visibleItem === 'channel'
         || visibleItem === 'group'
         || visibleItem === 'model'
@@ -68,8 +69,10 @@ export function AuthenticatedApp() {
             case 'checkin': {
                 prefetches.push(
                     queryClient.prefetchQuery({
-                        queryKey: ['sites', 'list'],
-                        queryFn: async () => apiClient.get('/api/v1/site/list'),
+                        queryKey: activeItem === 'checkin' && CHECKIN_V2 ? ['checkin', 'sites'] : ['sites', 'list'],
+                        queryFn: async () => activeItem === 'checkin' && CHECKIN_V2
+                            ? apiClient.get('/api/v1/checkin/sites', { include_archived: true })
+                            : apiClient.get('/api/v1/site/list'),
                     })
                 );
                 break;
