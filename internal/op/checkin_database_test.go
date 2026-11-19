@@ -195,6 +195,8 @@ func TestIndependentCheckinDatabases(t *testing.T) {
 			}
 			testWorkflowReservationCAS(t, store, workflowAccount.ID)
 			testPlatformSessionCAS(t, store)
+			testScheduledReservationRace(t, store, site.ID, workflowAccount.ID)
+			testBatchOwnership(t, store, site.ID, workflowAccount.ID)
 		})
 	}
 }

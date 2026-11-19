@@ -120,3 +120,44 @@ func TestPrepareCheckinSchemaPreservesSubmittedWorkflowAndHistory(t *testing.T) 
 		t.Fatal("new history model did not preserve the existing log table and snapshots")
 	}
 }
+
+func TestPrepareCheckinSchemaPreservesBatchHistoryAndActiveLease(t *testing.T) {
+	conn, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "batch-upgrade.db")), &gorm.Config{Logger: logger.Discard})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool, err := conn.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = pool.Close() })
+	if err := conn.Migrator().CreateTable(&model.SiteCheckinBatchJob{}); err != nil {
+		t.Fatal(err)
+	}
+	history := model.SiteCheckinBatchJob{ID: 42, Status: model.SiteCheckinBatchJobStatusCompleted,
+		Trigger: "manual", SiteIDs: []int{3, 4}, Total: 2, Attempted: 2, Success: 1, Pending: 1,
+		StartedAt: time.Now().UTC()}
+	if err := conn.Create(&history).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := PrepareCheckinSchema(conn); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.Model(&model.CheckinBatchLease{}).Where("id = 1").Updates(map[string]any{"job_id": 99, "until_milli": 12345}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := PrepareCheckinSchema(conn); err != nil {
+		t.Fatal(err)
+	}
+	var lease model.CheckinBatchLease
+	if err := conn.First(&lease, 1).Error; err != nil || lease.JobID != 99 || lease.UntilMilli != 12345 {
+		t.Fatalf("schema preparation reset worker ownership: %+v, %v", lease, err)
+	}
+	var stored model.CheckinBatchJob
+	if err := conn.First(&stored, history.ID).Error; err != nil || stored.Success != 1 || stored.Pending != 1 || len(stored.SiteIDs) != 2 || stored.SiteIDs[1] != 4 {
+		t.Fatalf("batch history or selection lost in upgrade: %+v, %v", stored, err)
+	}
+	if conn.Migrator().HasTable("checkin_batch_jobs") {
+		t.Fatal("batch model created a second history table")
+	}
+}

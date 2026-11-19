@@ -16,7 +16,7 @@ import (
 )
 
 type WorkflowStore interface {
-	BeginWorkflow(context.Context, int, model.CheckinTrigger, bool) (*op.CheckinExecution, error)
+	BeginExecution(context.Context, int, op.CheckinInvocation) (*op.CheckinExecution, error)
 	CheckWorkflow(context.Context, *op.CheckinExecution) (*op.CheckinExecution, error)
 	ReserveWorkflowSubmission(context.Context, *op.CheckinExecution, bool) (*op.CheckinExecution, error)
 	SaveWorkflowSession(context.Context, *op.CheckinExecution, op.CheckinLoginSession) (*model.CheckinCredential, error)
@@ -47,13 +47,13 @@ func NewEngine(store WorkflowStore, sessions SessionProvider, proxies ProxyResol
 }
 
 func (e *Engine) Execute(ctx context.Context, accountID int, trigger model.CheckinTrigger) (*model.CheckinResult, error) {
-	return e.run(ctx, accountID, trigger, false)
+	return e.run(ctx, accountID, op.CheckinInvocation{Trigger: trigger})
 }
 
 // Confirm never creates a workflow or sends another submission, including after
 // a failed/expired confirmation or when status configuration has been removed.
 func (e *Engine) Confirm(ctx context.Context, accountID int) (*model.CheckinResult, error) {
-	return e.run(ctx, accountID, model.CheckinTriggerManual, true)
+	return e.run(ctx, accountID, op.CheckinInvocation{Trigger: model.CheckinTriggerManual, Confirm: true})
 }
 
 type checkinRun struct {
@@ -62,7 +62,7 @@ type checkinRun struct {
 	recoveryUsed bool
 }
 
-func (e *Engine) run(ctx context.Context, id int, trigger model.CheckinTrigger, confirm bool) (*model.CheckinResult, error) {
+func (e *Engine) run(ctx context.Context, id int, request op.CheckinInvocation) (*model.CheckinResult, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -74,12 +74,13 @@ func (e *Engine) run(ctx context.Context, id int, trigger model.CheckinTrigger, 
 	e.running[id] = true
 	e.mu.Unlock()
 	defer func() { e.mu.Lock(); delete(e.running, id); e.mu.Unlock() }()
-	execution, err := e.store.BeginWorkflow(ctx, id, trigger, confirm)
+	execution, err := e.store.BeginExecution(ctx, id, request)
 	if err != nil {
 		return nil, err
 	}
 	w := execution.Workflow()
-	if w.Finished && (!confirm || w.Status == model.SiteExecutionStatusSuccess) {
+	confirm := request.Confirm
+	if w.Finished && (!confirm || request.Trigger == model.CheckinTriggerScheduled || w.Status == model.SiteExecutionStatusSuccess) {
 		return e.store.WorkflowResult(ctx, id)
 	}
 	run := &checkinRun{engine: e, execution: execution}
@@ -89,7 +90,8 @@ func (e *Engine) run(ctx context.Context, id int, trigger model.CheckinTrigger, 
 	if err := execution.Site.Validate(); err != nil {
 		return nil, err
 	}
-	if !confirm && !e.now().Before(w.Deadline) {
+	enforceDeadline := !confirm || request.Trigger == model.CheckinTriggerScheduled
+	if enforceDeadline && !e.now().Before(w.Deadline) {
 		return run.finish(ctx, failedOutcome("confirmation_expired", "签到确认期限已到，已提交请求不会重发"))
 	}
 	if !execution.Site.CheckinHTTPEnabled {
@@ -98,13 +100,18 @@ func (e *Engine) run(ctx context.Context, id int, trigger model.CheckinTrigger, 
 	if confirm && execution.Site.CheckinStatus == nil {
 		return nil, op.ErrCheckinAdapter
 	}
+	if w.Submitted && execution.Site.CheckinStatus == nil {
+		// A concurrent worker may still be waiting for its submission response.
+		// Only the owner or an expired deadline can settle this workflow.
+		return e.store.WorkflowResult(ctx, id)
+	}
 	timeout := 30 * time.Second
 	if execution.Site.CheckinStatus != nil {
 		timeout = time.Duration(execution.Site.CheckinStatus.TimeoutSeconds) * time.Second
 	}
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	if !confirm {
+	if enforceDeadline {
 		var deadlineCancel context.CancelFunc
 		runCtx, deadlineCancel = context.WithDeadline(runCtx, w.Deadline)
 		defer deadlineCancel()
@@ -123,15 +130,12 @@ func (e *Engine) run(ctx context.Context, id int, trigger model.CheckinTrigger, 
 		return nil, err
 	}
 	if execution.Site.CheckinStatus == nil {
-		if w.Submitted {
-			return run.finish(ctx, failedOutcome("unconfirmed_checkin", "此前请求已提交但结果未知；未配置状态查询，不会重复提交"))
-		}
 		response, err := run.submit(runCtx, false)
 		if err != nil {
 			if run.execution.Workflow().Submitted {
 				return run.finish(ctx, failedOutcome("unconfirmed_checkin", "签到请求结果未确认，本次不会重复提交"))
 			}
-			return nil, err
+			return run.submissionError(ctx, err)
 		}
 		return run.finish(ctx, interpretSubmission(runCtx, run.execution.Site, response))
 	}
@@ -155,7 +159,7 @@ func (e *Engine) run(ctx context.Context, id int, trigger model.CheckinTrigger, 
 		}
 		submitted, err = run.submit(runCtx, beforeUnchecked)
 		if err != nil && !run.execution.Workflow().Submitted {
-			return nil, err
+			return run.submissionError(ctx, err)
 		}
 		// Submission errors (including 401) do not prove non-delivery. Queries
 		// below may recover authentication; the submission is never repeated.
@@ -197,6 +201,15 @@ func (r *checkinRun) reload(ctx context.Context) (*op.CheckinExecution, error) {
 	}
 	r.execution = current
 	return current, nil
+}
+
+// A request that failed to build before reservation can be retried with backoff.
+// A store error can mean the reservation committed with a lost acknowledgment.
+func (r *checkinRun) submissionError(ctx context.Context, err error) (*model.CheckinResult, error) {
+	if r.execution.Trigger == model.CheckinTriggerScheduled && errors.Is(err, ErrCheckinRequest) {
+		return r.finish(ctx, failedOutcome("preparation_failed", "签到请求准备失败，稍后重试"))
+	}
+	return nil, err
 }
 
 func (r *checkinRun) submit(ctx context.Context, beforeUnchecked bool) (*rules.Response, error) {

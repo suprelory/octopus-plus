@@ -11,7 +11,7 @@
 | P0 分支与路线 | 已完成 | 创建 v2，保存设计、阶段和验收标准 |
 | P1 行为基线与迁移预检 | 已完成 | 已实现离线 JSON/ZIP 配置预检、转换清单、异常分类和样本回归 |
 | P2 新签到数据与会话 | 已完成 | 独立 CRUD、凭据与代理保护、会话登录/刷新编排完成；MySQL/PostgreSQL 实际并发验证通过 |
-| P3 独立签到执行 | 进行中 | 自定义 HTTP 和内置平台签到、会话更新与历史持久化已实现。剩余调度与批次、余额收益和通知 |
+| P3 独立签到执行 | 进行中 | 自定义 HTTP、内置平台、会话更新、调度与批次已实现。剩余余额收益和通知 |
 | P4 新 API 与前端 | 未开始 | 用户可通过独立签到页面管理全部配置，渠道统一展示 |
 | P5 数据迁移与备份 | 未开始 | 渠道转换、新旧备份、重入及三种数据库迁移验证 |
 | P6 删除旧模块与发布验收 | 未开始 | 移除订阅/投影运行时、更新文档、完成完整回归 |
@@ -132,6 +132,14 @@ P3 当前实现 `internal/checkin.Engine` 的自定义 HTTP 工作流：`Execute
 
 AgentRouter 的登录本身就是签到。数据库确认提交预占后才发送登录，成功证据为当天登录响应的 `data.checked_in == true`，或原工作流日期内的签到成功日志。恢复时按站点时区查询原日期，已经发生的签到归为“已签到”，奖励留空。并发确认期间，其他实例可以读到待确认记录，原执行仍可保存登录结果。
 
+调度和批次通过 `internal/checkin.Jobs` 复用同一个长期存活的 Engine。共享时间计算位于 `internal/checkin/schedule`，按站点日历、时间窗口和随机延迟计算下一次执行。随机时间持久化后跨扫描和重启复用。保存工作流结果时，账号状态、日志和下一次执行时间在同一事务提交。跨日确认成功时按原工作流日期安排下一次签到。
+
+`RunDue` 扫描到期账号，在事务内重读启用状态和工作流版本。未提交的前置检查在有效窗口内继续，已提交且支持查证的任务按原日期确认。默认每 10 分钟再次确认，并受确认期限约束。期限或配置失效后，原日志记为失败并保留提交标记。发送前的请求构造失败按 15 分钟起、最高 2 小时退避，凭据获取失败退避 6 小时，均对齐签到窗口。明确需要人工验证的结果安排到后续签到日，用户可完成验证后手动处理。
+
+批次显式选择 `all` 或非空 `selected`。同范围活动批次由数据库事务复用，范围冲突返回服务错误 `ErrCheckinBatchActive`，P4 将其映射为 HTTP 409。批次沿用开启自动签到的账号筛选，按站点和账号顺序执行，请求之间间隔 500 毫秒。数据库中的单行租约协调多个实例，期限为 1 分钟，每 20 秒续期，失效后由扫描、查询或新建批次标记中断。每次发送前检查活动批次与账号的提交预占。
+
+批次提供创建、执行、查询和分页列表入口，记录成功、失败、跳过、待确认和取消状态。统计保留批次结束时的快照，后续状态确认更新签到日志。工作流保存首次执行的来源和批次 ID，缺失日志恢复时沿用这些字段。用户发起批次后的 HTTP 请求结束不影响批次执行，执行器取消会保留已提交账号的待确认记录。同一轮遇到人工验证时，跳过该站点的剩余账号。
+
 ## 后端边界
 
 | 位置 | 职责 |
@@ -235,11 +243,15 @@ P2 的 `PrepareCheckinSchema`、`CheckinStore` 和 `internal/checkin.Sessions` �
 
 P3 的 `NewEngine(store, sessions, proxies)`、`Execute(ctx, accountID, trigger)` 和 `Confirm(ctx, accountID)` 使用注入的独立存储与长期复用的会话服务。`Execute` 支持自定义 HTTP 和上述六个内置平台，`Confirm` 支持配置了状态查询的 HTTP 任务和 AgentRouter 登录任务。`trigger` 用于入口条件和历史来源。`CheckinLog` 映射已有 `site_checkin_logs`。显式运行 `PrepareCheckinSchema` 可为旧开发库补充工作流版本列及凭据的 `session_cookies` 列。应用入口切换安排在 P3–P5 完成后。
 
+`NewJobs(store, engine)` 提供 `RunDue(ctx)`、`StartBatch(ctx, selection)` 和 `RunBatch(ctx, id)`。存储提供 `GetBatch` 和 `ListBatches`。`CheckinBatchJob` 复用 `site_checkin_batch_jobs` 历史表，`PrepareCheckinSchema` 增加 `checkin_batch_leases` 并幂等初始化协调行。重复准备 schema 保留已有租约和历史。定时任务注册与公开批次 API 随 P4/P5 接入应用。
+
 数据库集成测试入口：设置 `CHECKIN_TEST_MYSQL_DSN` 或 `CHECKIN_TEST_POSTGRES_DSN` 后运行 `go test -race ./internal/op -run '^TestIndependentCheckinDatabases$' -count=1 -v`。DSN 应指向可创建数据库的专用测试服务器；每次创建随机名称的测试数据库并仅删除该数据库，不改动已有业务库。未设置 DSN 时明确跳过对应测试。`.github/workflows/checkin-databases.yml` 为 v2 提供 MySQL 8.4 / PostgreSQL 17 服务，覆盖多连接租约竞争、已发送租约过期、设置编辑与刷新保存、旧版本冲突、凭据创建引用与删除竞争；P3 新增工作流提交预占与确认的 CAS 竞争。独立存储在 MySQL/PostgreSQL 上显式使用 READ COMMITTED，避免引用检查读取到加锁前的旧快照。
 
 提交 `4621ea4` 的 P2 会话及引用竞争测试在 MySQL 8.4 与 PostgreSQL 17 上通过，前后端 CI 均通过。[数据库集成](https://github.com/suprelory/octopus-plus/actions/runs/43907612346) · [完整 CI](https://github.com/suprelory/octopus-plus/actions/runs/43907612265)
 
 提交 `33ad874` 的 P3 签到提交预占与确认竞争测试在 MySQL 8.4 与 PostgreSQL 17 上通过，前后端 CI 均通过。[数据库集成](https://github.com/suprelory/octopus-plus/actions/runs/43912863414) · [完整 CI](https://github.com/suprelory/octopus-plus/actions/runs/43912863407)
+
+提交 `cd9285b` 的内置平台与共享会话改动在 MySQL 和 PostgreSQL 集成 CI 中通过，完整 CI 通过。[数据库集成](https://github.com/suprelory/octopus-plus/actions/runs/44335031421) · [完整 CI](https://github.com/suprelory/octopus-plus/actions/runs/44335031388)
 
 P2 已完成的子项：
 
@@ -263,7 +275,8 @@ P3 已完成的子项与剩余顺序：
 - [x] MySQL/PostgreSQL 实际运行工作流提交预占与确认竞争用例（`33ad874`）。
 - [x] 内置管理平台、AgentRouter 显式登录与按日查证、AnyRouter 身份读取与 Cookie 更新、人机验证结果和提交保护。
 - [x] 共享平台凭据写入竞争用例已在 MySQL 8.4.4 和 PostgreSQL 17.5 上通过，并已接入数据库 CI。
-- [ ] 接入独立调度与批次：随机时间、下一次执行/失败退避、待确认调度、范围校验、并发控制与进度统计。
+- [x] 独立调度与批次服务完成随机时间持久化、失败退避、待确认恢复、范围校验、数据库并发控制与进度统计。
+- [x] SQLite/HTTP 验证跨日确认、夏令时、随机时间重启复用、三种入口竞争、请求取消、缺失日志、过期和配置变更。MySQL 8.4.4 / PostgreSQL 17.5 实际运行定时提交竞争、活动批次复用与租约失效用例。
 - [ ] 接入独立余额查询、签到前后余额差、收益聚合和通知去重；余额失败不改变签到成功结果。
 - [ ] 完成 P3 服务验收后进入 P4 API/前端；生产切换仍等待 P3–P5 全部完成。
 
@@ -282,3 +295,4 @@ P3 已完成的子项与剩余顺序：
 - 2026-11-17：进入 P3，新增 `internal/checkin/engine.go`、`http_checkin.go`、`internal/op/checkin_workflow.go` 与独立历史模型；共享规则迁入 `internal/checkin/rules`。实现自定义 HTTP 提交/确认闭环，覆盖取消、重启、缺失日志、401、配置变更、提交确认丢失和跨午夜响应。P3 保持进行中，内置平台、调度/批次、余额收益与通知尚未接入。
 - 2026-11-17：P3 本轮最终验证通过 `go test ./...`、`go test -race ./internal/checkin/... ./internal/db ./internal/model ./internal/op ./internal/sitesync -run 'TestWorkflow|TestSessions|TestSessionJWT|TestHTTPAuth|TestIndependentCheckin|TestCheckin|TestStatusCheckin|TestPrepareCheckinSchema|TestExtractCheckinReward' -count=1 -timeout 180s`、`go vet ./internal/checkin/... ./internal/op ./internal/model ./internal/db ./internal/sitesync`、gofmt 检查与 `git diff --check`。补充旧开发库 schema 幂等升级、历史表复用、空响应脚本和空格奖励的兼容回归。本地未配置 MySQL/PostgreSQL DSN，新增 P3 数据库用例明确跳过，待本轮提交后的远端 CI 执行。
 - 2026-11-18，`33ad874` 的数据库 CI 日志确认 MySQL 和 PostgreSQL 子测试均已执行并通过。继续 P3，内置签到入口位于 `internal/checkin/platform.go` 和 `agentrouter.go`，凭据更新位于 `internal/op/checkin_workflow_session.go`。SQLite 和 HTTP 回归覆盖多实例登录与确认、跨日查证、账号共享会话、人工换凭据、Cookie 删除及备份恢复、鉴权拒绝和人工验证。`go test ./...`、相关竞态测试、`go vet ./...`、gofmt 及差异检查通过。本轮在本地 MySQL 8.4.4 和 PostgreSQL 17.5 上执行 `go test -race ./internal/op -run '^TestIndependentCheckinDatabases$' -count=1 -v`，两个数据库子测试均通过，覆盖共享平台凭据并发写入。
+- 2026-11-19，完成 P3 调度与批次服务。新增 `internal/checkin/jobs.go`、`internal/checkin/schedule/window.go`、`internal/op/checkin_schedule.go` 和 `internal/op/checkin_batch.go`，旧调度复用提取后的时间计算。已通过 `go test ./...`、`go vet ./...` 和相关竞态测试，补充批次取消、原日志与批次归属恢复、schema 幂等升级验证。本轮 MySQL 8.4.4 和 PostgreSQL 17.5 的 `TestIndependentCheckinDatabases` 均实际执行并通过，新增调度提交竞争与批次所有权测试已接入该 CI 入口。P3 下一项为余额、收益与通知。

@@ -21,7 +21,7 @@ func (r *checkinRun) platform(ctx context.Context, confirm bool) (*model.Checkin
 	}
 	runCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	if !confirm {
+	if !confirm || r.execution.Trigger == model.CheckinTriggerScheduled {
 		var deadlineCancel context.CancelFunc
 		runCtx, deadlineCancel = context.WithDeadline(runCtx, r.execution.Workflow().Deadline)
 		defer deadlineCancel()
@@ -67,7 +67,7 @@ func (r *checkinRun) platform(ctx context.Context, confirm bool) (*model.Checkin
 	}
 	response, payload, err := r.submitPlatform(runCtx, p, path, body, false)
 	if !r.execution.Workflow().Submitted {
-		return nil, err
+		return r.submissionError(ctx, err)
 	}
 	outcome := platformOutcome(runCtx, r.execution.Site, response, payload, err)
 	return r.finishPlatform(ctx, p, outcome)

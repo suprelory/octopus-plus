@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"errors"
+	"slices"
+	"time"
+)
 
 type SiteCheckinBatchJobStatus string
 
@@ -14,9 +18,9 @@ const (
 	SiteCheckinBatchJobStatusInterrupted         SiteCheckinBatchJobStatus = "interrupted"
 )
 
-// SiteCheckinBatchJob persists a manually triggered check-in batch. An empty
+// CheckinBatchJob persists a manually triggered check-in batch. An empty
 // SiteIDs list denotes all eligible sites; selected batches retain their scope.
-type SiteCheckinBatchJob struct {
+type CheckinBatchJob struct {
 	ID                 int64                     `json:"id,string" gorm:"primaryKey;autoIncrement:false"`
 	Status             SiteCheckinBatchJobStatus `json:"status" gorm:"size:32;not null;index:idx_site_checkin_batch_status"`
 	Trigger            string                    `json:"trigger" gorm:"size:16;not null"`
@@ -42,7 +46,42 @@ type SiteCheckinBatchJob struct {
 	FinishedAt         *time.Time                `json:"finished_at,omitempty" gorm:"index"`
 }
 
-type SiteCheckinBatchJobPage struct {
-	Items        []SiteCheckinBatchJob `json:"items"`
-	NextBeforeID int64                 `json:"next_before_id,omitempty"`
+func (CheckinBatchJob) TableName() string { return "site_checkin_batch_jobs" }
+
+type SiteCheckinBatchJob = CheckinBatchJob
+
+// The singleton row serializes creation, worker ownership and expiry across instances.
+type CheckinBatchLease struct {
+	ID         int   `gorm:"primaryKey;autoIncrement:false"`
+	JobID      int64 `gorm:"not null"`
+	UntilMilli int64 `gorm:"not null"`
 }
+
+var ErrCheckinBatchSelection = errors.New("invalid check-in batch selection")
+
+type CheckinBatchSelection struct {
+	Scope   string `json:"scope"`
+	SiteIDs []int  `json:"site_ids,omitempty"`
+}
+
+func (s CheckinBatchSelection) Normalize() ([]int, error) {
+	if s.Scope == "all" && len(s.SiteIDs) == 0 {
+		return nil, nil
+	}
+	if s.Scope != "selected" || len(s.SiteIDs) == 0 {
+		return nil, ErrCheckinBatchSelection
+	}
+	ids := slices.Clone(s.SiteIDs)
+	slices.Sort(ids)
+	if ids[0] <= 0 {
+		return nil, ErrCheckinBatchSelection
+	}
+	return slices.Compact(ids), nil
+}
+
+type CheckinBatchJobPage struct {
+	Items        []CheckinBatchJob `json:"items"`
+	NextBeforeID int64             `json:"next_before_id,omitempty"`
+}
+
+type SiteCheckinBatchJobPage = CheckinBatchJobPage

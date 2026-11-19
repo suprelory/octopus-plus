@@ -5,6 +5,7 @@ import (
 
 	"github.com/suprelory/octopus-plus/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // PrepareCheckinSchema is an explicit migration building block. Runtime startup
@@ -14,7 +15,7 @@ func PrepareCheckinSchema(conn *gorm.DB) error {
 	if conn == nil {
 		return errors.New("checkin schema requires a database")
 	}
-	for _, table := range []any{&model.CheckinSite{}, &model.CheckinCredential{}, &model.CheckinAccount{}, &model.CheckinLog{}} {
+	for _, table := range []any{&model.CheckinSite{}, &model.CheckinCredential{}, &model.CheckinAccount{}, &model.CheckinLog{}, &model.CheckinBatchJob{}, &model.CheckinBatchLease{}} {
 		if !conn.Migrator().HasTable(table) {
 			if err := conn.Migrator().CreateTable(table); err != nil {
 				return err
@@ -34,5 +35,5 @@ func PrepareCheckinSchema(conn *gorm.DB) error {
 			return err
 		}
 	}
-	return nil
+	return conn.Clauses(clause.OnConflict{DoNothing: true}).Create(&model.CheckinBatchLease{ID: 1}).Error
 }

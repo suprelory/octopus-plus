@@ -36,6 +36,8 @@ type SiteCheckinStatusConfig struct {
 // Neither raw responses nor credentials are stored here.
 type SiteCheckinPending struct {
 	LogID           int64               `json:"log_id,string"`
+	Source          CheckinTrigger      `json:"source,omitempty"`
+	BatchJobID      int64               `json:"batch_job_id,string,omitempty"`
 	Date            string              `json:"date"`
 	Fingerprint     string              `json:"fingerprint"`
 	StartedAt       time.Time           `json:"started_at"`

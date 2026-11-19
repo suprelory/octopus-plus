@@ -23,7 +23,7 @@ func (r *checkinRun) agentRouter(ctx context.Context) (*model.CheckinResult, err
 		response, payload, err := r.submitPlatform(ctx, p, "/api/user/login",
 			map[string]string{"username": credential.Username, "password": credential.Password}, true)
 		if !r.execution.Workflow().Submitted {
-			return nil, err
+			return r.submissionError(ctx, err)
 		}
 		if errors.Is(err, errVerificationRequired) {
 			return r.finish(ctx, verificationOutcome(true))

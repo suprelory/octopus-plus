@@ -3,27 +3,20 @@ package sitesync
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
+	"github.com/suprelory/octopus-plus/internal/checkin/schedule"
 	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/op"
 )
 
-const (
-	checkinRetryBaseDelay       = 15 * time.Minute
-	checkinRetryMaxDelay        = 2 * time.Hour
-	checkinCredentialRetryDelay = 6 * time.Hour
-	checkinSkippedRetryDelay    = 7 * 24 * time.Hour
-	checkinRetryJitterMinutes   = 5
-)
+const checkinRetryJitterMinutes = schedule.RetryJitterMinutes
 
 type siteCheckinWindow struct {
-	location    *time.Location
-	startMinute int
-	endMinute   int
+	location *time.Location
+	schedule.Window
 }
 
 func resolveSiteCheckinWindow(siteRecord *model.Site) siteCheckinWindow {
@@ -46,27 +39,11 @@ func resolveSiteCheckinWindow(siteRecord *model.Site) siteCheckinWindow {
 	if err != nil {
 		location, _ = time.LoadLocation(model.DefaultSiteCheckinTimezone)
 	}
-	return siteCheckinWindow{
-		location:    location,
-		startMinute: parseCheckinClockMinute(windowStart, 0),
-		endMinute:   parseCheckinClockMinute(windowEnd, 23*60+59),
-	}
-}
-
-func parseCheckinClockMinute(value string, fallback int) int {
-	parsed, err := time.Parse("15:04", value)
-	if err != nil {
-		return fallback
-	}
-	return parsed.Hour()*60 + parsed.Minute()
+	return siteCheckinWindow{location: location, Window: schedule.ParseWindow(windowStart, windowEnd)}
 }
 
 func checkinWindowBounds(window siteCheckinWindow, localDate time.Time) (time.Time, time.Time) {
-	startHour, startMinute := window.startMinute/60, window.startMinute%60
-	endHour, endMinute := window.endMinute/60, window.endMinute%60
-	start := time.Date(localDate.Year(), localDate.Month(), localDate.Day(), startHour, startMinute, 0, 0, window.location)
-	endExclusive := time.Date(localDate.Year(), localDate.Month(), localDate.Day(), endHour, endMinute, 0, 0, window.location).Add(time.Minute)
-	return start, endExclusive
+	return window.Bounds(localDate.In(window.location))
 }
 
 func localDateStart(value time.Time, location *time.Location) time.Time {
@@ -93,28 +70,7 @@ func effectiveLastCheckinSuccessAt(account *model.SiteAccount) *time.Time {
 // nextDailyCheckinWindow returns the earliest time and the exclusive end of
 // the next eligible local day's window. Random delays stay within this date.
 func nextDailyCheckinWindow(window siteCheckinWindow, account *model.SiteAccount, now time.Time) (time.Time, time.Time) {
-	localNow := now.In(window.location)
-	targetDate := localDateStart(localNow, window.location)
-	if lastSuccess := effectiveLastCheckinSuccessAt(account); lastSuccess != nil {
-		targetDate = localDateStart(*lastSuccess, window.location).AddDate(0, 0, 1)
-		if targetDate.Before(localDateStart(localNow, window.location)) {
-			targetDate = localDateStart(localNow, window.location)
-		}
-	}
-
-	windowStart, windowEndExclusive := checkinWindowBounds(window, targetDate)
-	base := windowStart
-	if sameLocalDate(targetDate, localNow, window.location) {
-		switch {
-		case !localNow.Before(windowEndExclusive):
-			targetDate = targetDate.AddDate(0, 0, 1)
-			windowStart, windowEndExclusive = checkinWindowBounds(window, targetDate)
-			base = windowStart
-		case localNow.After(windowStart):
-			base = localNow
-		}
-	}
-	return base, windowEndExclusive
+	return window.Next(now.In(window.location), effectiveLastCheckinSuccessAt(account))
 }
 
 func buildNextAutoCheckinAt(siteRecord *model.Site, account *model.SiteAccount, now time.Time) *time.Time {
@@ -136,16 +92,8 @@ func buildNextAutoCheckinAt(siteRecord *model.Site, account *model.SiteAccount, 
 	}
 	base, windowEndExclusive := nextDailyCheckinWindow(window, account, now)
 
-	if account.RandomCheckin && account.CheckinRandomWindowMinutes > 0 {
-		latest := windowEndExclusive.Add(-time.Minute)
-		availableMinutes := int(latest.Sub(base) / time.Minute)
-		if availableMinutes > 0 {
-			maxDelay := account.CheckinRandomWindowMinutes
-			if maxDelay > availableMinutes {
-				maxDelay = availableMinutes
-			}
-			base = base.Add(time.Duration(rand.Intn(maxDelay+1)) * time.Minute)
-		}
+	if account.RandomCheckin {
+		base = schedule.Spread(base, windowEndExclusive, account.CheckinRandomWindowMinutes)
 	}
 
 	next := base
@@ -204,69 +152,17 @@ func ensureAccountCheckinSchedule(ctx context.Context, siteRecord *model.Site, a
 	return nextAt, nil
 }
 
-func checkinRetryDelay(status model.SiteExecutionStatus, message string, failureCount int) time.Duration {
-	if status == model.SiteExecutionStatusSkipped {
-		return checkinSkippedRetryDelay
-	}
-	lowered := strings.ToLower(strings.TrimSpace(message))
-	credentialFailure := strings.Contains(lowered, "unauthorized") ||
-		strings.Contains(lowered, "forbidden") ||
-		strings.Contains(lowered, "invalid token") ||
-		strings.Contains(lowered, "token expired") ||
-		strings.Contains(lowered, "http 401") ||
-		strings.Contains(lowered, "http 403") ||
-		strings.Contains(message, "登录失效") ||
-		strings.Contains(message, "凭证失效")
-	if credentialFailure {
-		return checkinCredentialRetryDelay
-	}
-	if failureCount < 1 {
-		failureCount = 1
-	}
-	delay := checkinRetryBaseDelay
-	for attempt := 1; attempt < failureCount && delay < checkinRetryMaxDelay; attempt++ {
-		delay *= 2
-	}
-	if delay > checkinRetryMaxDelay {
-		return checkinRetryMaxDelay
-	}
-	return delay
-}
-
 func alignCheckinRetryToWindow(siteRecord *model.Site, target time.Time) time.Time {
 	window := resolveSiteCheckinWindow(siteRecord)
-	localTarget := target.In(window.location)
-	start, endExclusive := checkinWindowBounds(window, localTarget)
-	switch {
-	case localTarget.Before(start):
-		localTarget = start
-	case !localTarget.Before(endExclusive):
-		localTarget = localDateStart(localTarget, window.location).AddDate(0, 0, 1)
-		localTarget, _ = checkinWindowBounds(window, localTarget)
-	}
-
-	latest := func() time.Time {
-		_, currentEndExclusive := checkinWindowBounds(window, localTarget)
-		return currentEndExclusive.Add(-time.Minute)
-	}()
-	if latest.After(localTarget) {
-		availableMinutes := int(latest.Sub(localTarget) / time.Minute)
-		maxJitter := checkinRetryJitterMinutes
-		if maxJitter > availableMinutes {
-			maxJitter = availableMinutes
-		}
-		if maxJitter > 0 {
-			localTarget = localTarget.Add(time.Duration(rand.Intn(maxJitter+1)) * time.Minute)
-		}
-	}
-	return localTarget
+	start, end := window.Next(target.In(window.location), nil)
+	return schedule.Spread(start, end, checkinRetryJitterMinutes)
 }
 
 func buildNextCheckinRetryAt(siteRecord *model.Site, now time.Time, status model.SiteExecutionStatus, message string, failureCount int) *time.Time {
 	if siteRecord == nil || !siteRecord.IsCheckinOnly() || !siteRecord.ResolveCheckinCapability().Enabled {
 		return nil
 	}
-	target := now.Add(checkinRetryDelay(status, message, failureCount))
+	target := now.Add(schedule.RetryDelay(status, message, failureCount))
 	next := alignCheckinRetryToWindow(siteRecord, target)
 	return &next
 }

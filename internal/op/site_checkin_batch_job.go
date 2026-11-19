@@ -65,17 +65,21 @@ func SiteCheckinBatchJobLatest(ctx context.Context) (*model.SiteCheckinBatchJob,
 }
 
 func SiteCheckinBatchJobList(ctx context.Context, limit int, beforeID int64) (*model.SiteCheckinBatchJobPage, error) {
+	return listCheckinBatchJobs(db.GetDB().WithContext(ctx), limit, beforeID)
+}
+
+func listCheckinBatchJobs(conn *gorm.DB, limit int, beforeID int64) (*model.CheckinBatchJobPage, error) {
 	if limit <= 0 {
 		limit = 20
 	}
 	if limit > 100 {
 		limit = 100
 	}
-	query := db.GetDB().WithContext(ctx).Order("id DESC").Limit(limit + 1)
+	query := conn.Order("id DESC").Limit(limit + 1)
 	if beforeID > 0 {
 		query = query.Where("id < ?", beforeID)
 	}
-	page := &model.SiteCheckinBatchJobPage{Items: make([]model.SiteCheckinBatchJob, 0, limit+1)}
+	page := &model.CheckinBatchJobPage{Items: make([]model.CheckinBatchJob, 0, limit+1)}
 	if err := query.Find(&page.Items).Error; err != nil {
 		return nil, fmt.Errorf("list site checkin batch jobs: %w", err)
 	}
