@@ -1,5 +1,7 @@
 'use client';
 
+import { V2_UI } from '@/lib/v2-ui';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Columns3, Inbox, TriangleAlert } from 'lucide-react';
@@ -192,10 +194,10 @@ export function Log() {
     }, [channels]);
 
     const logIDs = useMemo(() => logs.map((log) => log.id), [logs]);
-    const siteActionTargetsQuery = useLogSiteActionTargets(logIDs, logs.length > 0);
+    const siteActionTargetsQuery = useLogSiteActionTargets(logIDs, !V2_UI && logs.length > 0);
     const siteActionTargets = useMemo(() => {
         const next = new Map<number, LogSiteActionTargets>();
-        const data = siteActionTargetsQuery.data ?? {};
+        const data = V2_UI ? {} : siteActionTargetsQuery.data ?? {};
         for (const [id, targets] of Object.entries(data)) {
             next.set(Number(id), targets);
         }

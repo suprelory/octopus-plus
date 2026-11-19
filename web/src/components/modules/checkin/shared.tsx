@@ -1,6 +1,14 @@
 'use client';
 
-import { cloneElement, isValidElement, useId, useState, type ComponentProps, type ReactNode } from 'react';
+import {
+    cloneElement,
+    isValidElement,
+    useId,
+    useState,
+    type ComponentProps,
+    type ReactNode,
+    type RefObject,
+} from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,6 +104,7 @@ export function FormDialog({
     onSubmit,
     pending,
     error,
+    initialFocusRef,
 }: {
     title: string;
     description: string;
@@ -104,6 +113,7 @@ export function FormDialog({
     onSubmit: () => Promise<unknown>;
     pending: boolean;
     error?: unknown;
+    initialFocusRef?: RefObject<HTMLElement | null>;
 }) {
     const t = useTranslations('checkinV2');
     const formId = useId();
@@ -115,7 +125,16 @@ export function FormDialog({
                 if (!open && !pending) onClose();
             }}
         >
-            <DialogContent className="sm:max-w-3xl" showCloseButton={!pending}>
+            <DialogContent
+                className="sm:max-w-3xl"
+                showCloseButton={!pending}
+                onOpenAutoFocus={(event) => {
+                    if (initialFocusRef?.current) {
+                        event.preventDefault();
+                        initialFocusRef.current.focus();
+                    }
+                }}
+            >
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>

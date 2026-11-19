@@ -13,6 +13,8 @@ import { getErrorMessage } from '@/lib/errors';
 import { useSettingStore } from '@/stores/setting';
 import { translateSiteMessage } from '@/components/modules/site/site-message';
 import { SettingCard, useSettingField } from './shared';
+import { V2_UI } from '@/lib/v2-ui';
+import { IndependentCheckinTasks } from './IndependentCheckinTasks';
 
 // 每行一个定时任务：自动执行间隔（小时）+ 手动触发，可选展示上次执行时间
 function TaskRow({ icon: Icon, label, settingKey, last, running, runLabel, pendingLabel, onRun }: {
@@ -117,18 +119,11 @@ function BatchStatus({ job }: { job: SiteCheckinBatchJob | null | undefined }) {
 
 export function SettingSyncTasks() {
     const t = useTranslations('setting');
-    const tAll = useTranslations();
-    const locale = useSettingStore((state) => state.locale);
 
     const syncChannel = useSyncChannel();
     const { data: lastSyncTime } = useLastSyncTime();
     const updatePrice = useUpdateModelPrice();
     const { data: lastUpdateTime } = useLastUpdateTime();
-    const syncAllSites = useSyncAllSites();
-    const checkinAllSites = useCheckinAllSites();
-    const { data: lastSiteSyncTime } = useSiteLastSyncTime();
-    const { data: lastSiteCheckinTime } = useSiteLastCheckinTime();
-    const { data: latestCheckinBatch } = useLatestSiteCheckinBatch();
 
     const formatTime = (timeStr: string | undefined) => {
         if (!timeStr) return t('syncTasks.never');
@@ -170,6 +165,26 @@ export function SettingSyncTasks() {
                 })}
             />
 
+            {V2_UI ? <IndependentCheckinTasks /> : <LegacySiteTasks />}
+        </SettingCard>
+    );
+}
+
+function LegacySiteTasks() {
+    const t = useTranslations('setting');
+    const tAll = useTranslations();
+    const locale = useSettingStore((state) => state.locale);
+    const syncAllSites = useSyncAllSites();
+    const checkinAllSites = useCheckinAllSites();
+    const { data: lastSiteSyncTime } = useSiteLastSyncTime();
+    const { data: lastSiteCheckinTime } = useSiteLastCheckinTime();
+    const { data: latestCheckinBatch } = useLatestSiteCheckinBatch();
+    const formatTime = (value: string | undefined) => {
+        const date = value ? new Date(value) : null;
+        return !date || Number.isNaN(date.getTime()) || date.getFullYear() === 1
+            ? t('syncTasks.never') : date.toLocaleString();
+    };
+    return <>
             {/* 站点全量同步 */}
             <TaskRow
                 icon={Globe2}
@@ -202,6 +217,5 @@ export function SettingSyncTasks() {
                 />
                 <BatchStatus job={latestCheckinBatch} />
             </div>
-        </SettingCard>
-    );
+        </>;
 }

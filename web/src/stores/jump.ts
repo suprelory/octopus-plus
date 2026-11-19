@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useNavStore, type NavItem } from '@/components/modules/navbar';
+import { V2_UI } from '@/lib/v2-ui';
 
 export type SiteJumpTarget =
     | { kind: 'site-card'; siteId: number }
@@ -12,7 +13,12 @@ export type SiteChannelJumpTarget =
 
 export type ChannelJumpTarget = { kind: 'channel-card'; channelId: number };
 
-export type JumpTarget = SiteJumpTarget | SiteChannelJumpTarget | ChannelJumpTarget;
+export type CheckinJumpTarget =
+    | { kind: 'checkin-site'; siteId: number }
+    | { kind: 'checkin-account' | 'checkin-balance'; siteId: number; accountId: number }
+    | { kind: 'checkin-credential'; credentialId: number };
+
+export type JumpTarget = SiteJumpTarget | SiteChannelJumpTarget | ChannelJumpTarget | CheckinJumpTarget;
 
 export type PendingJump = {
     requestId: number;
@@ -28,6 +34,11 @@ interface JumpState {
 
 export function getJumpTargetRoute(target: JumpTarget): NavItem {
     switch (target.kind) {
+        case 'checkin-site':
+        case 'checkin-account':
+        case 'checkin-balance':
+        case 'checkin-credential':
+            return 'checkin';
         case 'site-card':
         case 'site-account':
             return 'site';
@@ -57,10 +68,21 @@ export function isChannelJumpTarget(target: JumpTarget): target is ChannelJumpTa
     return target.kind === 'channel-card';
 }
 
+export function isCheckinJumpTarget(target: JumpTarget): target is CheckinJumpTarget {
+    return target.kind === 'checkin-site' || target.kind === 'checkin-account'
+        || target.kind === 'checkin-balance' || target.kind === 'checkin-credential';
+}
+
 export const useJumpStore = create<JumpState>((set, get) => ({
     sequence: 0,
     pending: null,
     requestJump: (target) => {
+        if (V2_UI && (isSiteJumpTarget(target) || isSiteChannelJumpTarget(target))) {
+            set({ pending: null });
+            useNavStore.getState().setActiveItem(isSiteJumpTarget(target) ? 'home' : 'channel');
+            return;
+        }
+        if (!V2_UI && isCheckinJumpTarget(target)) return;
         const route = getJumpTargetRoute(target);
         const navState = useNavStore.getState();
         if (navState.activeItem !== route) {

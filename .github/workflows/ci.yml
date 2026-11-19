@@ -145,12 +145,12 @@ jobs:
         id: browser_tests
         run: pnpm test:e2e
 
-      - name: Independent check-in browser tests
-        id: checkin_browser_tests
-        run: pnpm test:e2e:checkin
+      - name: V2 workspace browser tests
+        id: v2_browser_tests
+        run: pnpm test:e2e:v2
 
       - name: Upload browser regression diagnostics
-        if: ${{ failure() && (steps.browser_tests.outcome == 'failure' || steps.checkin_browser_tests.outcome == 'failure') }}
+        if: ${{ failure() && (steps.browser_tests.outcome == 'failure' || steps.v2_browser_tests.outcome == 'failure') }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-${{ github.run_id }}-${{ github.run_attempt }}
@@ -163,5 +163,5 @@ jobs:
       - name: Build frontend
         run: pnpm build
 
-      - name: Build independent check-in frontend
-        run: NEXT_PUBLIC_CHECKIN_V2=1 pnpm build
+      - name: Build v2 frontend
+        run: NEXT_PUBLIC_V2_UI=1 pnpm build

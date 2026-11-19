@@ -1,5 +1,8 @@
 'use client';
 
+import { V2_UI } from '@/lib/v2-ui';
+import { referenceNodeKey, referenceJumpTarget } from './references';
+
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ChevronDown, ExternalLink, FlaskConical, Network, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -71,6 +74,13 @@ function createFormFromProxy(proxy: ProxyConfiguration): FormState {
 
 function referenceTitle(reference: ProxyConfigurationReference, t: ProxyPoolDialogTranslator) {
     switch (reference.type) {
+        case 'checkin_site':
+            return reference.checkin_site_name || `#${reference.checkin_site_id}`;
+        case 'checkin_account':
+        case 'checkin_balance':
+            return reference.checkin_account_name || `#${reference.checkin_account_id}`;
+        case 'checkin_credential':
+            return reference.checkin_credential_name || `#${reference.checkin_credential_id}`;
         case 'site':
             return reference.site_name || `#${reference.site_id}`;
         case 'site_account':
@@ -88,6 +98,13 @@ function referenceTitle(reference: ProxyConfigurationReference, t: ProxyPoolDial
 
 function referenceLocation(reference: ProxyConfigurationReference, t: ProxyPoolDialogTranslator) {
     switch (reference.type) {
+        case 'checkin_site':
+            return t(reference.checkin_site_archived ? 'referenceLocations.archivedCheckin' : 'referenceLocations.checkinSite');
+        case 'checkin_account':
+        case 'checkin_balance':
+            return `${reference.checkin_site_name || `#${reference.checkin_site_id}`} · ${t(reference.type === 'checkin_balance' ? 'referenceLocations.checkinBalance' : 'referenceLocations.checkinAccount')}${reference.checkin_site_archived ? ` · ${t('referenceLocations.archivedCheckin')}` : ''}`;
+        case 'checkin_credential':
+            return t('referenceLocations.checkinCredential');
         case 'site':
             return reference.site_archived ? t('referenceLocations.archivedSite') : t('referenceLocations.site');
         case 'site_account':
@@ -97,7 +114,7 @@ function referenceLocation(reference: ProxyConfigurationReference, t: ProxyPoolD
                 ? t('referenceLocations.managedChannelUnderSite', { site: reference.site_name })
                 : t('referenceLocations.managedChannel');
         case 'channel':
-            return t('referenceLocations.channel');
+            return t(V2_UI ? 'referenceLocations.normalChannel' : 'referenceLocations.channel');
         default:
             return '';
     }
@@ -105,6 +122,11 @@ function referenceLocation(reference: ProxyConfigurationReference, t: ProxyPoolD
 
 function referenceTypeLabel(reference: ProxyConfigurationReference, t: ProxyPoolDialogTranslator) {
     switch (reference.type) {
+        case 'checkin_site':
+        case 'checkin_account':
+        case 'checkin_balance':
+        case 'checkin_credential':
+            return t(`referenceTypes.${reference.type}`);
         case 'site':
             return t('referenceTypes.site');
         case 'site_account':
@@ -116,10 +138,6 @@ function referenceTypeLabel(reference: ProxyConfigurationReference, t: ProxyPool
         default:
             return t('referenceTypes.reference');
     }
-}
-
-function referenceNodeKey(reference: ProxyConfigurationReference) {
-    return `${reference.type}:${reference.site_id ?? 0}:${reference.site_account_id ?? 0}:${reference.channel_id ?? 0}`;
 }
 
 function buildReferenceTree(references: ProxyConfigurationReference[]) {
@@ -224,32 +242,11 @@ export function ProxyPoolDialog() {
     }
 
     function jumpToReference(reference: ProxyConfigurationReference) {
+        const target = referenceJumpTarget(reference, V2_UI);
+        if (!target) return;
         setReferencesProxy(null);
         setOpen(false);
-        switch (reference.type) {
-            case 'site':
-                if (reference.site_id) requestJump({ kind: 'site-card', siteId: reference.site_id });
-                return;
-            case 'site_account':
-                if (reference.site_id && reference.site_account_id) {
-                    requestJump({ kind: 'site-account', siteId: reference.site_id, accountId: reference.site_account_id });
-                }
-                return;
-            case 'managed_channel':
-                if (reference.site_id) {
-                    requestJump(
-                        reference.site_account_id
-                            ? { kind: 'site-channel-account', siteId: reference.site_id, accountId: reference.site_account_id }
-                            : { kind: 'site-channel-card', siteId: reference.site_id },
-                    );
-                }
-                return;
-            case 'channel':
-                if (reference.channel_id) requestJump({ kind: 'channel-card', channelId: reference.channel_id });
-                return;
-            default:
-                return;
-        }
+        requestJump(target);
     }
 
     function submitForm(event: FormEvent<HTMLFormElement>) {
@@ -339,7 +336,7 @@ export function ProxyPoolDialog() {
                                 <Network className="size-5" />
                                 {t('title')}
                             </DialogTitle>
-                            <DialogDescription>{t('description')}</DialogDescription>
+                            <DialogDescription>{t(V2_UI ? 'descriptionV2' : 'description')}</DialogDescription>
                         </DialogHeader>
                         <div className="shrink-0 px-6 pb-3">
                             <Input
@@ -469,7 +466,7 @@ export function ProxyPoolDialog() {
                         ) : referenceTree.map((node) => {
                             const expanded = expandedReferenceKeys.has(node.key);
                             return (
-                                <div key={node.key} className="rounded-2xl border bg-card p-3">
+                                <div key={node.key} role="group" aria-label={`${referenceTypeLabel(node.reference, t)}: ${referenceTitle(node.reference, t)}`} className="rounded-2xl border bg-card p-3">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="flex min-w-0 items-center gap-2">
                                             {node.children.length > 0 ? (
@@ -497,7 +494,7 @@ export function ProxyPoolDialog() {
                                                 <div className="mt-1 truncate text-xs text-muted-foreground">{referenceLocation(node.reference, t)}</div>
                                             </div>
                                         </div>
-                                        <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 rounded-xl" onClick={() => jumpToReference(node.reference)} title={t('jumpToReference')}>
+                                        <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 rounded-xl" disabled={!referenceJumpTarget(node.reference, V2_UI)} onClick={() => jumpToReference(node.reference)} title={t('jumpToReference')}>
                                             <ExternalLink className="size-4" />
                                         </Button>
                                     </div>
@@ -512,7 +509,7 @@ export function ProxyPoolDialog() {
                                                         </div>
                                                         <div className="mt-1 truncate text-[11px] text-muted-foreground">{referenceLocation(child, t)}</div>
                                                     </div>
-                                                    <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 rounded-xl" onClick={() => jumpToReference(child)} title={t('jumpToReference')}>
+                                                    <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 rounded-xl" disabled={!referenceJumpTarget(child, V2_UI)} onClick={() => jumpToReference(child)} title={t('jumpToReference')}>
                                                         <ExternalLink className="size-4" />
                                                     </Button>
                                                 </div>

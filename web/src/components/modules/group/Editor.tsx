@@ -1,5 +1,7 @@
 'use client';
 
+import { V2_UI } from '@/lib/v2-ui';
+
 import { useCallback, useMemo, useState, type FormEvent } from 'react';
 import { Check, ChevronDownIcon, FlaskConical, Plus, Search, SlidersHorizontal, Sparkles, Trash2, Waves } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -143,8 +145,8 @@ function ModelPickerSection({
                                         {channel.models.map((m) => {
                                             const isSelected = selectedKeys.has(memberKey(m));
                                             const { Avatar } = getModelIcon(m.name);
-                                            const sourceLabel = modelSourceLabel(m);
-                                            const isSiteChannel = m.site_id != null;
+                                            const sourceLabel = V2_UI ? '' : modelSourceLabel(m);
+                                            const isSiteChannel = !V2_UI && m.site_id != null;
                                             const suffix = [sourceLabel, isSiteChannel ? null : m.endpoint_type?.trim()]
                                                 .filter(Boolean)
                                                 .join(' · ');

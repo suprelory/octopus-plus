@@ -1,5 +1,7 @@
 'use client';
 
+import { V2_UI } from '@/lib/v2-ui';
+
 import { Suspense, useMemo, useState } from 'react';
 import {
     ArrowDownWideNarrow,
@@ -188,7 +190,7 @@ export function Toolbar({ activeItem }: { activeItem: NavItem }) {
         // 渠道页面按钮
         if (toolbarItem === 'channel') {
             // 站点渠道 tab 显示统一补全按钮
-            if (activeChannelTab === 'site' && completionPendingCount > 0) {
+            if (!V2_UI && activeChannelTab === 'site' && completionPendingCount > 0) {
                 result.push({
                     id: 'completion',
                     icon: <KeyRound className="size-4" />,

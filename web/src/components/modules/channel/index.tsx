@@ -18,6 +18,7 @@ import { useChannelTabStore } from './tab-store';
 import { ChannelListSummary } from './ListSummary';
 import { Network, SearchX } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { V2_UI } from '@/lib/v2-ui';
 
 type ChannelPendingJump = PendingJump & { target: ChannelJumpTarget };
 
@@ -84,12 +85,12 @@ export function Channel() {
     }, [sortedChannels, searchTerm, targetedChannelId]);
 
     const visibleManualChannels = useMemo(
-        () => visibleChannels.filter((channel) => !channel.raw.managed),
+        () => V2_UI ? visibleChannels : visibleChannels.filter((channel) => !channel.raw.managed),
         [visibleChannels],
     );
 
     const targetedManagedChannel = useMemo(
-        () => visibleChannels.find((channel) => channel.raw.id === targetedChannelId && channel.raw.managed) ?? null,
+        () => V2_UI ? null : visibleChannels.find((channel) => channel.raw.id === targetedChannelId && channel.raw.managed) ?? null,
         [visibleChannels, targetedChannelId],
     );
 
@@ -130,7 +131,7 @@ export function Channel() {
         return Math.max(1, Math.min(6, cols));
     }, [layout]);
 
-    const manualChannels = sortedChannels.filter(channel => !channel.raw.managed);
+    const manualChannels = V2_UI ? sortedChannels : sortedChannels.filter(channel => !channel.raw.managed);
     const manualHeader = <>
         {!isLoading && !error && <ChannelListSummary total={manualChannels.length} enabled={manualChannels.filter(channel => channel.raw.enabled).length} visible={visibleManualChannels.length} />}
         {targetedManagedChannel && (
@@ -176,7 +177,7 @@ export function Channel() {
                         transition={{ duration: reducedMotion ? 0 : 0.18, ease: [0.4, 0, 0.2, 1] }}
                         className="absolute inset-0 flex flex-col min-h-0"
                     >
-                        {activeTab === 'site' ? (
+                        {!V2_UI && activeTab === 'site' ? (
                             <SiteChannelSection
                                 searchTerm={searchTerm}
                                 sortField={sortField}

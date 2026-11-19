@@ -1,5 +1,8 @@
 {
     "checkinV2": {
+        "scheduleHint": "自動簽到遵循各帳號的啟用狀態、站點時區與時間安排。",
+        "batchAllConfirm": "為全部站點啟動簽到批次？僅執行符合條件且已開啟自動簽到的帳號。",
+        "referenceUnavailable": "此引用已不存在，請重新整理代理引用清單。",
         "navigation": "簽到管理",
         "tabs": {
             "sites": "站點與帳號",
@@ -786,6 +789,7 @@
                 "channel": {
                     "title": "供應源",
                     "searchPlaceholder": "搜尋供應源...",
+                    "allChannels": "全部供應源",
                     "manualGroup": "一般供應源",
                     "siteFallback": "站點 #{id}",
                     "empty": "找不到供應源"
@@ -1347,6 +1351,10 @@
         },
         "empty": "暫無分組，點擊左上角按鈕建立",
         "autoGroup": {
+            "descriptionV2": "依供應源設定模型自動分組，供應源依協定分類顯示。",
+            "migrationRequired": "部分供應源尚未完成遷移，請完成 v2 資料遷移後再儲存自動分組設定。",
+            "searchPlaceholderV2": "搜尋供應源、協定或模型",
+            "otherProtocol": "其他協定",
             "title": "自動分組配置",
             "description": "將供應源或站點分組加入列表後，系統會按模型組名稱或正規自動把模型加入匹配的模型組。",
             "loadFailed": "載入自動分組配置失敗：{message}",
@@ -1667,6 +1675,7 @@
             "models": "{count} 個模型",
             "keys": "金鑰 {enabled}/{total}",
             "managed": "站點託管",
+            "migrationPending": "待遷移",
             "successRate": "成功率",
             "lifetime": "累計用量",
             "details": "詳情",
@@ -1678,6 +1687,8 @@
             }
         },
         "detail": {
+            "migrationPending": "待遷移",
+            "migrationRequired": "此供應源尚未完成 v2 資料遷移，暫時保留託管狀態。完成遷移後可在此編輯。",
             "title": {
                 "edit": "編輯供應源",
                 "view": "供應源詳情"
@@ -2015,7 +2026,12 @@
             "expandReference": "展開投影渠道",
             "collapseReference": "收起投影渠道",
             "derivedReferences": "投影 {count}",
+            "descriptionV2": "管理一般供應源、簽到站點、帳號、認證憑據及餘額查詢共用的代理設定。",
             "referenceTypes": {
+                "checkin_site": "簽到站點",
+                "checkin_account": "簽到帳號",
+                "checkin_credential": "認證憑據",
+                "checkin_balance": "餘額查詢",
                 "site": "站點",
                 "siteAccount": "帳號",
                 "managedChannel": "託管渠道",
@@ -2023,6 +2039,12 @@
                 "reference": "引用"
             },
             "referenceLocations": {
+                "checkinSite": "站點預設代理",
+                "checkinAccount": "帳號簽到代理",
+                "checkinCredential": "憑據認證代理",
+                "checkinBalance": "獨立餘額代理",
+                "archivedCheckin": "已封存簽到站點",
+                "normalChannel": "供應源",
                 "site": "站點",
                 "archivedSite": "已封存站點",
                 "siteNamed": "站點：{name}",

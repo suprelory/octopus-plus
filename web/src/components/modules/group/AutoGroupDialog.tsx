@@ -29,6 +29,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 import { toast } from '@/components/common/Toast';
 import { cn } from '@/lib/utils';
+import { V2_UI } from '@/lib/v2-ui';
 
 const AUTO_GROUP_VALUES = [
     AutoGroupType.None,
@@ -64,10 +65,7 @@ function matchesKeyword(source: GroupAutoGroupSource, keyword: string) {
     if (!keyword) return true;
     const haystack = [
         source.channel_name,
-        source.site_name,
-        source.site_account_name,
-        source.site_group_name,
-        source.site_group_key,
+        ...(!V2_UI ? [source.site_name, source.site_account_name, source.site_group_name, source.site_group_key] : []),
         source.endpoint_type,
         ...source.models,
     ].join('\n').toLowerCase();
@@ -168,6 +166,8 @@ function ChannelRow({
 
     return (
         <div
+            role="group"
+            aria-label={source.channel_name}
             className={cn(
                 'mx-2 mb-1 flex h-8 items-center gap-2 rounded-lg border px-2 text-left transition-colors',
                 selected
@@ -258,8 +258,22 @@ export function GroupAutoGroupDialogContent() {
 
     const normalizedKeyword = keyword.trim().toLowerCase();
     const sources = useMemo(() => config?.sources ?? [], [config?.sources]);
+    const migrationPending = V2_UI && sources.some(source => source.managed);
 
     const groups = useMemo<SourceTreeGroup[]>(() => {
+        if (V2_UI) {
+            const protocols = new Map<string, SourceTreeGroup>();
+            for (const source of sources) {
+                if (!matchesKeyword(source, normalizedKeyword)) continue;
+                const protocol = source.endpoint_type?.trim() || t('otherProtocol');
+                const group = protocols.get(protocol) ?? { key: `protocol:${protocol}`, label: protocol, sources: [], manual: true };
+                group.sources.push(source);
+                protocols.set(protocol, group);
+            }
+            return [...protocols.values()].sort((a, b) => a.label.localeCompare(b.label)).map(group => ({
+                ...group, sources: group.sources.sort((a, b) => a.channel_name.localeCompare(b.channel_name)),
+            }));
+        }
         const siteBuckets = new Map<string, SourceTreeGroup>();
         const manualSources: GroupAutoGroupSource[] = [];
 
@@ -310,8 +324,8 @@ export function GroupAutoGroupDialogContent() {
             .map(({ channel_id, auto_group }) => ({ channel_id, auto_group }));
     }, [config, modes, sources]);
 
-    const globalDirty = !!config && projectedGlobalMode !== config.projected_global_auto_group;
-    const globalModeEnabled = projectedGlobalMode !== AutoGroupType.None;
+    const globalDirty = !V2_UI && !!config && projectedGlobalMode !== config.projected_global_auto_group;
+    const globalModeEnabled = !V2_UI && projectedGlobalMode !== AutoGroupType.None;
     const shouldRunAfterSave = useMemo(() => {
         if (!config) return false;
         if (globalDirty && projectedGlobalMode !== AutoGroupType.None) return true;
@@ -362,10 +376,10 @@ export function GroupAutoGroupDialogContent() {
     const clearSelection = () => setSelection(new Set());
 
     const handleSave = () => {
-        if (!config) return;
+        if (!config || migrationPending) return;
         updateConfig.mutate(
             {
-                projected_global_auto_group: globalDirty ? projectedGlobalMode : undefined,
+                ...(!V2_UI ? { projected_global_auto_group: globalDirty ? projectedGlobalMode : undefined } : {}),
                 items: dirtyItems,
                 run_now: shouldRunAfterSave,
             },
@@ -390,7 +404,7 @@ export function GroupAutoGroupDialogContent() {
                         </div>
                         <div className="space-y-1">
                             <h2 className="text-2xl font-bold text-card-foreground">{t('title')}</h2>
-                            <p className="text-sm text-muted-foreground">{t('description')}</p>
+                            <p className="text-sm text-muted-foreground">{t(V2_UI ? 'descriptionV2' : 'description')}</p>
                         </div>
                     </div>
                     <MorphingDialogClose className="relative right-0 top-0" />
@@ -404,7 +418,8 @@ export function GroupAutoGroupDialogContent() {
                     </div>
                 ) : (
                     <>
-                        <div className="mb-3 shrink-0 rounded-lg border border-border/30 bg-card px-4 py-3">
+                        {migrationPending && <p role="alert" className="mb-3 rounded-lg border border-amber-500/30 p-3 text-sm">{t('migrationRequired')}</p>}
+                        {!V2_UI && <div className="mb-3 shrink-0 rounded-lg border border-border/30 bg-card px-4 py-3">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div className="flex min-w-0 items-center gap-2">
                                     <Globe2 className="size-4 shrink-0 text-muted-foreground" />
@@ -437,8 +452,7 @@ export function GroupAutoGroupDialogContent() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                        </div>
-
+                        </div>}
                         <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/30 bg-card">
                             <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/20 px-4 py-3">
                                 <span className="min-w-0 truncate text-sm font-medium text-foreground">
@@ -455,7 +469,7 @@ export function GroupAutoGroupDialogContent() {
                                         <input
                                             value={keyword}
                                             onChange={(event) => setKeyword(event.target.value)}
-                                            placeholder={t('searchPlaceholder')}
+                                            placeholder={t(V2_UI ? 'searchPlaceholderV2' : 'searchPlaceholder')}
                                             className="h-8 w-full rounded-lg border border-border/35 bg-card pl-7 pr-2 text-xs shadow-none outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
                                         />
                                     </div>
@@ -608,7 +622,7 @@ export function GroupAutoGroupDialogContent() {
                                 type="button"
                                 className="h-11 flex-1 rounded-lg"
                                 onClick={handleSave}
-                                disabled={isPending || isLoading || !hasChanges}
+                                disabled={isPending || isLoading || !hasChanges || migrationPending}
                             >
                                 {updateConfig.isPending ? t('buttons.saving') : t('buttons.save')}
                             </Button>

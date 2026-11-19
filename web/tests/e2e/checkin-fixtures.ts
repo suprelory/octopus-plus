@@ -155,6 +155,8 @@ type Response = { data?: unknown; status?: number; errorCode?: string; message?:
 export async function installCheckinAPI(
     page: Page,
     options: {
+        nav?: Parameters<typeof mockApp>[1];
+        app?: Parameters<typeof mockApp>[2];
         sites?: CheckinSite[];
         accounts?: CheckinAccount[];
         credentials?: CheckinCredential[];
@@ -164,13 +166,15 @@ export async function installCheckinAPI(
         mutate?: (request: CheckinMutation) => Response | undefined;
     } = {},
 ) {
-    const legacy = await mockApp(page, 'checkin');
+    const legacy = await mockApp(page, options.nav ?? 'checkin', options.app);
     if (options.locale)
         await page.addInitScript(
             (locale) => localStorage.setItem('octopus-settings', JSON.stringify({ state: { locale }, version: 0 })),
             options.locale,
         );
     const state = {
+        app: legacy,
+        translationErrors: [] as string[],
         sites: options.sites ?? [checkinSite()],
         accounts: options.accounts ?? [checkinAccount()],
         credentials: options.credentials ?? [checkinCredential()],
@@ -186,8 +190,12 @@ export async function installCheckinAPI(
         filters: [] as CheckinHistoryFilter[],
     };
     page.on('request', (request) => {
-        if (/\/api\/v1\/(site(?:\/|-channel)|site-channel)/.test(request.url()))
+        if (/\/api\/v1\/(site(?:\/|-channel)|site-channel|log\/site-action-targets)/.test(request.url()))
             state.legacyRequests.push(request.url());
+    });
+    page.on('console', (message) => {
+        if (message.type() === 'error' && /MISSING_MESSAGE|INVALID_MESSAGE|FORMATTING_ERROR/.test(message.text()))
+            state.translationErrors.push(message.text());
     });
     function references() {
         for (const credential of state.credentials) {
@@ -403,4 +411,6 @@ export function expectIndependent(state: Awaited<ReturnType<typeof installChecki
     expect(state.legacyRequests).toEqual([]);
     expect(state.unexpected).toEqual([]);
     expect(state.pageErrors).toEqual([]);
+    expect(state.translationErrors).toEqual([]);
+    expect(state.app.unexpectedRequests).toEqual([]);
 }

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { V2_UI } from '@/lib/v2-ui';
 import {
     isChannelJumpTarget,
     isSiteChannelJumpTarget,
@@ -11,6 +12,7 @@ export type ChannelTab = 'site' | 'manual';
 const STORAGE_KEY = 'octopus:channel-tab';
 
 function tabFromJump(target: JumpTarget | undefined): ChannelTab | null {
+    if (V2_UI) return 'manual';
     if (!target) return null;
     if (isSiteChannelJumpTarget(target)) return 'site';
     if (isChannelJumpTarget(target)) return 'manual';
@@ -18,6 +20,7 @@ function tabFromJump(target: JumpTarget | undefined): ChannelTab | null {
 }
 
 function readInitialTab(): ChannelTab {
+    if (V2_UI) return 'manual';
     const fromJump = tabFromJump(useJumpStore.getState().pending?.target);
     if (fromJump) return fromJump;
 
@@ -38,6 +41,7 @@ type ChannelTabState = {
 export const useChannelTabStore = create<ChannelTabState>((set) => ({
     activeTab: readInitialTab(),
     setActiveTab: (tab) => {
+        if (V2_UI) tab = 'manual';
         set({ activeTab: tab });
         if (typeof window !== 'undefined') {
             try {

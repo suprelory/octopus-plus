@@ -1,5 +1,7 @@
 'use client';
 
+import { V2_UI } from '@/lib/v2-ui';
+
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { CalendarIcon, Check, ChevronDown, Filter, Search, X } from 'lucide-react';
@@ -156,7 +158,7 @@ export function LogFilterPopover() {
     const setLogStatus = useToolbarViewOptionsStore((s) => s.setLogStatus);
     const { value: logKeepPeriodValue } = useSettingValue(SettingKey.RelayLogKeepPeriod, '0');
     const { data: channels } = useChannelList();
-    const { data: sites } = useSiteChannelList({ includeHistory: false });
+    const { data: sites } = useSiteChannelList({ includeHistory: false, enabled: !V2_UI });
 
     const [search, setSearch] = useState('');
     const [expanded, setExpanded] = useState<Set<string>>(new Set(['__manual__']));
@@ -165,6 +167,12 @@ export function LogFilterPopover() {
 
     const groups = useMemo<ChannelGroup[]>(() => {
         if (!channels) return [];
+        if (V2_UI) return [{
+            key: '__manual__',
+            label: t('popover.logFilter.channel.allChannels'),
+            channels: channels.map(item => ({ id: item.raw.id, name: item.raw.name }))
+                .sort((a, b) => a.name.localeCompare(b.name)),
+        }];
         const siteNameById = new Map<number, string>();
         for (const site of sites ?? []) siteNameById.set(site.site_id, site.site_name);
 

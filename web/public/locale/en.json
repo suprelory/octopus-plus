@@ -1,5 +1,8 @@
 {
     "checkinV2": {
+        "scheduleHint": "Automatic check-in follows each enabled account's site timezone and schedule.",
+        "batchAllConfirm": "Start a batch for all sites? Only eligible accounts with automatic check-in enabled will run.",
+        "referenceUnavailable": "This reference no longer exists. Refresh the proxy references.",
         "navigation": "Check-in workspace",
         "tabs": {
             "sites": "Sites & accounts",
@@ -786,6 +789,7 @@
                 "channel": {
                     "title": "Channel",
                     "searchPlaceholder": "Search channels...",
+                    "allChannels": "All channels",
                     "manualGroup": "Manual channels",
                     "siteFallback": "Site #{id}",
                     "empty": "No channels found"
@@ -1347,6 +1351,10 @@
         },
         "empty": "No groups yet, click the button above to create one",
         "autoGroup": {
+            "descriptionV2": "Configure automatic model grouping for each channel. Channels are organized by protocol.",
+            "migrationRequired": "Some channels still require migration. Complete the v2 data migration before saving automatic grouping.",
+            "searchPlaceholderV2": "Search channel, protocol or model",
+            "otherProtocol": "Other protocols",
             "title": "Auto Group Configuration",
             "description": "Add channels or site groups to the list, and the system will automatically add models to matching model groups by group name or regex.",
             "loadFailed": "Failed to load auto group configuration: {message}",
@@ -1667,6 +1675,7 @@
             "models": "{count} models",
             "keys": "Keys {enabled}/{total}",
             "managed": "Site managed",
+            "migrationPending": "Migration pending",
             "successRate": "Success rate",
             "lifetime": "All-time usage",
             "details": "Details",
@@ -1678,6 +1687,8 @@
             }
         },
         "detail": {
+            "migrationPending": "Migration pending",
+            "migrationRequired": "Complete the v2 data migration before editing this channel. Its existing managed state is preserved.",
             "title": {
                 "edit": "Edit Channel",
                 "view": "Channel Details"
@@ -2015,7 +2026,12 @@
             "expandReference": "Expand projected channels",
             "collapseReference": "Collapse projected channels",
             "derivedReferences": "Projected {count}",
+            "descriptionV2": "Manage shared proxies for channels, check-in sites, accounts, credentials and balance queries.",
             "referenceTypes": {
+                "checkin_site": "Check-in site",
+                "checkin_account": "Check-in account",
+                "checkin_credential": "Authentication credential",
+                "checkin_balance": "Balance query",
                 "site": "Site",
                 "siteAccount": "Account",
                 "managedChannel": "Managed channel",
@@ -2023,6 +2039,12 @@
                 "reference": "Reference"
             },
             "referenceLocations": {
+                "checkinSite": "Site default proxy",
+                "checkinAccount": "Account execution proxy",
+                "checkinCredential": "Credential authentication proxy",
+                "checkinBalance": "Custom balance proxy",
+                "archivedCheckin": "Archived check-in site",
+                "normalChannel": "Channel",
                 "site": "Site",
                 "archivedSite": "Archived site",
                 "siteNamed": "Site: {name}",

@@ -1,5 +1,8 @@
 {
     "checkinV2": {
+        "scheduleHint": "自动签到遵循各账号的启用状态、站点时区和时间安排。",
+        "batchAllConfirm": "为全部站点启动签到批次？仅执行符合条件且已开启自动签到的账号。",
+        "referenceUnavailable": "该引用已不存在，请刷新代理引用列表。",
         "navigation": "签到管理",
         "tabs": {
             "sites": "站点与账号",
@@ -786,6 +789,7 @@
                 "channel": {
                     "title": "渠道",
                     "searchPlaceholder": "搜索渠道...",
+                    "allChannels": "全部渠道",
                     "manualGroup": "手动渠道",
                     "siteFallback": "站点 #{id}",
                     "empty": "未找到渠道"
@@ -1347,6 +1351,10 @@
         },
         "empty": "暂无分组，点击左上角按钮创建",
         "autoGroup": {
+            "descriptionV2": "按渠道配置模型自动分组，渠道按协议归类展示。",
+            "migrationRequired": "部分渠道尚未完成迁移，请完成 v2 数据迁移后再保存自动分组配置。",
+            "searchPlaceholderV2": "搜索渠道、协议或模型",
+            "otherProtocol": "其他协议",
             "title": "自动分组配置",
             "description": "将渠道或站点分组加入列表后，系统会按模型组名称或正则自动把模型加入匹配的模型组。",
             "loadFailed": "加载自动分组配置失败：{message}",
@@ -1667,6 +1675,7 @@
             "models": "{count} 个模型",
             "keys": "密钥 {enabled}/{total}",
             "managed": "站点托管",
+            "migrationPending": "待迁移",
             "successRate": "成功率",
             "lifetime": "累计用量",
             "details": "详情",
@@ -1678,6 +1687,8 @@
             }
         },
         "detail": {
+            "migrationPending": "待迁移",
+            "migrationRequired": "该渠道尚未完成 v2 数据迁移，暂时保留托管状态。完成迁移后可在此编辑。",
             "title": {
                 "edit": "编辑渠道",
                 "view": "渠道详情"
@@ -2015,7 +2026,12 @@
             "expandReference": "展开投影渠道",
             "collapseReference": "收起投影渠道",
             "derivedReferences": "投影 {count}",
+            "descriptionV2": "管理普通渠道、签到站点、账号、认证凭据和余额查询共用的代理配置。",
             "referenceTypes": {
+                "checkin_site": "签到站点",
+                "checkin_account": "签到账号",
+                "checkin_credential": "认证凭据",
+                "checkin_balance": "余额查询",
                 "site": "站点",
                 "siteAccount": "账号",
                 "managedChannel": "托管渠道",
@@ -2023,6 +2039,12 @@
                 "reference": "引用"
             },
             "referenceLocations": {
+                "checkinSite": "站点默认代理",
+                "checkinAccount": "账号签到代理",
+                "checkinCredential": "凭据认证代理",
+                "checkinBalance": "独立余额代理",
+                "archivedCheckin": "已归档签到站点",
+                "normalChannel": "渠道",
                 "site": "站点",
                 "archivedSite": "已归档站点",
                 "siteNamed": "站点：{name}",

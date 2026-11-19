@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { checkinAPI, useCheckinMutation } from '@/api/endpoints/checkin';
 import {
@@ -22,14 +22,17 @@ export function AccountEditor({
     site,
     account,
     credentials,
+    focusBalance = false,
     onClose,
 }: {
     site: CheckinSite;
     account?: CheckinAccount;
     credentials: CheckinCredential[];
+    focusBalance?: boolean;
     onClose: () => void;
 }) {
     const t = useTranslations('checkinV2');
+    const balanceRef = useRef<HTMLSelectElement>(null);
     const [draft, setDraft] = useState(() => accountDraft(site, account));
     const [inline, setInline] = useState(!account && credentials.length === 0);
     const [credential, setCredential] = useState<CheckinCredentialInput>(() => ({
@@ -55,6 +58,7 @@ export function AccountEditor({
     );
     return (
         <FormDialog
+            initialFocusRef={focusBalance ? balanceRef : undefined}
             title={t(account ? 'editAccount' : 'createAccount')}
             description={t('accountEditorHint', { site: site.name })}
             pending={save.isPending}
@@ -172,6 +176,7 @@ export function AccountEditor({
                     <select
                         className={selectClass}
                         value={balance.mode}
+                        ref={balanceRef}
                         onChange={(e) =>
                             set(
                                 'balance_config',

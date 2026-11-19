@@ -443,10 +443,11 @@ function invalidateSiteChannelAndRelated(queryClient: ReturnType<typeof useQuery
     queryClient.invalidateQueries({ queryKey: ['models', 'channel'] });
 }
 
-export function useSiteChannelList(options: { includeHistory?: boolean } = {}) {
+export function useSiteChannelList(options: { includeHistory?: boolean; enabled?: boolean } = {}) {
     const includeHistory = options.includeHistory ?? true;
     return useQuery({
         queryKey: ['site-channel', 'list', { includeHistory }],
+        enabled: options.enabled ?? true,
         queryFn: async () => apiClient.get<SiteChannelCardServer[]>(`/api/v1/site-channel/list?include_history=${includeHistory}`),
         select: (cards) => cards.map(normalizeSiteChannelCard),
         refetchInterval: 30000,

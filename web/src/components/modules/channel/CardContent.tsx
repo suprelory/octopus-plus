@@ -21,6 +21,7 @@ import {
 import { Tabs, TabsContents, TabsContent } from '@/components/animate-ui/primitives/animate/tabs';
 import { type StatsMetricsFormatted } from '@/api/endpoints/stats';
 import { useTranslations } from 'next-intl';
+import { V2_UI } from '@/lib/v2-ui';
 import { toast } from '@/components/common/Toast';
 import { Button } from '@/components/ui/button';
 import { ChannelForm, type ChannelFormData } from './Form';
@@ -199,7 +200,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
                     </h2>
                     {channel.managed ? (
                         <Badge variant="outline" className="ml-3 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
-                            站点投影
+                            {V2_UI ? t('migrationPending') : '站点投影'}
                         </Badge>
                     ) : null}
                     <MorphingDialogClose className="relative top-0 right-0" />
@@ -214,9 +215,9 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
                                 {channel.managed ? (
                                     <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
                                         <div>
-                                            这是站点账号自动投影生成的托管 channel。请到站点管理中修改账号、分组、模型、代理或启停状态；该页面不再允许直接编辑、删除或启停，避免被后续投影覆盖。
+                                            {V2_UI ? t('migrationRequired') : '这是站点账号自动投影生成的托管 channel。请到站点管理中修改账号、分组、模型、代理或启停状态；该页面不再允许直接编辑、删除或启停，避免被后续投影覆盖。'}
                                         </div>
-                                        {channel.managed_source ? (
+                                        {!V2_UI && channel.managed_source ? (
                                             <div className="mt-3 flex flex-wrap gap-2">
                                                 <Button
                                                     type="button"

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { V2_UI } from '@/lib/v2-ui';
 import { apiClient } from '../client';
 import { logger } from '@/lib/logger';
 import { AutoGroupType } from './channel';
@@ -379,7 +380,7 @@ function invalidateAutoGroupRelated(queryClient: ReturnType<typeof useQueryClien
     queryClient.invalidateQueries({ queryKey: ['groups', 'list'] });
     queryClient.invalidateQueries({ queryKey: ['channels', 'list'] });
     queryClient.invalidateQueries({ queryKey: ['models', 'channel'] });
-    queryClient.invalidateQueries({ queryKey: ['site-channel', 'list'] });
+    if (!V2_UI) queryClient.invalidateQueries({ queryKey: ['site-channel', 'list'] });
     queryClient.invalidateQueries({ queryKey: ['settings', 'list'] });
 }
 

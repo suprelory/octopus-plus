@@ -1,5 +1,5 @@
 import { lazyWithPreload } from './lazy-with-preload';
-import { CHECKIN_V2 } from '@/lib/checkin-v2';
+import { V2_UI } from '@/lib/v2-ui';
 import { lazy, ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Home, Radio, Sparkles, FolderTree, Settings, Logs, Globe2, CalendarCheck2 } from 'lucide-react';
@@ -17,7 +17,7 @@ export interface RouteConfig {
 
 const Home_Module = lazyWithPreload(() => import('@/components/modules/home').then(m => ({ default: m.Home })));
 const Site_Module = lazyWithPreload(() => import('@/components/modules/site').then(m => ({ default: m.Site })));
-const Checkin_Module = CHECKIN_V2
+const Checkin_Module = V2_UI
     ? lazyWithPreload(() => import('@/components/modules/checkin').then(m => ({ default: m.Checkin })))
     : lazyWithPreload(() => import('@/components/modules/checkin/legacy').then(m => ({ default: m.LegacyCheckin })));
 const Channel_Module = lazyWithPreload(() => import('@/components/modules/channel').then(m => ({ default: m.Channel })));
@@ -28,7 +28,7 @@ const Setting_Module = lazyWithPreload(() => import('@/components/modules/settin
 
 export const ROUTES: RouteConfig[] = [
     { id: 'home', label: 'Home', icon: Home, component: Home_Module },
-    { id: 'site', label: 'Site', icon: Globe2, component: Site_Module },
+    ...(!V2_UI ? [{ id: 'site', label: 'Site', icon: Globe2, component: Site_Module }] : []),
     { id: 'checkin', label: 'Check-in', icon: CalendarCheck2, component: Checkin_Module },
     { id: 'channel', label: 'Channel', icon: Radio, component: Channel_Module },
     { id: 'group', label: 'Group', icon: FolderTree, component: Group_Module },

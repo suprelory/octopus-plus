@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -31,11 +31,12 @@ import { HistoryPanel } from './HistoryPanel';
 import { BatchesPanel, NotificationsPanel } from './ActivityPanels';
 import { ConfirmDialog, ErrorNotice, TimeText, Toggle, selectClass } from './shared';
 import { canConfirm, externalLink } from './forms';
+import { isCheckinJumpTarget, useJumpStore } from '@/stores/jump';
 
 type Tab = 'sites' | 'credentials' | 'history' | 'batches' | 'notifications';
 type Editor =
     | { kind: 'site'; site?: CheckinSite }
-    | { kind: 'account'; site: CheckinSite; account?: CheckinAccount }
+    | { kind: 'account'; site: CheckinSite; account?: CheckinAccount; focusBalance?: boolean }
     | { kind: 'credential'; credential?: CheckinCredential };
 type Confirmation = { title: string; description: string; action: () => Promise<unknown> };
 
@@ -45,6 +46,8 @@ export function CheckinWorkspace() {
     const sitesQuery = useCheckinSites();
     const accountsQuery = useCheckinAccounts();
     const credentialsQuery = useCheckinCredentials();
+    const jump = useJumpStore((state) => state.pending);
+    const clearJump = useJumpStore((state) => state.clearPending);
     const sites = sitesQuery.data ?? [];
     const accounts = accountsQuery.data ?? [];
     const credentials = credentialsQuery.data ?? [];
@@ -57,6 +60,45 @@ export function CheckinWorkspace() {
     const [selected, setSelected] = useState<number[]>([]);
     const [activeBatch, setActiveBatch] = useState<string | null>(null);
     const [balance, setBalance] = useState<CheckinBalance | null>(null);
+    useEffect(() => {
+        if (
+            !jump ||
+            !isCheckinJumpTarget(jump.target) ||
+            !sitesQuery.data ||
+            !accountsQuery.data ||
+            !credentialsQuery.data
+        )
+            return;
+        const target = jump.target;
+        const site = 'siteId' in target ? sitesQuery.data.find((item) => item.id === target.siteId) : undefined;
+        const account =
+            'accountId' in target
+                ? accountsQuery.data.find((item) => item.id === target.accountId && item.site_id === target.siteId)
+                : undefined;
+        const credential =
+            target.kind === 'checkin-credential'
+                ? credentialsQuery.data.find((item) => item.id === target.credentialId)
+                : undefined;
+        let canceled = false;
+        queueMicrotask(() => {
+            if (canceled || useJumpStore.getState().pending?.requestId !== jump.requestId) return;
+            setSearch('');
+            setSelected([]);
+            setTab(target.kind === 'checkin-credential' ? 'credentials' : 'sites');
+            if (credential) setEditor({ kind: 'credential', credential });
+            else if (site) {
+                setArchived(site.archived);
+                if (target.kind === 'checkin-site') setEditor({ kind: 'site', site });
+                else if (account)
+                    setEditor({ kind: 'account', site, account, focusBalance: target.kind === 'checkin-balance' });
+                else toast.error(t('referenceUnavailable'));
+            } else toast.error(t('referenceUnavailable'));
+            clearJump(jump.requestId);
+        });
+        return () => {
+            canceled = true;
+        };
+    }, [jump, clearJump, sitesQuery.data, accountsQuery.data, credentialsQuery.data, t]);
     const action = useCheckinMutation((run: () => Promise<unknown>) => run());
     const openProxies = useProxyPoolDialogStore((state) => state.open);
     const refresh = () => {
@@ -629,6 +671,7 @@ export function CheckinWorkspace() {
                 <AccountEditor
                     site={editor.site}
                     account={editor.account}
+                    focusBalance={editor.focusBalance}
                     credentials={credentials}
                     onClose={() => setEditor(null)}
                 />
