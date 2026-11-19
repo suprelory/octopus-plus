@@ -39,3 +39,8 @@ type CheckinNotificationCooldown struct {
 type CheckinNotificationGate struct {
 	ID int `gorm:"primaryKey;autoIncrement:false"`
 }
+
+type CheckinNotificationPage struct {
+	Items        []CheckinNotificationDelivery `json:"items"`
+	NextBeforeID int64                         `json:"next_before_id,string,omitempty"`
+}

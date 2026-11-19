@@ -50,7 +50,7 @@ func (s *CheckinStore) CreateSite(ctx context.Context, site model.CheckinSite) (
 	site.Archived, site.ArchivedAt = false, nil
 	site.VerificationFingerprint, site.VerificationStatus, site.VerifiedAt = "", model.SiteCheckinSupportUnknown, nil
 	if err := site.Validate(); err != nil {
-		return nil, err
+		return nil, checkinConfigurationError(err)
 	}
 	err := s.transaction(ctx, func(tx *gorm.DB) error {
 		if err := validateCheckinProxy(tx, site.CheckinNetwork); err != nil {
@@ -59,7 +59,7 @@ func (s *CheckinStore) CreateSite(ctx context.Context, site model.CheckinSite) (
 		return tx.Create(&site).Error
 	})
 	if err != nil {
-		return nil, err
+		return nil, s.checkinNameError(err)
 	}
 	return &site, nil
 }
@@ -96,7 +96,7 @@ func prepareCheckinCredential(credential *model.CheckinCredential) error {
 	credential.CredentialVersion, credential.IdentityRevision = 0, 0
 	credential.TokenRefreshLease, credential.TokenRefreshLeaseUntil, credential.TokenRefreshedAt = "", 0, 0
 	credential.TokenRefreshStarted, credential.TokenRefreshRetryAt = false, 0
-	return credential.Validate()
+	return checkinConfigurationError(credential.Validate())
 }
 
 func (s *CheckinStore) GetCredential(ctx context.Context, id int) (*model.CheckinCredential, error) {
@@ -121,7 +121,7 @@ func (s *CheckinStore) EditCredential(ctx context.Context, candidate model.Check
 
 func (s *CheckinStore) PatchCredential(ctx context.Context, id int, patch model.CheckinCredentialPatch) (*model.CheckinCredential, error) {
 	if !patch.ExpectedVersion.Present || patch.ExpectedVersion.Value < 0 {
-		return nil, errors.New("expected credential version is required")
+		return nil, checkinConfigurationError(errors.New("expected credential version is required"))
 	}
 	return s.editCredential(ctx, id, patch.ExpectedVersion.Value, patch.Apply)
 }
@@ -152,7 +152,7 @@ func (s *CheckinStore) editCredential(ctx context.Context, id int, expectedVersi
 			}
 		}
 		if err := candidate.Validate(); err != nil {
-			return err
+			return checkinConfigurationError(err)
 		}
 		if candidate.Type == model.CheckinCredentialPassword && (candidate.Type != current.Type || candidate.Platform != current.Platform || candidate.AuthBaseURL != current.AuthBaseURL || candidate.Username != current.Username || candidate.Password != current.Password) {
 			// A password/principal change must not keep a session issued to the old
@@ -274,7 +274,7 @@ func (s *CheckinStore) DeleteCredential(ctx context.Context, id int) error {
 
 func (s *CheckinStore) CreateAccount(ctx context.Context, account model.CheckinAccount, inline *model.CheckinCredential) (*model.CheckinAccount, error) {
 	if inline != nil && account.CredentialID != 0 {
-		return nil, errors.New("provide a credential or credential ID, not both")
+		return nil, checkinConfigurationError(errors.New("provide a credential or credential ID, not both"))
 	}
 	account.ID = 0
 	account.CheckinWorkflowVersion = 0
@@ -303,7 +303,7 @@ func (s *CheckinStore) CreateAccount(ctx context.Context, account model.CheckinA
 			account.CredentialID = credential.ID
 		}
 		if err := account.Validate(); err != nil {
-			return err
+			return checkinConfigurationError(err)
 		}
 		if err := validateCheckinAccounts(tx, site, []model.CheckinAccount{account}); err != nil {
 			return err
@@ -311,7 +311,7 @@ func (s *CheckinStore) CreateAccount(ctx context.Context, account model.CheckinA
 		return tx.Create(&account).Error
 	})
 	if err != nil {
-		return nil, err
+		return nil, s.checkinNameError(err)
 	}
 	return &account, nil
 }
@@ -334,7 +334,7 @@ func validateCheckinAccounts(tx *gorm.DB, site model.CheckinSite, accounts []mod
 		networks = append(networks, account.CheckinNetwork)
 		if account.BalanceConfig.Mode == model.CheckinBalanceCustom {
 			if account.BalanceConfig.CredentialID == nil {
-				return errors.New("balance credential ID is required")
+				return checkinConfigurationError(errors.New("balance credential ID is required"))
 			}
 			ids = append(ids, *account.BalanceConfig.CredentialID)
 			networks = append(networks, account.BalanceConfig.CheckinNetwork)
@@ -360,7 +360,7 @@ func validateCheckinAccounts(tx *gorm.DB, site model.CheckinSite, accounts []mod
 
 func validateCheckinAccountIdentity(site model.CheckinSite, account model.CheckinAccount, credentials map[int]model.CheckinCredential) error {
 	if err := model.ValidateCheckinIdentity(site, account, credentials[account.CredentialID]); err != nil {
-		return err
+		return checkinConfigurationError(err)
 	}
 	if account.BalanceConfig.Mode == model.CheckinBalanceCustom {
 		if err := validateCheckinBalanceCredential(account.BalanceConfig, credentials[*account.BalanceConfig.CredentialID]); err != nil {
@@ -387,7 +387,7 @@ func validateCredentialReferences(tx *gorm.DB, candidate model.CheckinCredential
 				return err
 			}
 			if err := model.ValidateCheckinIdentity(site, account, candidate); err != nil {
-				return err
+				return checkinConfigurationError(err)
 			}
 			if account.BalanceConfig.Mode == model.CheckinBalancePrimary {
 				if err := validateCheckinBalanceCredential(model.CheckinBalanceConfig{Platform: candidate.Platform}, candidate); err != nil {
@@ -406,7 +406,7 @@ func validateCredentialReferences(tx *gorm.DB, candidate model.CheckinCredential
 
 func validateCheckinBalanceCredential(config model.CheckinBalanceConfig, credential model.CheckinCredential) error {
 	if config.Platform != credential.Platform {
-		return errors.New("balance platform must match its credential")
+		return checkinConfigurationError(errors.New("balance platform must match its credential"))
 	}
 	switch config.Platform {
 	case model.SitePlatformSub2API:
@@ -418,7 +418,7 @@ func validateCheckinBalanceCredential(config model.CheckinBalanceConfig, credent
 			return nil
 		}
 	}
-	return errors.New("credential cannot query platform balances")
+	return checkinConfigurationError(errors.New("credential cannot query platform balances"))
 }
 
 func validateCheckinProxy(tx *gorm.DB, network model.CheckinNetwork) error {
@@ -432,7 +432,7 @@ func validateCheckinProxies(tx *gorm.DB, networks ...model.CheckinNetwork) error
 			continue
 		}
 		if network.ProxyConfigID == nil || *network.ProxyConfigID <= 0 {
-			return errors.New("checkin proxy ID is required")
+			return checkinConfigurationError(errors.New("checkin proxy ID is required"))
 		}
 		ids = append(ids, *network.ProxyConfigID)
 	}
@@ -443,7 +443,7 @@ func validateCheckinProxies(tx *gorm.DB, networks ...model.CheckinNetwork) error
 			return fmt.Errorf("load checkin proxy: %w", err)
 		}
 		if !proxy.Enabled {
-			return errors.New("checkin proxy is disabled")
+			return ErrCheckinProxyDisabled
 		}
 	}
 	return nil

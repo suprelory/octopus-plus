@@ -25,7 +25,7 @@ func (r *checkinRun) agentRouter(ctx context.Context) (*model.CheckinResult, err
 		if !r.execution.Workflow().Submitted {
 			return r.submissionError(ctx, err)
 		}
-		if errors.Is(err, errVerificationRequired) {
+		if errors.Is(err, ErrVerificationRequired) {
 			return r.finish(ctx, verificationOutcome(true))
 		}
 		if response != nil && (response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden) {
@@ -70,7 +70,7 @@ func (r *checkinRun) agentRouter(ctx context.Context) (*model.CheckinResult, err
 	if saveErr != nil {
 		return r.pending(ctx, "pending_confirmation", "等待确认签到日志，最新会话未能保存")
 	}
-	if errors.Is(err, errVerificationRequired) {
+	if errors.Is(err, ErrVerificationRequired) {
 		return r.pending(ctx, "verification_required", "请前往站点完成验证后再次确认签到日志")
 	}
 	return r.pending(ctx, "pending_confirmation", "登录请求已提交，等待当日签到日志确认")

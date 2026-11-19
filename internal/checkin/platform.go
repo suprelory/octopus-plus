@@ -83,7 +83,7 @@ func verificationOutcome(submitted bool) model.CheckinOutcome {
 }
 
 func (r *checkinRun) preparationFailure(ctx context.Context, err error) (*model.CheckinResult, error) {
-	if errors.Is(err, errVerificationRequired) {
+	if errors.Is(err, ErrVerificationRequired) {
 		return r.finish(ctx, verificationOutcome(false))
 	}
 	if errors.Is(err, op.ErrCheckinWorkflowChanged) || errors.Is(err, op.ErrCheckinWorkflowConflict) || errors.Is(err, op.ErrCheckinUnavailable) {
@@ -200,7 +200,7 @@ func (r *checkinRun) finishPlatform(ctx context.Context, p *platformHTTP, outcom
 
 func platformOutcome(ctx context.Context, site model.CheckinSite, response *rules.Response, payload map[string]any, err error) model.CheckinOutcome {
 	unknown := failedOutcome(model.SiteCheckinReasonUnconfirmed, "签到接口未确认本次提交结果")
-	if errors.Is(err, errVerificationRequired) {
+	if errors.Is(err, ErrVerificationRequired) {
 		return verificationOutcome(true)
 	}
 	if err != nil || response == nil {

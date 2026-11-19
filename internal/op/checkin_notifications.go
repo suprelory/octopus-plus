@@ -227,11 +227,34 @@ func (s *CheckinStore) ListNotifications(ctx context.Context, beforeID int64, li
 	if limit <= 0 || limit > 100 {
 		limit = 100
 	}
+	return s.listNotifications(ctx, beforeID, limit)
+}
+
+func (s *CheckinStore) NotificationPage(ctx context.Context, beforeID int64, limit int) (*model.CheckinNotificationPage, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	items, err := s.listNotifications(ctx, beforeID, limit+1)
+	if err != nil {
+		return nil, err
+	}
+	page := &model.CheckinNotificationPage{Items: items}
+	if len(items) > limit {
+		page.Items = items[:limit]
+		page.NextBeforeID = items[limit-1].ID
+	}
+	return page, nil
+}
+
+func (s *CheckinStore) listNotifications(ctx context.Context, beforeID int64, limit int) ([]model.CheckinNotificationDelivery, error) {
 	query := s.conn.WithContext(ctx).Order("id DESC").Limit(limit)
 	if beforeID > 0 {
 		query = query.Where("id < ?", beforeID)
 	}
-	var deliveries []model.CheckinNotificationDelivery
+	deliveries := []model.CheckinNotificationDelivery{}
 	err := query.Find(&deliveries).Error
 	return deliveries, err
 }

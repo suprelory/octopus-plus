@@ -57,6 +57,7 @@ type Notifications struct {
 	mu      sync.Mutex
 	running bool
 	wake    bool
+	done    chan struct{}
 }
 
 func NewNotifications(store *op.CheckinStore, config func() NotificationConfig) *Notifications {
@@ -73,6 +74,7 @@ func (n *Notifications) Wake() {
 		return
 	}
 	n.running = true
+	n.done = make(chan struct{})
 	n.mu.Unlock()
 	go func() {
 		for {
@@ -88,12 +90,30 @@ func (n *Notifications) Wake() {
 			n.mu.Lock()
 			if !n.wake {
 				n.running = false
+				close(n.done)
 				n.mu.Unlock()
 				return
 			}
 			n.mu.Unlock()
 		}
 	}()
+}
+
+// Wait waits for the current Wake worker and its coalesced scans. Callers must
+// stop producing new work first; direct RunDue calls have their own lifecycle.
+func (n *Notifications) Wait(ctx context.Context) error {
+	n.mu.Lock()
+	done, running := n.done, n.running
+	n.mu.Unlock()
+	if !running {
+		return nil
+	}
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func notificationEvent(c model.CheckinCompletion, config NotificationConfig) (string, string) {

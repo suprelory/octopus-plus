@@ -19,7 +19,7 @@ import (
 	"github.com/suprelory/octopus-plus/internal/op"
 )
 
-var errVerificationRequired = errors.New("complete verification at the check-in site")
+var ErrVerificationRequired = errors.New("complete verification at the check-in site")
 
 type platformHTTP struct {
 	proxies  ProxyResolver
@@ -179,7 +179,7 @@ func (p *platformHTTP) send(prepared *preparedCheckinRequest) (*rules.Response, 
 	}
 	payload := platformObject(response.Body)
 	if requiresVerification(response.Header, response.Body, payload) {
-		return response, nil, errVerificationRequired
+		return response, nil, ErrVerificationRequired
 	}
 	cookies := (&http.Response{Header: response.Header}).Cookies()
 	if response.StatusCode >= 200 && response.StatusCode < 300 && payload != nil && payload["success"] != false {

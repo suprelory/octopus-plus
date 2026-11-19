@@ -198,6 +198,7 @@ func TestIndependentCheckinDatabases(t *testing.T) {
 			testScheduledReservationRace(t, store, site.ID, workflowAccount.ID)
 			testBatchOwnership(t, store, site.ID, workflowAccount.ID)
 			testBalanceNotificationCAS(t, store, workflowAccount.ID)
+			testCheckinNameConstraints(t, store)
 		})
 	}
 }

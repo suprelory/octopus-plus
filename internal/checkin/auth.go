@@ -44,14 +44,14 @@ func (e *ExchangeError) Error() string {
 	case ExchangeRejected:
 		return "checkin authentication was rejected; check login credentials and network configuration"
 	case ExchangeVerification:
-		return errVerificationRequired.Error()
+		return ErrVerificationRequired.Error()
 	default:
 		return ErrSessionUncertain.Error()
 	}
 }
 
 func (e *ExchangeError) Is(target error) bool {
-	return e.Failure == ExchangeVerification && target == errVerificationRequired
+	return e.Failure == ExchangeVerification && target == ErrVerificationRequired
 }
 
 // Authenticator performs exactly one HTTP exchange. Coordination and saving

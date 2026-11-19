@@ -41,7 +41,7 @@ func (s *CheckinStore) PatchSite(ctx context.Context, id int, patch model.Checki
 		result = current
 		patch.Apply(&result)
 		if err := result.Validate(); err != nil {
-			return err
+			return checkinConfigurationError(err)
 		}
 		configChanged := fingerprint != result.ConfigFingerprint()
 		if configChanged || (!current.Enabled && result.Enabled) {
@@ -67,7 +67,7 @@ func (s *CheckinStore) PatchSite(ctx context.Context, id int, patch model.Checki
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, s.checkinNameError(err)
 	}
 	return &result, nil
 }
@@ -106,7 +106,7 @@ func (s *CheckinStore) setSiteArchived(ctx context.Context, id int, archived boo
 		}
 		if !archived && site.Enabled {
 			if err := site.Validate(); err != nil {
-				return err
+				return checkinConfigurationError(err)
 			}
 			if err := validateCheckinSiteAccounts(tx, site); err != nil {
 				return err
@@ -171,7 +171,7 @@ func (s *CheckinStore) PatchAccount(ctx context.Context, id int, patch model.Che
 		result = current
 		patch.Apply(&result)
 		if err := result.Validate(); err != nil {
-			return err
+			return checkinConfigurationError(err)
 		}
 		identityChanged := current.CredentialID != result.CredentialID || current.AuthMode != result.AuthMode ||
 			!reflect.DeepEqual(current.CheckinNetwork, result.CheckinNetwork) || !reflect.DeepEqual(current.BalanceConfig, result.BalanceConfig)
@@ -198,7 +198,7 @@ func (s *CheckinStore) PatchAccount(ctx context.Context, id int, patch model.Che
 		return tx.Model(&model.CheckinAccount{}).Where("id = ?", id).Select(fields).Updates(&result).Error
 	})
 	if err != nil {
-		return nil, err
+		return nil, s.checkinNameError(err)
 	}
 	return &result, nil
 }
