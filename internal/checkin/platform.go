@@ -19,6 +19,7 @@ func (r *checkinRun) platform(ctx context.Context, confirm bool) (*model.Checkin
 	if err := model.ValidateCheckinIdentity(r.execution.Site, r.execution.Account, r.execution.Credential); err != nil {
 		return nil, err
 	}
+	r.captureBalance(ctx)
 	runCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	if !confirm || r.execution.Trigger == model.CheckinTriggerScheduled {

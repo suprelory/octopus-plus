@@ -54,7 +54,7 @@ func (r *checkinRun) platformClient(login bool) *platformHTTP {
 func (p *platformHTTP) snapshot() op.CheckinLoginSession {
 	s := p.session
 	s.SessionCookies = p.cookies.Snapshot()
-	if cookie := p.cookies.Header(p.base + "/api/user/self"); router.HasSession(cookie) {
+	if cookie := p.cookies.Header(p.original.AuthBaseURL + "/api/user/self"); router.HasSession(cookie) {
 		s.Cookie = cookie
 	}
 	if p.original.Type == model.CheckinCredentialCookie {
@@ -112,11 +112,17 @@ func (p *platformHTTP) prepare(ctx context.Context, method, path string, body an
 	if !login {
 		request.Header.Del("Cookie")
 		cookie := p.cookies.Header(endpoint)
+		if p.original.Type == model.CheckinCredentialAPIKey {
+			cookie = ""
+		}
 		if cookie != "" {
 			request.Header.Set("Cookie", cookie)
 		}
 		if !router.HasSession(cookie) {
 			token := model.NormalizeSiteAccessToken(p.session.AccessToken)
+			if p.original.Type == model.CheckinCredentialAPIKey {
+				token = model.NormalizeSiteAccessToken(p.original.APIKey)
+			}
 			if token == "" || router.HasSession(token) {
 				return nil, ErrSessionUnavailable
 			}

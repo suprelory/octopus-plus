@@ -450,6 +450,9 @@ func saveCheckinOutcome(tx *gorm.DB, current *CheckinExecution, outcome model.Ch
 	if err := tx.Model(&model.CheckinAccount{}).Where("id = ?", current.Account.ID).Updates(updates).Error; err != nil {
 		return nil, err
 	}
+	if err := createCheckinCompletion(tx, entry, current.Account.CheckinFailureCount); err != nil {
+		return nil, err
+	}
 	return checkinResult(current.Account, entry), nil
 }
 

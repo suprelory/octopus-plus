@@ -91,6 +91,7 @@ func createCheckinCredential(tx *gorm.DB, credential *model.CheckinCredential) e
 }
 
 func prepareCheckinCredential(credential *model.CheckinCredential) error {
+	credential.BalanceObservation = 0
 	credential.ID = 0
 	credential.CredentialVersion, credential.IdentityRevision = 0, 0
 	credential.TokenRefreshLease, credential.TokenRefreshLeaseUntil, credential.TokenRefreshedAt = "", 0, 0
@@ -185,6 +186,7 @@ func (s *CheckinStore) editCredential(ctx context.Context, id int, expectedVersi
 		if err := validateCredentialReferences(tx, candidate); err != nil {
 			return err
 		}
+		candidate.BalanceObservation = current.BalanceObservation
 		candidate.CredentialVersion++
 		written := tx.Model(&model.CheckinCredential{}).Where("id = ? AND credential_version = ?", current.ID, expectedVersion).
 			Select("*").Omit("id").Updates(&candidate)
@@ -204,6 +206,7 @@ func (s *CheckinStore) editCredential(ctx context.Context, id int, expectedVersi
 }
 
 func identityChanged(a, b model.CheckinCredential) bool {
+	a.BalanceObservation, b.BalanceObservation = 0, 0
 	a.Name, b.Name = "", ""
 	a.TokenExpiresAt, b.TokenExpiresAt = 0, 0
 	a.TokenRefreshedAt, b.TokenRefreshedAt = 0, 0
@@ -278,6 +281,7 @@ func (s *CheckinStore) CreateAccount(ctx context.Context, account model.CheckinA
 	account.CheckinPending, account.NextAutoCheckinAt, account.LastCheckinAt, account.LastCheckinSuccessAt = nil, nil, nil, nil
 	account.LastCheckinStatus, account.LastCheckinMessage, account.CheckinFailureCount = model.SiteExecutionStatusIdle, "", 0
 	account.Balance, account.BalanceUsed, account.TodayIncome = 0, 0, 0
+	account.BalanceVersion, account.BalanceConfigVersion, account.BalanceUpdatedAt = 0, 0, nil
 	err := s.transaction(ctx, func(tx *gorm.DB) error {
 		var site model.CheckinSite
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&site, account.SiteID).Error; err != nil {
@@ -410,7 +414,7 @@ func validateCheckinBalanceCredential(config model.CheckinBalanceConfig, credent
 			return nil
 		}
 	case model.SitePlatformNewAPI, model.SitePlatformAnyRouter, model.SitePlatformAgentRouter, model.SitePlatformOneAPI, model.SitePlatformOneHub, model.SitePlatformDoneHub:
-		if credential.Type == model.CheckinCredentialAccessToken || credential.Type == model.CheckinCredentialPassword {
+		if credential.Type == model.CheckinCredentialAccessToken || credential.Type == model.CheckinCredentialPassword || credential.Type == model.CheckinCredentialCookie {
 			return nil
 		}
 	}

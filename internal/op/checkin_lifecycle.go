@@ -182,6 +182,11 @@ func (s *CheckinStore) PatchAccount(ctx context.Context, id int, patch model.Che
 		}
 		fields := []string{"name", "credential_id", "auth_mode", "proxy_mode", "proxy_config_id", "enabled", "auto_checkin",
 			"random_checkin", "checkin_random_window_minutes", "balance_config"}
+		if current.CredentialID != result.CredentialID || !reflect.DeepEqual(current.BalanceConfig, result.BalanceConfig) {
+			result.BalanceConfigVersion++
+			result.BalanceUpdatedAt = nil
+			fields = append(fields, "balance_config_version", "balance_updated_at")
+		}
 		if identityChanged || current.Enabled != result.Enabled || current.AutoCheckin != result.AutoCheckin ||
 			current.RandomCheckin != result.RandomCheckin || current.CheckinRandomWindowMinutes != result.CheckinRandomWindowMinutes ||
 			site.Archived || !site.Enabled || !result.Enabled || !result.AutoCheckin {

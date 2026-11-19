@@ -10,9 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/suprelory/octopus-plus/internal/checkin/finance"
 	"github.com/suprelory/octopus-plus/internal/checkin/rules"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/op"
+	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 type WorkflowStore interface {
@@ -34,16 +36,29 @@ var ErrCheckinAlreadyRunning = errors.New("checkin is already running for this a
 // Engine executes configured HTTP and built-in check-ins. Availability and reservations
 // are rechecked by the store; no production scheduler or public API starts it yet.
 type Engine struct {
-	store    WorkflowStore
-	sessions SessionProvider
-	proxies  ProxyResolver
-	now      func() time.Time
-	mu       sync.Mutex
-	running  map[int]bool
+	store         WorkflowStore
+	sessions      SessionProvider
+	proxies       ProxyResolver
+	now           func() time.Time
+	mu            sync.Mutex
+	running       map[int]bool
+	balances      *Balances
+	notifications *Notifications
 }
 
 func NewEngine(store WorkflowStore, sessions SessionProvider, proxies ProxyResolver) *Engine {
-	return &Engine{store: store, sessions: sessions, proxies: proxies, now: time.Now, running: make(map[int]bool)}
+	e := &Engine{store: store, sessions: sessions, proxies: proxies, now: time.Now, running: make(map[int]bool)}
+	if store, ok := store.(BalanceStore); ok {
+		e.balances = NewBalances(store, sessions, proxies)
+	}
+	return e
+}
+
+// Configure before sharing the engine with workers. Delivery is opt-in until
+// production cutover; tests can inject local delivery without global settings.
+func (e *Engine) WithNotifications(notifications *Notifications) *Engine {
+	e.notifications = notifications
+	return e
 }
 
 func (e *Engine) Execute(ctx context.Context, accountID int, trigger model.CheckinTrigger) (*model.CheckinResult, error) {
@@ -57,9 +72,10 @@ func (e *Engine) Confirm(ctx context.Context, accountID int) (*model.CheckinResu
 }
 
 type checkinRun struct {
-	engine       *Engine
-	execution    *op.CheckinExecution
-	recoveryUsed bool
+	engine        *Engine
+	execution     *op.CheckinExecution
+	recoveryUsed  bool
+	beforeBalance *BalanceObservation
 }
 
 func (e *Engine) run(ctx context.Context, id int, request op.CheckinInvocation) (*model.CheckinResult, error) {
@@ -105,6 +121,7 @@ func (e *Engine) run(ctx context.Context, id int, request op.CheckinInvocation) 
 		// Only the owner or an expired deadline can settle this workflow.
 		return e.store.WorkflowResult(ctx, id)
 	}
+	run.captureBalance(ctx)
 	timeout := 30 * time.Second
 	if execution.Site.CheckinStatus != nil {
 		timeout = time.Duration(execution.Site.CheckinStatus.TimeoutSeconds) * time.Second
@@ -291,7 +308,51 @@ func (r *checkinRun) finish(ctx context.Context, outcome model.CheckinOutcome) (
 		// The winner owns all log/reward writes. Losing confirmations only replay.
 		return r.engine.store.WorkflowResult(persistCtx, r.execution.Account.ID)
 	}
+	if err == nil && result != nil && result.Status != model.SiteExecutionStatusPending && !result.Replayed {
+		r.complete(ctx, result)
+	}
 	return result, err
+}
+
+func (r *checkinRun) captureBalance(ctx context.Context) {
+	if r.engine.balances == nil || r.execution.Workflow().Submitted || r.execution.Site.Platform == model.SitePlatformAgentRouter {
+		return
+	}
+	value, err := r.engine.balances.Query(ctx, r.execution.Account.ID, false)
+	if err == nil {
+		r.beforeBalance = value
+	}
+}
+
+func (r *checkinRun) complete(ctx context.Context, result *model.CheckinResult) {
+	var balance *float64
+	if result.Status == model.SiteExecutionStatusSuccess && r.engine.balances != nil {
+		after, err := r.engine.balances.Query(context.WithoutCancel(ctx), result.AccountID, true)
+		if err == nil {
+			balance = &after.Value
+			if r.beforeBalance != nil && result.Reason == model.SiteCheckinReasonCheckedIn && result.Reward == "" && r.execution.Site.Platform != model.SitePlatformAgentRouter {
+				reward := finance.Reward(r.beforeBalance.Balance, after.Balance)
+				saveCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+				saved, saveErr := r.engine.balances.store.FillBalanceReward(saveCtx, result, r.beforeBalance.Snapshot, after.Snapshot, reward)
+				cancel()
+				if saveErr == nil && saved {
+					result.Reward = reward
+				}
+			}
+		}
+	}
+	if store, ok := r.engine.store.(interface {
+		ReadyCompletion(context.Context, *model.CheckinResult, *float64) error
+	}); ok {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		if err := store.ReadyCompletion(ctx, result, balance); err != nil {
+			log.Warnf("check-in completion %d will recover on the next scan", result.LogID)
+		}
+	}
+	if r.engine.notifications != nil {
+		r.engine.notifications.Wake()
+	}
 }
 
 func (r *checkinRun) pending(ctx context.Context, reason, message string) (*model.CheckinResult, error) {

@@ -29,6 +29,10 @@ type SiteCheckinLogFilter struct {
 }
 
 func SiteCheckinLogList(ctx context.Context, filter SiteCheckinLogFilter) (*model.SiteCheckinLogPage, error) {
+	return checkinLogList(db.GetDB(), ctx, filter)
+}
+
+func checkinLogList(conn *gorm.DB, ctx context.Context, filter SiteCheckinLogFilter) (*model.SiteCheckinLogPage, error) {
 	limit := filter.Limit
 	if limit <= 0 {
 		limit = 50
@@ -36,7 +40,7 @@ func SiteCheckinLogList(ctx context.Context, filter SiteCheckinLogFilter) (*mode
 	if limit > 100 {
 		limit = 100
 	}
-	query := db.GetDB().WithContext(ctx).Model(&model.SiteCheckinLog{})
+	query := conn.WithContext(ctx).Model(&model.SiteCheckinLog{})
 	if filter.SiteID > 0 {
 		query = query.Where("site_id = ?", filter.SiteID)
 	}
@@ -84,6 +88,10 @@ func SiteCheckinStats(ctx context.Context, filter SiteCheckinLogFilter) (*model.
 }
 
 func siteCheckinStatsAt(ctx context.Context, filter SiteCheckinLogFilter, now time.Time) (*model.SiteCheckinStats, error) {
+	return checkinStatsAt(db.GetDB(), &model.Site{}, ctx, filter, now)
+}
+
+func checkinStatsAt(conn *gorm.DB, siteModel any, ctx context.Context, filter SiteCheckinLogFilter, now time.Time) (*model.SiteCheckinStats, error) {
 	location := filter.Location
 	if location == nil {
 		location = time.Local
@@ -95,7 +103,19 @@ func siteCheckinStatsAt(ctx context.Context, filter SiteCheckinLogFilter, now ti
 	recent7Start := todayStart.AddDate(0, 0, -6)
 	recent30Start := todayStart.AddDate(0, 0, -29)
 
-	query := db.GetDB().WithContext(ctx).Model(&model.SiteCheckinLog{}).Where("finished_at <= ?", now.UTC())
+	query := conn.WithContext(ctx).Model(&model.SiteCheckinLog{}).Where("finished_at <= ?", now.UTC())
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+	}
+	if filter.Source != "" {
+		query = query.Where("source = ?", filter.Source)
+	}
+	if filter.BatchJobID > 0 {
+		query = query.Where("batch_job_id = ?", filter.BatchJobID)
+	}
+	if filter.BeforeID > 0 {
+		query = query.Where("id < ?", filter.BeforeID)
+	}
 	if filter.SiteID > 0 {
 		query = query.Where("site_id = ?", filter.SiteID)
 	}
@@ -201,9 +221,12 @@ func siteCheckinStatsAt(ctx context.Context, filter SiteCheckinLogFilter, now ti
 		siteIDs = append(siteIDs, siteID)
 	}
 	for start := 0; start < len(siteIDs); start += siteCheckinStatsBatchSize {
-		var sites []model.Site
+		var sites []struct {
+			ID   int
+			Name string
+		}
 		end := min(start+siteCheckinStatsBatchSize, len(siteIDs))
-		if err := db.GetDB().WithContext(ctx).Select("id", "name").
+		if err := conn.WithContext(ctx).Model(siteModel).Select("id", "name").
 			Where("id IN ?", siteIDs[start:end]).Find(&sites).Error; err != nil {
 			return nil, fmt.Errorf("load site names for checkin stats: %w", err)
 		}

@@ -85,6 +85,9 @@ type CheckinAccount struct {
 	Balance                    float64              `json:"balance"`
 	BalanceUsed                float64              `json:"balance_used"`
 	TodayIncome                float64              `json:"today_income"`
+	BalanceUpdatedAt           *time.Time           `json:"balance_updated_at,omitempty"`
+	BalanceVersion             int64                `json:"-" gorm:"not null;default:0"`
+	BalanceConfigVersion       int64                `json:"-" gorm:"not null;default:0"`
 	NextAutoCheckinAt          *time.Time           `json:"next_auto_checkin_at,omitempty" gorm:"index"`
 	LastCheckinAt              *time.Time           `json:"last_checkin_at,omitempty"`
 	LastCheckinSuccessAt       *time.Time           `json:"last_checkin_success_at,omitempty"`
@@ -130,6 +133,7 @@ type CheckinCredential struct {
 	TokenRefreshLeaseUntil int64                  `json:"-" gorm:"not null"`
 	TokenRefreshStarted    bool                   `json:"-" gorm:"not null;default:false"`
 	TokenRefreshRetryAt    int64                  `json:"-" gorm:"not null;default:0"`
+	BalanceObservation     int64                  `json:"-" gorm:"not null;default:0"`
 }
 
 // Scoped cookies retain their origin, expiry and deletion markers across runs.

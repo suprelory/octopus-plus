@@ -49,41 +49,45 @@ func (s *CheckinStore) SaveWorkflowSession(ctx context.Context, expected *Checki
 		if site.Platform == model.SitePlatformAgentRouter && !account.CheckinPending.Submitted {
 			return ErrCheckinNotSubmitted
 		}
-		if site.Platform != model.SitePlatformAgentRouter && session.AccessToken != expected.Credential.AccessToken {
-			return ErrCheckinCredentialConflict
-		}
-		candidate := result
-		candidate.AccessToken, candidate.Cookie, candidate.SessionCookies = session.AccessToken, session.Cookie, session.SessionCookies
-		if result.TokenExpiresAt == expected.Credential.TokenExpiresAt {
-			candidate.TokenExpiresAt = session.TokenExpiresAt
-		}
-		if session.PlatformUserID != nil {
-			candidate.PlatformUserID = session.PlatformUserID
-		}
-		if sameWorkflowSession(candidate, result) {
-			return nil
-		}
-		if !sameWorkflowSession(result, expected.Credential) || result.TokenRefreshStarted || result.TokenRefreshLeaseUntil > time.Now().UnixMilli() {
-			return ErrCheckinCredentialConflict
-		}
-		if err := candidate.Validate(); err != nil {
-			return err
-		}
-		candidate.CredentialVersion++
-		candidate.TokenRefreshedAt = max(time.Now().UnixMilli(), result.TokenRefreshedAt+1)
-		written := tx.Model(&model.CheckinCredential{}).Where("id = ? AND credential_version = ?", result.ID, result.CredentialVersion).
-			Select("access_token", "cookie", "session_cookies", "platform_user_id", "token_expires_at", "token_refreshed_at", "credential_version").Updates(&candidate)
-		if written.Error != nil {
-			return written.Error
-		}
-		if written.RowsAffected != 1 {
-			return ErrCheckinCredentialConflict
-		}
-		result = candidate
-		return nil
+		result, err = saveObservedCheckinSession(tx, result, expected.Credential, session, site.Platform == model.SitePlatformAgentRouter)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &result, nil
+}
+
+func saveObservedCheckinSession(tx *gorm.DB, result, expected model.CheckinCredential, session CheckinLoginSession, allowToken bool) (model.CheckinCredential, error) {
+	if result.IdentityRevision != expected.IdentityRevision || !allowToken && session.AccessToken != expected.AccessToken {
+		return result, ErrCheckinCredentialConflict
+	}
+	candidate := result
+	candidate.AccessToken, candidate.Cookie, candidate.SessionCookies = session.AccessToken, session.Cookie, session.SessionCookies
+	if result.TokenExpiresAt == expected.TokenExpiresAt {
+		candidate.TokenExpiresAt = session.TokenExpiresAt
+	}
+	if session.PlatformUserID != nil {
+		candidate.PlatformUserID = session.PlatformUserID
+	}
+	if sameWorkflowSession(candidate, result) {
+		return result, nil
+	}
+	if !sameWorkflowSession(result, expected) || result.TokenRefreshStarted || result.TokenRefreshLeaseUntil > time.Now().UnixMilli() {
+		return result, ErrCheckinCredentialConflict
+	}
+	if err := candidate.Validate(); err != nil {
+		return result, err
+	}
+	candidate.CredentialVersion++
+	candidate.TokenRefreshedAt = max(time.Now().UnixMilli(), result.TokenRefreshedAt+1)
+	written := tx.Model(&model.CheckinCredential{}).Where("id = ? AND credential_version = ?", result.ID, result.CredentialVersion).
+		Select("access_token", "cookie", "session_cookies", "platform_user_id", "token_expires_at", "token_refreshed_at", "credential_version").Updates(&candidate)
+	if written.Error != nil {
+		return result, written.Error
+	}
+	if written.RowsAffected != 1 {
+		return result, ErrCheckinCredentialConflict
+	}
+	return candidate, nil
 }

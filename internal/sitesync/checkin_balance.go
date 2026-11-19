@@ -2,11 +2,10 @@ package sitesync
 
 import (
 	"context"
-	"math"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/suprelory/octopus-plus/internal/checkin/finance"
 	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/op"
@@ -115,22 +114,9 @@ func fillCheckinRewardFromBalance(ctx context.Context, result *model.SiteCheckin
 		strings.TrimSpace(result.Reward) != "" || !before.ok || !after.ok {
 		return
 	}
-	delta := after.balance - before.balance
-	// Account for consumption while the check-in request was in flight. Both
-	// snapshots must contain a finite, nondecreasing cumulative usage counter.
-	if before.usedKnown && after.usedKnown && before.balanceUsed >= 0 && after.balanceUsed >= before.balanceUsed &&
-		!math.IsNaN(before.balanceUsed) && !math.IsInf(before.balanceUsed, 0) &&
-		!math.IsNaN(after.balanceUsed) && !math.IsInf(after.balanceUsed, 0) {
-		delta += after.balanceUsed - before.balanceUsed
-	}
-	if math.IsNaN(delta) || math.IsInf(delta, 0) || delta < 0 {
+	reward := finance.Reward(finance.Balance{Value: before.balance, Used: before.balanceUsed, UsedKnown: before.usedKnown}, finance.Balance{Value: after.balance, Used: after.balanceUsed, UsedKnown: after.usedKnown})
+	if reward == "" {
 		return
-	}
-	// Platform balances are expressed in USD. Match the six decimal places used
-	// by reward statistics without exposing floating-point subtraction noise.
-	reward := strings.TrimRight(strings.TrimRight(strconv.FormatFloat(delta, 'f', 6, 64), "0"), ".")
-	if reward == "-0" {
-		reward = "0"
 	}
 	persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()

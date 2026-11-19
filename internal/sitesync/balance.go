@@ -2,29 +2,27 @@ package sitesync
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/suprelory/octopus-plus/internal/checkin/finance"
 	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 const (
-	siteBalanceQuotaPerUSD = 500000.0
+	siteBalanceQuotaPerUSD = finance.QuotaPerUSD
 	logFallbackPageSize    = 100
 	logFallbackMaxPages    = 6
 )
 
 var (
-	logIncomeTypes           = []int{1, 4}
-	logIncomeContentNumberRE = regexp.MustCompile(`[-+]?\d+(?:\.\d+)?`)
+	logIncomeTypes = []int{1, 4}
 )
 
 type siteBalanceFetchResult struct {
@@ -374,23 +372,7 @@ func extractLogTotalCount(payload map[string]any) (int, bool) {
 }
 
 func parseIncomeFromLogContent(content string) float64 {
-	trimmed := strings.TrimSpace(content)
-	if trimmed == "" {
-		return 0
-	}
-	normalized := strings.ReplaceAll(trimmed, ",", "")
-	match := logIncomeContentNumberRE.FindString(normalized)
-	if match == "" {
-		return 0
-	}
-	parsed, err := strconv.ParseFloat(match, 64)
-	if err != nil {
-		return 0
-	}
-	if parsed <= 0 {
-		return 0
-	}
-	return parsed
+	return finance.Income(content)
 }
 
 func isValidUserSelfPayload(payload map[string]any, err error) bool {
@@ -448,17 +430,5 @@ func fetchSub2APIBalanceDetails(ctx context.Context, siteRecord *model.Site, acc
 
 // A missing, null or malformed field is different from a valid zero balance.
 func balanceJSONNumber(value any) (float64, bool) {
-	var number float64
-	var err error
-	switch value := value.(type) {
-	case float64:
-		number = value
-	case json.Number:
-		number, err = value.Float64()
-	case string:
-		number, err = strconv.ParseFloat(strings.TrimSpace(value), 64)
-	default:
-		return 0, false
-	}
-	return number, err == nil && !math.IsNaN(number) && !math.IsInf(number, 0)
+	return finance.Number(value)
 }

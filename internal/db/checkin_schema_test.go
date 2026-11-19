@@ -51,7 +51,7 @@ func TestPrepareCheckinSchemaAddsSessionStateWithoutChangingCredentials(t *testi
 	if stored.AccessToken != before.AccessToken || stored.RefreshToken != before.RefreshToken || stored.TokenRefreshLease != before.TokenRefreshLease || stored.TokenRefreshLeaseUntil != before.TokenRefreshLeaseUntil || stored.TokenRefreshStarted || stored.TokenRefreshRetryAt != 0 {
 		t.Fatal("schema preparation modified existing credential or ownership state")
 	}
-	for _, field := range []string{"TokenRefreshStarted", "TokenRefreshRetryAt", "SessionCookies"} {
+	for _, field := range []string{"TokenRefreshStarted", "TokenRefreshRetryAt", "SessionCookies", "BalanceObservation"} {
 		if !conn.Migrator().HasColumn(&model.CheckinCredential{}, field) {
 			t.Fatalf("missing new session field %s", field)
 		}
@@ -104,6 +104,16 @@ func TestPrepareCheckinSchemaPreservesSubmittedWorkflowAndHistory(t *testing.T) 
 	}
 	if !conn.Migrator().HasColumn(&model.CheckinAccount{}, "CheckinWorkflowVersion") {
 		t.Fatal("workflow version column was not added")
+	}
+	for _, field := range []string{"BalanceVersion", "BalanceConfigVersion", "BalanceUpdatedAt"} {
+		if !conn.Migrator().HasColumn(&model.CheckinAccount{}, field) {
+			t.Fatalf("missing balance column %s", field)
+		}
+	}
+	for _, table := range []any{&model.CheckinCompletion{}, &model.CheckinNotificationDelivery{}, &model.CheckinNotificationCooldown{}, &model.CheckinNotificationGate{}} {
+		if !conn.Migrator().HasTable(table) {
+			t.Fatalf("missing notification table %T", table)
+		}
 	}
 	var account model.CheckinAccount
 	if err := conn.First(&account, before.ID).Error; err != nil {

@@ -32,6 +32,9 @@ func skipCheckin(err error) bool {
 
 // RunDue handles one scan; failures for one account do not starve other sites.
 func (j *Jobs) RunDue(ctx context.Context) error {
+	if j.engine.notifications != nil {
+		j.engine.notifications.Wake()
+	}
 	if err := j.store.RecoverBatches(ctx); err != nil {
 		return err
 	}
