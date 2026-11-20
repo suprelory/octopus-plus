@@ -50,3 +50,5 @@ jobs:
         run: go test -race ./internal/op -run '^TestIndependentCheckinDatabases$' -count=1 -v
       - name: Verify independent check-in execution
         run: go test -race ./internal/checkin/...
+      - name: Verify migration journal transactions and resume
+        run: go test -race ./internal/migration/v2 -run '^TestMigrationJournalDatabases$' -count=1 -v

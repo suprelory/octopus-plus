@@ -1,5 +1,5 @@
-// Package v2 inspects legacy data before the independent check-in migration.
-// It does not initialize a database or modify the supplied snapshot.
+// Package v2 provides legacy preflight, pure conversion and an explicit migration
+// journal. It has no production startup hook and never modifies input snapshots.
 package v2
 
 import (

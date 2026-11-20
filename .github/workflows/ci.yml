@@ -95,7 +95,7 @@ jobs:
 
       - name: Check backend concurrency
         timeout-minutes: 15
-        run: go test -race ./internal/checkin/... ./internal/op ./internal/relay/... ./internal/sitesync ./internal/task ./internal/server/... ./internal/webdav
+        run: go test -race ./internal/migration/v2 ./internal/checkin/... ./internal/op ./internal/relay/... ./internal/sitesync ./internal/task ./internal/server/... ./internal/webdav
 
       - name: Build backend
         run: go build -tags=jsoniter ./...
