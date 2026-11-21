@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,24 +14,7 @@ import (
 
 func setupSiteOpTestDB(t *testing.T) context.Context {
 	t.Helper()
-
-	if dbpkg.GetDB() != nil {
-		_ = dbpkg.Close()
-	}
-
-	dbPath := filepath.Join(t.TempDir(), "octopus-test.db")
-	if err := dbpkg.InitLegacyDB("sqlite", dbPath, false); err != nil {
-		t.Fatalf("InitDB failed: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = dbpkg.Close()
-	})
-
-	// total 缓存是包级的：换了 DB 不清掉，上一个用例的计数会漏到下一个用例。
-	RelayLogTotalCacheInvalidate()
-	t.Cleanup(RelayLogTotalCacheInvalidate)
-
-	return context.Background()
+	return openOpTestDB(t, dbpkg.InitLegacyDB)
 }
 
 func createSiteOpTestSiteAccount(t *testing.T, ctx context.Context, siteName, accountName string) (*model.Site, *model.SiteAccount) {

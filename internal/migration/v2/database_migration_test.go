@@ -37,9 +37,9 @@ func sqliteMigrationDatabase(t *testing.T) *gorm.DB {
 // and one submitted workflow with an omitted log.
 func seedMigrationDatabase(t *testing.T, conn *gorm.DB) {
 	t.Helper()
-	for _, table := range []any{&model.Site{}, &model.SiteAccount{}, &model.Channel{}, &model.ChannelKey{}, &model.ProxyConfiguration{},
-		&model.SiteUserGroup{}, &model.SiteChannelBinding{}, &model.Group{}, &model.GroupItem{}, &model.GroupPreset{}, &model.Setting{},
-		&model.StatsChannel{}, &model.StatsSiteModelHourly{}, &model.CheckinLog{}, &model.CheckinBatchJob{}} {
+	for _, table := range []any{&model.LegacySite{}, &model.LegacySiteAccount{}, &model.Channel{}, &model.ChannelKey{}, &model.ProxyConfiguration{},
+		&model.LegacySiteUserGroup{}, &model.LegacySiteChannelBinding{}, &model.Group{}, &model.GroupItem{}, &model.GroupPreset{}, &model.Setting{},
+		&model.StatsChannel{}, &model.LegacyStatsSiteModelHourly{}, &model.CheckinLog{}, &model.CheckinBatchJob{}} {
 		if err := conn.Migrator().CreateTable(table); err != nil {
 			t.Fatalf("create %T: %v", table, err)
 		}
@@ -55,7 +55,7 @@ func seedMigrationDatabase(t *testing.T, conn *gorm.DB) {
 	f.GroupPresets = []model.GroupPreset{{ID: 600, GroupID: 400, Name: "routes", Items: []model.GroupPresetItem{{ChannelID: 100, Weight: 7}}}}
 	f.Configuration.GroupItems[0].Weight = 7
 	f.ChannelStats = []model.StatsChannel{{ChannelID: 100, StatsMetrics: model.StatsMetrics{RequestSuccess: 5}}}
-	f.ArchivedSiteStats = []model.StatsSiteModelHourly{{SiteAccountID: 10, GroupKey: "old", ModelName: "m", Hour: 3, Date: "20261120", StatsMetrics: model.StatsMetrics{RequestSuccess: 8}}}
+	f.ArchivedSiteStats = []model.LegacyStatsSiteModelHourly{{SiteAccountID: 10, GroupKey: "old", ModelName: "m", Hour: 3, Date: "20261120", StatsMetrics: model.StatsMetrics{RequestSuccess: 8}}}
 	f.Logs = []model.CheckinLog{{ID: 9007199254740993, SiteID: 1, AccountID: 10, SiteName: "historical", AccountName: "old", Source: "manual", Status: model.SiteExecutionStatusSuccess, Reward: "0", StartedAt: f.CapturedAt, FinishedAt: f.CapturedAt},
 		{ID: 9007199254740994, SiteID: 99, AccountID: 999, SiteName: "deleted", Status: model.SiteExecutionStatusSuccess, Reward: "2", StartedAt: f.CapturedAt, FinishedAt: f.CapturedAt}}
 	f.Batches = []model.CheckinBatchJob{{ID: 31, SiteIDs: []int{1}, CurrentSiteID: 1, CurrentAccountID: 10, Status: model.SiteCheckinBatchJobStatusRunning, Attempted: 1, StartedAt: f.CapturedAt, UpdatedAt: f.CapturedAt}}
@@ -73,7 +73,7 @@ func seedMigrationDatabase(t *testing.T, conn *gorm.DB) {
 		row any
 		id  int
 		col string
-	}{{&model.Channel{}, 100, "enabled"}, {&model.ChannelKey{}, 200, "enabled"}, {&model.SiteAccount{}, 10, "auto_checkin"}} {
+	}{{&model.Channel{}, 100, "enabled"}, {&model.ChannelKey{}, 200, "enabled"}, {&model.LegacySiteAccount{}, 10, "auto_checkin"}} {
 		if err := conn.Model(v.row).Where("id = ?", v.id).UpdateColumn(v.col, false).Error; err != nil {
 			t.Fatal(err)
 		}
@@ -149,13 +149,13 @@ func TestDatabaseMigration(t *testing.T) {
 				t.Fatal(err)
 			}
 			// Reject a source-side change, even though the channel stage already committed.
-			if err := conn.Model(&model.SiteAccount{}).Where("id = 10").UpdateColumn("token_refresh_lease", "changed").Error; err != nil {
+			if err := conn.Model(&model.LegacySiteAccount{}).Where("id = 10").UpdateColumn("token_refresh_lease", "changed").Error; err != nil {
 				t.Fatal(err)
 			}
 			if _, err := MigrateDatabase(ctx, conn, source, frozen); !errors.Is(err, ErrMigrationSourceChanged) {
 				t.Fatalf("source drift accepted: %v", err)
 			}
-			if err := conn.Model(&model.SiteAccount{}).Where("id = 10").UpdateColumn("token_refresh_lease", "test-refresh-owner").Error; err != nil {
+			if err := conn.Model(&model.LegacySiteAccount{}).Where("id = 10").UpdateColumn("token_refresh_lease", "test-refresh-owner").Error; err != nil {
 				t.Fatal(err)
 			}
 			_, frozen, err = ReadSnapshotFile(path)
@@ -303,7 +303,7 @@ func TestDatabaseMigrationMySQLNameCollation(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedMigrationDatabase(t, conn)
-	var account model.SiteAccount
+	var account model.LegacySiteAccount
 	if err := conn.First(&account, 30).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +334,7 @@ func TestCaptureDatabaseInputSupportsOlderV1Schemas(t *testing.T) {
 	conn := sqliteMigrationDatabase(t)
 	seedMigrationDatabase(t, conn)
 	for _, column := range []string{"TokenRefreshLease", "TokenRefreshLeaseUntil", "TokenRefreshedAt"} {
-		if err := conn.Migrator().DropColumn(&model.SiteAccount{}, column); err != nil {
+		if err := conn.Migrator().DropColumn(&model.LegacySiteAccount{}, column); err != nil {
 			t.Fatalf("drop legacy-added account column %s: %v", column, err)
 		}
 	}

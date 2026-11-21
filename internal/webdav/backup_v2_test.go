@@ -25,7 +25,7 @@ func TestBackupV2WebDAVRestore(t *testing.T) {
 	if err := op.InitCache(); err != nil {
 		t.Fatal(err)
 	}
-	document := backup.Document{DBDump: model.DBDump{Version: 2, ExportedAt: time.Now().UTC()}, CheckinSites: []backup.Site{{CheckinSite: model.CheckinSite{
+	document := backup.Document{LegacyDBDump: model.LegacyDBDump{Version: 2, ExportedAt: time.Now().UTC()}, CheckinSites: []backup.Site{{CheckinSite: model.CheckinSite{
 		ID: 10, Name: "WebDAV site", Platform: model.SitePlatformNewAPI, BaseURL: "https://webdav-fixture.example", Enabled: true,
 		CheckinNetwork: model.CheckinNetwork{ProxyMode: model.ProxyUsageModeDirect}, CheckinTimezone: "UTC", CheckinWindowStart: "00:00", CheckinWindowEnd: "23:59"}}}}
 	data, err := json.Marshal(document)

@@ -28,7 +28,7 @@ func TestRelayLogRecentByteBudget(t *testing.T) {
 }
 
 func TestRelayLogDisabledRetentionKeepsMetadataOnly(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestRelayLogDisabledRetentionKeepsMetadataOnly(t *testing.T) {
 }
 
 func TestRelayLogDetailsLoadPersistedBody(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	resetRelayLogStateForTest()
 	t.Cleanup(resetRelayLogStateForTest)
 	row := model.RelayLog{ID: 42, RequestContent: "full body"}

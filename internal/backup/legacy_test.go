@@ -15,18 +15,18 @@ import (
 
 func legacyFixture() *Document {
 	now := time.Now().UTC().Truncate(time.Second)
-	site := model.Site{ID: 3, Name: "legacy cookie site", Kind: model.SiteKindCheckin, Platform: model.SitePlatformNewAPI, BaseURL: "https://legacy.example.test", Enabled: true,
+	site := model.LegacySite{ID: 3, Name: "legacy cookie site", Kind: model.SiteKindCheckin, Platform: model.SitePlatformNewAPI, BaseURL: "https://legacy.example.test", Enabled: true,
 		ProxyMode: model.ProxyUsageModeDirect, CheckinHTTPEnabled: true, CheckinHTTPMethod: "POST", CheckinHTTPPath: "/daily", CheckinMode: model.SiteCheckinModeEnabled,
 		CheckinTimezone: "UTC", CheckinWindowStart: "00:00", CheckinWindowEnd: "23:59"}
-	account := model.SiteAccount{ID: 7, SiteID: site.ID, Name: "legacy account", Cookie: "session=legacy-fixture-secret", Enabled: true, ProxyMode: model.ProxyUsageModeInherit}
+	account := model.LegacySiteAccount{ID: 7, SiteID: site.ID, Name: "legacy account", Cookie: "session=legacy-fixture-secret", Enabled: true, ProxyMode: model.ProxyUsageModeInherit}
 	account.CheckinPending = &model.SiteCheckinPending{LogID: 9007199254740993, Submitted: true, Date: now.Format("2006-01-02"), Status: model.SiteExecutionStatusPending,
 		Source: model.CheckinTriggerManual, StartedAt: now, Deadline: now.Add(time.Hour), Fingerprint: site.CheckinWorkflowFingerprint(&account)}
-	return &Document{DBDump: model.DBDump{Version: 1, ExportedAt: now, IncludeLogs: true, IncludeStats: true,
-		Sites: []model.Site{site}, SiteAccounts: []model.SiteAccount{account},
+	return &Document{LegacyDBDump: model.LegacyDBDump{Version: 1, ExportedAt: now, IncludeLogs: true, IncludeStats: true,
+		Sites: []model.LegacySite{site}, SiteAccounts: []model.LegacySiteAccount{account},
 		SiteCheckinLogs:      []model.CheckinLog{{ID: account.CheckinPending.LogID, SiteID: site.ID, AccountID: account.ID, SiteName: site.Name, AccountName: account.Name, Status: model.SiteExecutionStatusPending, Source: "manual", StartedAt: now, FinishedAt: now}},
 		RelayLogs:            []model.RelayLog{{ID: 42, ChannelId: 999, ChannelName: "deleted channel"}},
 		RelayRequestContents: []model.RelayRequestContent{{LogID: 42, RequestBody: []byte("legacy request")}},
-		StatsSiteModelHourly: []model.StatsSiteModelHourly{{Hour: 4, SiteAccountID: 200, GroupKey: "archived", ModelName: "old-model", Date: "20261121", StatsMetrics: model.StatsMetrics{RequestSuccess: 17}}}}}
+		StatsSiteModelHourly: []model.LegacyStatsSiteModelHourly{{Hour: 4, SiteAccountID: 200, GroupKey: "archived", ModelName: "old-model", Date: "20261121", StatsMetrics: model.StatsMetrics{RequestSuccess: 17}}}}}
 }
 
 // Emit the version 1 archive layout, whose manifest has no table inventory and
@@ -142,5 +142,23 @@ func TestBackupDamagedDeferredHistoryDoesNotWrite(t *testing.T) {
 	var count int64
 	if err := s.conn.Model(&model.CheckinSite{}).Count(&count).Error; err != nil || count != 0 {
 		t.Fatal("configuration committed before history validation")
+	}
+}
+
+func TestLegacyBackupImportFingerprint(t *testing.T) {
+	// Include ordinary, subscription, archive and history fields. Their wire
+	// order participates in the identity stored by earlier importers.
+	const input = `{"version":1,"exported_at":"2026-11-20T06:00:00Z","include_logs":true,"include_stats":true,"channels":[{"id":9}],"sites":[{"id":7}],"groups":[{"id":5}],"stats_site_model_hourly":[{"site_account_id":3}],"site_checkin_logs":[{"id":9007199254740993}]}`
+	d, err := Read(context.Background(), bytes.NewBufferString(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	got, err := fingerprint(context.Background(), d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "3d1c442855e8bab83e3456ca85a3c7c4dd6868837e0a2dac121cdab8ee0f5a11"; got != want {
+		t.Fatalf("backup import fingerprint = %s, want %s", got, want)
 	}
 }

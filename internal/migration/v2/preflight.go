@@ -96,12 +96,12 @@ type CredentialUse struct {
 type preflight struct {
 	snapshot    *Snapshot
 	report      Report
-	sites       map[int]model.Site
-	accounts    map[int]model.SiteAccount
+	sites       map[int]model.LegacySite
+	accounts    map[int]model.LegacySiteAccount
 	channels    map[int]model.Channel
 	proxies     map[int]model.ProxyConfiguration
 	groups      map[int]model.Group
-	userGroups  map[int]model.SiteUserGroup
+	userGroups  map[int]model.LegacySiteUserGroup
 	settings    map[model.SettingKey]string
 	credentials map[int]*CredentialUse
 	contexts    map[int]string
@@ -118,13 +118,13 @@ func Analyze(snapshot *Snapshot) (*Report, error) {
 			Channels: []ChannelPlan{}, Accounts: []AccountPlan{}, Credentials: []CredentialUse{}, Issues: []Issue{}},
 		settings: make(map[model.SettingKey]string), credentials: make(map[int]*CredentialUse), contexts: make(map[int]string),
 	}
-	p.sites = indexRows(p, "site", snapshot.Sites, func(v model.Site) int { return v.ID })
-	p.accounts = indexRows(p, "account", snapshot.SiteAccounts, func(v model.SiteAccount) int { return v.ID })
+	p.sites = indexRows(p, "site", snapshot.Sites, func(v model.LegacySite) int { return v.ID })
+	p.accounts = indexRows(p, "account", snapshot.SiteAccounts, func(v model.LegacySiteAccount) int { return v.ID })
 	p.channels = indexRows(p, "channel", snapshot.Channels, func(v model.Channel) int { return v.ID })
 	p.proxies = indexRows(p, "proxy", snapshot.ProxyConfigurations, func(v model.ProxyConfiguration) int { return v.ID })
 	p.groups = indexRows(p, "group", snapshot.Groups, func(v model.Group) int { return v.ID })
-	p.userGroups = indexRows(p, "site_group", snapshot.SiteUserGroups, func(v model.SiteUserGroup) int { return v.ID })
-	indexRows(p, "binding", snapshot.SiteChannelBindings, func(v model.SiteChannelBinding) int { return v.ID })
+	p.userGroups = indexRows(p, "site_group", snapshot.SiteUserGroups, func(v model.LegacySiteUserGroup) int { return v.ID })
+	indexRows(p, "binding", snapshot.SiteChannelBindings, func(v model.LegacySiteChannelBinding) int { return v.ID })
 	indexRows(p, "channel_key", snapshot.ChannelKeys, func(v model.ChannelKey) int { return v.ID })
 	indexRows(p, "group_item", snapshot.GroupItems, func(v model.GroupItem) int { return v.ID })
 	for _, setting := range snapshot.Settings {
@@ -271,7 +271,7 @@ func (p *preflight) analyzeChannels() {
 	p.report.Summary.OrdinaryChannels = len(p.channels) - len(bound)
 }
 
-func (p *preflight) accountNetwork(site model.Site, account model.SiteAccount, severity string) NetworkPlan {
+func (p *preflight) accountNetwork(site model.LegacySite, account model.LegacySiteAccount, severity string) NetworkPlan {
 	mode, id := account.ProxyMode, account.ProxyConfigID
 	if mode == "" || mode == model.ProxyUsageModeInherit {
 		mode, id = site.ProxyMode, site.ProxyConfigID
@@ -313,19 +313,19 @@ func (p *preflight) network(mode model.ProxyUsageMode, id *int, headerSiteID int
 	return plan
 }
 
-func (p *preflight) linkedSource(site model.Site, account model.SiteAccount) (model.Site, model.SiteAccount, bool) {
+func (p *preflight) linkedSource(site model.LegacySite, account model.LegacySiteAccount) (model.LegacySite, model.LegacySiteAccount, bool) {
 	if site.LinkedSiteID == nil || account.LinkedAccountID == nil {
-		return model.Site{}, model.SiteAccount{}, false
+		return model.LegacySite{}, model.LegacySiteAccount{}, false
 	}
 	sourceSite, exists := p.sites[*site.LinkedSiteID]
 	source, accountExists := p.accounts[*account.LinkedAccountID]
 	if !exists || !accountExists || sourceSite.IsCheckinOnly() || source.SiteID != sourceSite.ID {
-		return model.Site{}, model.SiteAccount{}, false
+		return model.LegacySite{}, model.LegacySiteAccount{}, false
 	}
 	return sourceSite, source, true
 }
 
-func (p *preflight) analyzeAccount(site model.Site, account model.SiteAccount) {
+func (p *preflight) analyzeAccount(site model.LegacySite, account model.LegacySiteAccount) {
 	p.report.Summary.CheckinAccounts++
 	plan := AccountPlan{AccountID: account.ID, SiteID: site.ID, BalanceMode: "disabled"}
 	primarySite, primary := site, account
@@ -404,14 +404,14 @@ func (p *preflight) analyzeAccount(site model.Site, account model.SiteAccount) {
 	p.report.Accounts = append(p.report.Accounts, plan)
 }
 
-func platformCredentialValid(platform model.SitePlatform, account model.SiteAccount) bool {
+func platformCredentialValid(platform model.SitePlatform, account model.LegacySiteAccount) bool {
 	if account.CredentialType == model.SiteCredentialTypeUsernamePassword {
 		return strings.TrimSpace(account.Username) != "" && strings.TrimSpace(account.Password) != ""
 	}
 	return platform != model.SitePlatformAgentRouter && account.CredentialType == model.SiteCredentialTypeAccessToken && strings.TrimSpace(account.AccessToken) != ""
 }
 
-func balanceCredentialValid(platform model.SitePlatform, account model.SiteAccount) bool {
+func balanceCredentialValid(platform model.SitePlatform, account model.LegacySiteAccount) bool {
 	switch platform {
 	case model.SitePlatformSub2API:
 		return (account.CredentialType == model.SiteCredentialTypeAccessToken && strings.TrimSpace(account.AccessToken) != "") ||
@@ -424,7 +424,7 @@ func balanceCredentialValid(platform model.SitePlatform, account model.SiteAccou
 	}
 }
 
-func (p *preflight) credentialUse(source model.SiteAccount, accountID int, balance bool, network NetworkPlan) {
+func (p *preflight) credentialUse(source model.LegacySiteAccount, accountID int, balance bool, network NetworkPlan) {
 	use := p.credentials[source.ID]
 	if use == nil {
 		use = &CredentialUse{SourceAccountID: source.ID, PrimaryUsers: []int{}, BalanceUsers: []int{}}

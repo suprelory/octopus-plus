@@ -38,7 +38,7 @@ func Convert(input *LegacyInput) (*Conversion, error) {
 		c.Report.Issues = append(c.Report.Issues, issue)
 	}
 	p := &preflight{snapshot: &input.Configuration,
-		sites: map[int]model.Site{}, accounts: map[int]model.SiteAccount{}, proxies: map[int]model.ProxyConfiguration{},
+		sites: map[int]model.LegacySite{}, accounts: map[int]model.LegacySiteAccount{}, proxies: map[int]model.ProxyConfiguration{},
 		settings: map[model.SettingKey]string{}, credentials: map[int]*CredentialUse{}, contexts: map[int]string{}}
 	for _, site := range input.Configuration.Sites {
 		p.sites[site.ID] = site
@@ -53,7 +53,7 @@ func Convert(input *LegacyInput) (*Conversion, error) {
 		p.settings[setting.Key] = setting.Value
 	}
 	b := conversionBuilder{input: input, result: c, planner: p, sites: map[int]model.CheckinSite{}, accounts: map[int]model.CheckinAccount{},
-		credentials: map[int]model.CheckinCredential{}, accountTargets: map[int]int{}, siteTargets: map[int]int{}, original: map[int]model.SiteAccount{}}
+		credentials: map[int]model.CheckinCredential{}, accountTargets: map[int]int{}, siteTargets: map[int]int{}, original: map[int]model.LegacySiteAccount{}}
 	b.selectRecords()
 	b.convertSites()
 	b.convertAccounts()
@@ -93,7 +93,7 @@ type conversionBuilder struct {
 	credentials    map[int]model.CheckinCredential
 	siteTargets    map[int]int
 	accountTargets map[int]int
-	original       map[int]model.SiteAccount
+	original       map[int]model.LegacySiteAccount
 }
 
 func (b *conversionBuilder) selectRecords() {
@@ -101,7 +101,7 @@ func (b *conversionBuilder) selectRecords() {
 	// Existing independent edits win; provenance remaps history, not credentials.
 	aliases := map[int]map[int]bool{}
 	historySites := map[int]bool{}
-	accountsBySite := map[int][]model.SiteAccount{}
+	accountsBySite := map[int][]model.LegacySiteAccount{}
 	for _, entry := range b.input.Logs {
 		historySites[entry.SiteID] = true
 	}
@@ -140,7 +140,7 @@ func (b *conversionBuilder) selectRecords() {
 			continue
 		}
 		hasData := legacySiteHasCheckin(site) || historySites[site.ID]
-		var unmapped []model.SiteAccount
+		var unmapped []model.LegacySiteAccount
 		for _, a := range accountsBySite[site.ID] {
 			hasData = hasData || a.AutoCheckin || a.LastCheckinAt != nil || a.LastCheckinSuccessAt != nil || a.NextAutoCheckinAt != nil || a.CheckinPending != nil || a.CheckinFailureCount > 0
 			if _, exists := b.accountTargets[a.ID]; !exists {
@@ -174,7 +174,7 @@ func (b *conversionBuilder) selectRecords() {
 	}
 }
 
-func legacySiteHasCheckin(s model.Site) bool {
+func legacySiteHasCheckin(s model.LegacySite) bool {
 	return s.CheckinHTTPEnabled || s.CheckinMode == model.SiteCheckinModeEnabled || s.CheckinVerifiedAt != nil ||
 		(s.ExternalCheckinURL != nil && strings.TrimSpace(*s.ExternalCheckinURL) != "") ||
 		(s.CheckinVerificationStatus != "" && s.CheckinVerificationStatus != model.SiteCheckinSupportUnknown)
@@ -184,7 +184,7 @@ func (b *conversionBuilder) convertSites() {
 	rows := slices.Clone(b.input.Configuration.Sites)
 	// Keep existing check-in names first; only unsplit subscription names may be
 	// disambiguated. Names are never used to infer identity or merge records.
-	slices.SortFunc(rows, func(a, c model.Site) int {
+	slices.SortFunc(rows, func(a, c model.LegacySite) int {
 		if a.IsCheckinOnly() != c.IsCheckinOnly() {
 			if a.IsCheckinOnly() {
 				return -1

@@ -140,7 +140,6 @@ func (s *CheckinSite) Validate() error {
 		if !s.CheckinHTTPEnabled {
 			return errors.New("status confirmation requires custom HTTP checkin")
 		}
-		s.CheckinStatus.Normalize()
 		if err := s.CheckinStatus.Validate(); err != nil {
 			return err
 		}
@@ -314,4 +313,22 @@ func ValidateCheckinBalanceCredential(config CheckinBalanceConfig, credential Ch
 		}
 	}
 	return errors.New("credential cannot query platform balances")
+}
+
+func ValidateSiteCheckinCookie(cookie string) error {
+	if strings.TrimSpace(cookie) == "" {
+		return errors.New("checkin site cookie is required")
+	}
+	if len(cookie) > 16<<10 || strings.ContainsAny(cookie, "\r\n\x00") {
+		return errors.New("checkin site cookie must be a single header value of at most 16 KiB")
+	}
+	return nil
+}
+
+func NormalizeSiteAccessToken(token string) string {
+	trimmed := strings.TrimSpace(token)
+	if strings.HasPrefix(strings.ToLower(trimmed), "bearer ") {
+		return strings.TrimSpace(trimmed[7:])
+	}
+	return trimmed
 }

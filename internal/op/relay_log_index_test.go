@@ -13,7 +13,7 @@ import (
 //  2. 重复调用不会报错也不会重复建（幂等）；
 //  3. 启动路径不建性能索引，由后台任务创建。
 func TestRelayLogEnsureIndexesCreatesAndIsIdempotent(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 
 	// InitDB 创建完整的 relay_logs 表，但不在启动期同步建性能索引。
 	for _, name := range []string{
@@ -52,7 +52,7 @@ func TestRelayLogEnsureIndexesCreatesAndIsIdempotent(t *testing.T) {
 // 这条测试同时验证 shutdown 路径——容器停机时 ctx 被 cancel，goroutine 必须
 // 在 100ms 量级退出，否则 db.Close() 会被卡住。
 func TestRelayLogEnsureIndexesAsyncCancelsImmediately(t *testing.T) {
-	_ = setupSiteOpTestDB(t)
+	_ = setupOpTestDB(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // 进入函数前已取消
@@ -89,7 +89,7 @@ func TestRelayLogEnsureIndexesAsyncCancelsImmediately(t *testing.T) {
 // sleep 里就被 cancel，goroutine 同样要立刻退出（这是 docker stop 落在 server
 // 刚起来 5s 内的真实场景）。
 func TestRelayLogEnsureIndexesAsyncCancelsDuringWarmup(t *testing.T) {
-	_ = setupSiteOpTestDB(t)
+	_ = setupOpTestDB(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 

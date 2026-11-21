@@ -30,7 +30,7 @@ func initTestUser(t *testing.T) {
 }
 
 func TestUserInitWithoutEnvironmentRequiresBootstrap(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 	t.Setenv(AdminUsernameEnv, "")
 	if err := os.Unsetenv(AdminPasswordEnv); err != nil {
 		t.Fatalf("Unsetenv failed: %v", err)
@@ -58,7 +58,7 @@ func TestUserInitWithoutEnvironmentRequiresBootstrap(t *testing.T) {
 }
 
 func TestUserInitFromEnvironmentAndVerify(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 
 	secret := "environment-secret"
 	t.Setenv(AdminUsernameEnv, "admin")
@@ -108,7 +108,7 @@ func TestUserInitFromEnvironmentAndVerify(t *testing.T) {
 }
 
 func TestUserBootstrapOnce(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 	t.Setenv(AdminPasswordEnv, "")
 	if err := os.Unsetenv(AdminPasswordEnv); err != nil {
 		t.Fatalf("Unsetenv failed: %v", err)
@@ -136,7 +136,7 @@ func TestUserBootstrapOnce(t *testing.T) {
 }
 
 func TestUserInitRotatesBootstrapTokenOnRestart(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 	if err := os.Unsetenv(AdminPasswordEnv); err != nil {
 		t.Fatalf("Unsetenv failed: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestUserInitRotatesBootstrapTokenOnRestart(t *testing.T) {
 }
 
 func TestUserInitTreatsEmptyEnvironmentPasswordAsBootstrap(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 	t.Setenv(AdminPasswordEnv, "")
 	if err := UserInit(); err != nil {
 		t.Fatalf("UserInit with empty environment password failed: %v", err)
@@ -171,7 +171,7 @@ func TestUserInitTreatsEmptyEnvironmentPasswordAsBootstrap(t *testing.T) {
 }
 
 func TestUserInitRejectsWeakEnvironmentPassword(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 	t.Setenv(AdminPasswordEnv, "short")
 	if err := UserInit(); err == nil {
 		t.Fatal("UserInit accepted a weak environment password")
@@ -186,7 +186,7 @@ func TestUserInitRejectsWeakEnvironmentPassword(t *testing.T) {
 }
 
 func TestUserInitRejectsEnvironmentPasswordOverBcryptLimit(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 	t.Setenv(AdminPasswordEnv, strings.Repeat("😀", 19))
 
 	if err := UserInit(); !apperror.IsCode(err, apperror.CodeCommonInvalidParam) {
@@ -205,7 +205,7 @@ func TestUserInitRejectsEnvironmentPasswordOverBcryptLimit(t *testing.T) {
 }
 
 func TestUserBootstrapRejectsPasswordOverBcryptLimit(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 	if err := os.Unsetenv(AdminPasswordEnv); err != nil {
 		t.Fatalf("Unsetenv failed: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestUserBootstrapRejectsPasswordOverBcryptLimit(t *testing.T) {
 }
 
 func TestUserChangePasswordPersists(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 
 	initTestUser(t)
 
@@ -250,7 +250,7 @@ func TestUserChangePasswordPersists(t *testing.T) {
 }
 
 func TestUserChangePasswordRejectsPasswordOverBcryptLimit(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 	initTestUser(t)
 
 	if err := UserChangePassword(testAdminPassword, strings.Repeat("😀", 19)); !apperror.IsCode(err, apperror.CodeCommonInvalidParam) {
@@ -262,7 +262,7 @@ func TestUserChangePasswordRejectsPasswordOverBcryptLimit(t *testing.T) {
 }
 
 func TestUserChangeUsernamePersists(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 
 	initTestUser(t)
 
@@ -283,7 +283,7 @@ func TestUserChangeUsernamePersists(t *testing.T) {
 // userCache 被登录路径读、被改密改名路径写。跑 `go test -race ./internal/op/...`
 // 时这个用例会抓到未加锁的访问。
 func TestUserCacheConcurrentReadWrite(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 
 	initTestUser(t)
 
@@ -341,7 +341,7 @@ func TestUserCacheConcurrentReadWrite(t *testing.T) {
 }
 
 func TestUserWritersSerializeDBAndCacheCommit(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 	initTestUser(t)
 
 	const callbackName = "test:user-writer-serialization"

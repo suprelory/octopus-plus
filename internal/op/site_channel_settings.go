@@ -2,6 +2,7 @@ package op
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -142,4 +143,21 @@ func UpdateSiteGroupProjection(siteID int, accountID int, req *model.SiteGroupPr
 			DoUpdates: clause.AssignmentColumns([]string{"projection_disabled"}),
 		}).Create(&row).Error
 	})
+}
+
+func validateParamOverride(value string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	var decoded any
+	if err := json.Unmarshal([]byte(trimmed), &decoded); err != nil {
+		return err
+	}
+	switch decoded.(type) {
+	case map[string]any, []any:
+		return nil
+	default:
+		return fmt.Errorf("param_override must be a JSON object or operation array")
+	}
 }

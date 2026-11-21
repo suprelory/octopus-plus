@@ -19,10 +19,10 @@ type Snapshot struct {
 	Channels            []model.Channel
 	ChannelKeys         []model.ChannelKey
 	ProxyConfigurations []model.ProxyConfiguration
-	Sites               []model.Site
-	SiteAccounts        []model.SiteAccount
-	SiteUserGroups      []model.SiteUserGroup
-	SiteChannelBindings []model.SiteChannelBinding
+	Sites               []model.LegacySite
+	SiteAccounts        []model.LegacySiteAccount
+	SiteUserGroups      []model.LegacySiteUserGroup
+	SiteChannelBindings []model.LegacySiteChannelBinding
 	Groups              []model.Group
 	GroupItems          []model.GroupItem
 	Settings            []model.Setting

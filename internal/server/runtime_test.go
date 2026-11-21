@@ -218,7 +218,7 @@ func TestRuntimeIndependentHTTPRelayAndBackupRestart(t *testing.T) {
 		}
 	}
 	// A v1 file uses the converter even without an explicit version selector.
-	legacy, _ := json.Marshal(model.DBDump{Version: 1, ExportedAt: time.Now().UTC()})
+	legacy, _ := json.Marshal(model.LegacyDBDump{Version: 1, ExportedAt: time.Now().UTC()})
 	runtimeRequest(t, r, token, "POST", "/api/v1/setting/import", legacy, 200)
 	if _, err := backup.NewService(db.GetDB()).Export(ctx, false, false); err != nil {
 		t.Fatal(err)

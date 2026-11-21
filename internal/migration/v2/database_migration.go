@@ -10,6 +10,7 @@ import (
 	"time"
 
 	dbpkg "github.com/suprelory/octopus-plus/internal/db"
+	"github.com/suprelory/octopus-plus/internal/migration/v1"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -139,7 +140,7 @@ func prepareMigrationSchema(conn *gorm.DB) error {
 		if err := dbpkg.PrepareCheckinSchema(db); err != nil {
 			return errors.New("prepare independent check-in schema failed")
 		}
-		if err := dbpkg.PrepareLegacyCheckinHistorySchema(db); err != nil {
+		if err := v1.PrepareCheckinHistorySchema(db); err != nil {
 			return errors.New("prepare legacy history columns failed")
 		}
 		return PrepareJournalSchema(db)
@@ -403,7 +404,7 @@ func convertChannels(tx *gorm.DB, input *LegacyInput, c *Conversion) error {
 		if err := tx.Model(&model.Channel{}).Where("id = ?", binding.ChannelID).UpdateColumn("auto_group", byID[binding.ChannelID]).Error; err != nil {
 			return err
 		}
-		if deleted := tx.Delete(&model.SiteChannelBinding{}, binding.ID); deleted.Error != nil || deleted.RowsAffected != 1 {
+		if deleted := tx.Delete(&model.LegacySiteChannelBinding{}, binding.ID); deleted.Error != nil || deleted.RowsAffected != 1 {
 			return ErrMigrationSourceChanged
 		}
 	}

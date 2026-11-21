@@ -48,6 +48,28 @@ func conversionIssue(c *Conversion, code string) bool {
 	return slices.ContainsFunc(c.Report.Issues, func(issue Issue) bool { return issue.Code == code })
 }
 
+// Existing checkpoints and submitted workflows carry digests written before
+// the legacy types moved. Pin the persisted values for both identity modes.
+func TestLegacyCheckpointFingerprints(t *testing.T) {
+	input := conversionFixture()
+	input.Configuration.SiteAccounts[0].TokenRefreshLease = "fixture-owner"
+	checkpoint, err := inputFingerprint(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, cookie := &input.Configuration.Sites[1], &input.Configuration.Sites[2]
+	for _, tc := range []struct{ name, got, want string }{
+		{"checkpoint", checkpoint, "093678e2fa27ebeccb5c6c6b2b0f3c9df66dee41a8e9fe0dc5704fa1a49900f3"},
+		{"config", token.CheckinConfigFingerprint(), "c9d2e63cb6726b6abbfcd81fb754d4af306447e0a71d3922749169cea47481e0"},
+		{"subscription", token.CheckinWorkflowFingerprint(&input.Configuration.SiteAccounts[1]), "7146da08c4a1c13665190886b915885e5b7233d73bb8ac8a65a9656b891aeb28"},
+		{"cookie", cookie.CheckinWorkflowFingerprint(&input.Configuration.SiteAccounts[2]), "23624b4024c71f9823812f147b0cfa6d3d910c4ca57180a7c8400776d1f25f50"},
+	} {
+		if tc.got != tc.want {
+			t.Errorf("%s fingerprint = %s, want %s", tc.name, tc.got, tc.want)
+		}
+	}
+}
+
 func TestConversionPreservesChannelsSharedCredentialsAndIndependentBalance(t *testing.T) {
 	input := conversionFixture()
 	input.Configuration.Sites[0].CustomHeader = []model.CustomHeader{{HeaderKey: "User-Agent", HeaderValue: "source-agent"}}
@@ -61,7 +83,7 @@ func TestConversionPreservesChannelsSharedCredentialsAndIndependentBalance(t *te
 	input.Configuration.ChannelKeys[0].Enabled = false
 	input.Configuration.GroupItems[0].Weight, input.Configuration.GroupItems[0].Priority = 7, 4
 	input.ChannelStats = []model.StatsChannel{{ChannelID: 100}}
-	input.ArchivedSiteStats = []model.StatsSiteModelHourly{{SiteAccountID: 10}}
+	input.ArchivedSiteStats = []model.LegacyStatsSiteModelHourly{{SiteAccountID: 10}}
 	input.GroupPresets = []model.GroupPreset{{ID: 600, GroupID: 400, Name: "Pinned routes", Items: []model.GroupPresetItem{{ChannelID: 100, Weight: 7, Priority: 4}}}}
 	input.Configuration.Groups[0].ActivePresetID = id(600)
 	before, _ := json.Marshal(input)
@@ -183,9 +205,9 @@ func TestConversionPreservesExpiredRefreshUncertaintyWithoutRestoringLocks(t *te
 
 func TestConversionDetectsIncompatibleSharedSessionContexts(t *testing.T) {
 	input := conversionFixture()
-	input.Configuration.Sites = append(input.Configuration.Sites, model.Site{ID: 4, Name: "Platform", Kind: model.SiteKindCheckin, Platform: model.SitePlatformSub2API,
+	input.Configuration.Sites = append(input.Configuration.Sites, model.LegacySite{ID: 4, Name: "Platform", Kind: model.SiteKindCheckin, Platform: model.SitePlatformSub2API,
 		BaseURL: "https://login.example", LinkedSiteID: id(1), ProxyMode: model.ProxyUsageModeDirect})
-	input.Configuration.SiteAccounts = append(input.Configuration.SiteAccounts, model.SiteAccount{ID: 40, SiteID: 4, Name: "Linked", CredentialType: model.SiteCredentialTypeLinkedAccount, LinkedAccountID: id(10)})
+	input.Configuration.SiteAccounts = append(input.Configuration.SiteAccounts, model.LegacySiteAccount{ID: 40, SiteID: 4, Name: "Linked", CredentialType: model.SiteCredentialTypeLinkedAccount, LinkedAccountID: id(10)})
 	c, err := Convert(input)
 	if err != nil || c.Ready() || !conversionIssue(c, "shared_credential_network_conflict") {
 		t.Fatalf("conflicting shared context accepted: %v", err)
@@ -289,7 +311,7 @@ func TestConversionOldCredentialFormsAndArchivedSites(t *testing.T) {
 
 func TestConversionInputRequiresHistoryCoverageAndPreservesLongIDs(t *testing.T) {
 	input := conversionFixture()
-	dump := &model.DBDump{Version: 1, ExportedAt: input.CapturedAt, Sites: input.Configuration.Sites, SiteAccounts: input.Configuration.SiteAccounts,
+	dump := &model.LegacyDBDump{Version: 1, ExportedAt: input.CapturedAt, Sites: input.Configuration.Sites, SiteAccounts: input.Configuration.SiteAccounts,
 		ProxyConfigurations: input.Configuration.ProxyConfigurations, SiteCheckinLogs: []model.CheckinLog{{ID: 9007199254740993, SiteID: 3, AccountID: 30, Reward: "1"}}}
 	converted, err := InputFromDump(dump)
 	if err != nil {

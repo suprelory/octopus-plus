@@ -10,7 +10,7 @@ import (
 )
 
 func TestAPIKeyCreateFailureDoesNotPublish(t *testing.T) {
-	ctx := setupBackupTestDB(t)
+	ctx := setupOpTestDB(t)
 	apiKeyCache.Clear()
 	apiKeyIDMap.Clear()
 	t.Cleanup(func() { apiKeyCache.Clear(); apiKeyIDMap.Clear() })
@@ -50,7 +50,7 @@ func TestAPIKeyImportPreservesDisabledState(t *testing.T) {
 func TestAPIKeyDeleteKeepsStateOnFailure(t *testing.T) {
 	for _, table := range []string{"stats_api_keys", "api_keys"} {
 		t.Run(table, func(t *testing.T) {
-			ctx := setupBackupTestDB(t)
+			ctx := setupOpTestDB(t)
 			resetStatsTestState(t)
 			apiKeyCache.Clear()
 			apiKeyIDMap.Clear()
@@ -97,7 +97,7 @@ func TestAPIKeyDeleteKeepsStateOnFailure(t *testing.T) {
 }
 
 func TestAPIKeyDeletePreventsLateSettlement(t *testing.T) {
-	ctx := setupBackupTestDB(t)
+	ctx := setupOpTestDB(t)
 	resetStatsTestState(t)
 	apiKeyCache.Clear()
 	apiKeyIDMap.Clear()

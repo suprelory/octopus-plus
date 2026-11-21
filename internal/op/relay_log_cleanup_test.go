@@ -9,7 +9,7 @@ import (
 )
 
 func TestRelayLogCleanupPreservesRecentRowsAcrossBatches(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatal(err)
 	}

@@ -32,7 +32,7 @@ func resetRelayLogStateForTest() {
 }
 
 func TestRelayLogAddQueuesWithoutDBWrite(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestRelayLogAddQueuesWithoutDBWrite(t *testing.T) {
 }
 
 func TestRelayLogListDefaultsToLightFieldsAndNoContentKeyword(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestRelayLogListDefaultsToLightFieldsAndNoContentKeyword(t *testing.T) {
 func intPtr(v int) *int { return &v }
 
 func TestRelayLogListContainsKeywordRequiresMinLength(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestRelayLogListContainsKeywordRequiresMinLength(t *testing.T) {
 }
 
 func TestRelayLogListPrefixKeywordMatchesModelPrefix(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestRelayLogListPrefixKeywordMatchesModelPrefix(t *testing.T) {
 }
 
 func TestRelayLogListCursorReturnsNextCursorWithoutTotal(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestRelayLogListCursorReturnsNextCursorWithoutTotal(t *testing.T) {
 }
 
 func TestRelayLogListPageReportsHasMore(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestRelayLogListPageReportsHasMore(t *testing.T) {
 }
 
 func TestRelayLogGetReturnsFullContent(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -235,7 +235,7 @@ func TestRelayLogGetReturnsFullContent(t *testing.T) {
 }
 
 func TestRelayLogFlushPendingPersistsQueuedLogs(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}

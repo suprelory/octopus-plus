@@ -21,7 +21,7 @@ type legacyHourlyStats struct {
 func (legacyHourlyStats) TableName() string { return "stats_hourlies" }
 
 func TestDBImportPreservesMidnightHourlyStats(t *testing.T) {
-	testHourlyStatsPersistence(t, func(ctx context.Context, rows []model.StatsHourly) error {
+	testHourlyStatsPersistence(t, setupBackupTestDB, func(ctx context.Context, rows []model.StatsHourly) error {
 		_, err := DBImportIncremental(ctx, &model.DBDump{
 			Version: dbDumpVersion, IncludeStats: true, StatsHourly: slices.Clone(rows),
 		})
@@ -41,7 +41,7 @@ func TestDBImportPreservesMidnightHourlyStats(t *testing.T) {
 }
 
 func TestStatsHourlyFlushPreservesMidnight(t *testing.T) {
-	testHourlyStatsPersistence(t, func(ctx context.Context, rows []model.StatsHourly) error {
+	testHourlyStatsPersistence(t, setupOpTestDB, func(ctx context.Context, rows []model.StatsHourly) error {
 		var hourly [24]model.StatsHourly
 		for _, row := range rows {
 			hourly[row.Hour] = row
@@ -54,7 +54,7 @@ func TestStatsHourlyFlushPreservesMidnight(t *testing.T) {
 	})
 }
 
-func testHourlyStatsPersistence(t *testing.T, write func(context.Context, []model.StatsHourly) error) {
+func testHourlyStatsPersistence(t *testing.T, setup func(*testing.T) context.Context, write func(context.Context, []model.StatsHourly) error) {
 	t.Helper()
 	for _, schema := range []string{"current", "legacy_autoincrement"} {
 		t.Run(schema, func(t *testing.T) {
@@ -68,7 +68,7 @@ func testHourlyStatsPersistence(t *testing.T, write func(context.Context, []mode
 				{name: "full_day", hours: 24, seedExisting: true},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
-					ctx := setupBackupTestDB(t)
+					ctx := setup(t)
 					conn := db.GetDB().WithContext(ctx)
 					if schema == "legacy_autoincrement" {
 						if err := conn.Migrator().DropTable(&model.StatsHourly{}); err != nil {

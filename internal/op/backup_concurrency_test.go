@@ -14,7 +14,7 @@ import (
 
 func setupRestoreConcurrency(t *testing.T) (context.Context, *model.Channel, model.APIKey, *model.DBDump) {
 	t.Helper()
-	ctx := setupChannelSupportTestDB(t)
+	ctx := setupBackupTestDB(t)
 	if err := InitCache(); err != nil {
 		t.Fatal(err)
 	}

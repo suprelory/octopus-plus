@@ -1,30 +1,6 @@
 package model
 
-import (
-	"strings"
-	"time"
-)
-
-type SiteTokenValueStatus string
-
-const (
-	SiteTokenValueStatusReady         SiteTokenValueStatus = "ready"
-	SiteTokenValueStatusMaskedPending SiteTokenValueStatus = "masked_pending"
-)
-
-type SiteToken struct {
-	ID            int                  `json:"id" gorm:"primaryKey"`
-	SiteAccountID int                  `json:"site_account_id" gorm:"index;not null"`
-	Name          string               `json:"name"`
-	Token         string               `json:"token" gorm:"not null"`
-	ValueStatus   SiteTokenValueStatus `json:"value_status" gorm:"type:varchar(32);not null;default:'ready'"`
-	GroupKey      string               `json:"group_key" gorm:"size:128;index"`
-	GroupName     string               `json:"group_name"`
-	Enabled       bool                 `json:"enabled" gorm:"default:true"`
-	Source        string               `json:"source"`
-	IsDefault     bool                 `json:"is_default" gorm:"default:false"`
-	LastSyncAt    *time.Time           `json:"last_sync_at"`
-}
+import "strings"
 
 func NormalizeSiteSyncTokenValue(value string) string {
 	trimmed := strings.TrimSpace(value)

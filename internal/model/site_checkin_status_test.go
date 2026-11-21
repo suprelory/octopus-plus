@@ -42,3 +42,22 @@ func TestCheckinStatusConfigValidation(t *testing.T) {
 		t.Fatal("status rule changes must invalidate old capability evidence")
 	}
 }
+
+func TestCheckinStatusValidationNormalizesRequestHeadersWithoutLegacySite(t *testing.T) {
+	config := &SiteCheckinStatusConfig{
+		Path:        "/status",
+		CheckedPath: "data.done",
+		Headers:     []CustomHeader{{HeaderKey: " X-Trace ", HeaderValue: "trace"}},
+	}
+	if err := config.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if config.Headers[0].HeaderKey != "X-Trace" {
+		t.Fatalf("status header key was not normalized: %q", config.Headers[0].HeaderKey)
+	}
+
+	config.Headers = []CustomHeader{{HeaderKey: "Host", HeaderValue: "example.test"}}
+	if err := config.Validate(); err == nil || !strings.Contains(err.Error(), "cannot be overridden") {
+		t.Fatalf("reserved status header error = %v", err)
+	}
+}

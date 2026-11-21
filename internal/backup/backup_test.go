@@ -71,7 +71,7 @@ func backupFixture() *Document {
 	completion := model.CheckinCompletion{ID: fmt.Sprintf("%d:success", entry.ID), LogID: entry.ID, Entry: entry, Status: entry.Status, Expanded: true, ReadyAt: now.UnixMilli()}
 	destination := strings.Repeat("a", 64)
 	key := cooldownKey(destination, second.ID, "site_checkin_success", entry.Reason)
-	return &Document{DBDump: model.DBDump{Version: Version, ExportedAt: now, IncludeLogs: true, IncludeStats: true,
+	return &Document{LegacyDBDump: model.LegacyDBDump{Version: Version, ExportedAt: now, IncludeLogs: true, IncludeStats: true,
 		ProxyConfigurations:  []model.ProxyConfiguration{{ID: proxyID, Name: "proxy", URL: "socks5h://127.0.0.1:1080", Enabled: false}},
 		Channels:             []model.Channel{{ID: 41, Name: "disabled-channel", Type: outbound.OutboundTypeOpenAIEmbedding, Enabled: false, ProxyMode: model.ProxyUsageModePool, ProxyConfigID: &proxyID}},
 		ChannelKeys:          []model.ChannelKey{{ID: 51, ChannelID: 41, ChannelKey: "channel-fixture-secret", Enabled: false}},

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/glebarez/sqlite"
+	"github.com/suprelory/octopus-plus/internal/migration/v1"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -185,7 +186,7 @@ func initializeSchema(db *gorm.DB) error {
 }
 
 func ensureSiteCheckinBatchJobSchema(db *gorm.DB) error {
-	if err := prepareSiteCheckinHistoryColumns(db); err != nil {
+	if err := v1.PrepareCheckinHistorySchema(db); err != nil {
 		return err
 	}
 
@@ -208,34 +209,6 @@ func ensureSiteCheckinBatchJobSchema(db *gorm.DB) error {
 			"finished_at":   now,
 		}).Error; err != nil {
 		return fmt.Errorf("mark unfinished site checkin batch jobs interrupted: %w", err)
-	}
-	return nil
-}
-
-// PrepareLegacyCheckinHistorySchema adds the two history fields required by
-// the explicit migration without interrupting or otherwise changing old jobs.
-func PrepareLegacyCheckinHistorySchema(conn *gorm.DB) error {
-	if conn == nil || !conn.Migrator().HasTable(&model.SiteCheckinLog{}) || !conn.Migrator().HasTable(&model.SiteCheckinBatchJob{}) {
-		return fmt.Errorf("legacy checkin history tables are required")
-	}
-	return prepareSiteCheckinHistoryColumns(conn)
-}
-
-func prepareSiteCheckinHistoryColumns(db *gorm.DB) error {
-	if !db.Migrator().HasColumn(&model.SiteCheckinBatchJob{}, "Pending") {
-		if err := db.Migrator().AddColumn(&model.SiteCheckinBatchJob{}, "Pending"); err != nil {
-			return fmt.Errorf("add checkin batch pending count: %w", err)
-		}
-	}
-	if !db.Migrator().HasColumn(&model.SiteCheckinLog{}, "BatchJobID") {
-		if err := db.Migrator().AddColumn(&model.SiteCheckinLog{}, "BatchJobID"); err != nil {
-			return fmt.Errorf("add site checkin log batch job id: %w", err)
-		}
-	}
-	if !db.Migrator().HasIndex(&model.SiteCheckinLog{}, "idx_site_checkin_batch_job_id") {
-		if err := db.Migrator().CreateIndex(&model.SiteCheckinLog{}, "BatchJobID"); err != nil {
-			return fmt.Errorf("create site checkin log batch job index: %w", err)
-		}
 	}
 	return nil
 }

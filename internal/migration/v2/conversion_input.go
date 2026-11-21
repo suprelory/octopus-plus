@@ -23,12 +23,12 @@ type LegacyInput struct {
 	Batches           []model.CheckinBatchJob
 	GroupPresets      []model.GroupPreset
 	ChannelStats      []model.StatsChannel
-	ArchivedSiteStats []model.StatsSiteModelHourly
+	ArchivedSiteStats []model.LegacyStatsSiteModelHourly
 }
 
 // InputFromDump adapts an already decoded v1 dump. ReadBackup intentionally
 // remains configuration-only; it cannot be used as a full migration reader.
-func InputFromDump(dump *model.DBDump) (*LegacyInput, error) {
+func InputFromDump(dump *model.LegacyDBDump) (*LegacyInput, error) {
 	if dump == nil || dump.Version != 1 {
 		return nil, errors.New("conversion requires a version 1 dump")
 	}
@@ -82,21 +82,21 @@ type ConversionReport struct {
 // Ready is not permission to migrate a live database; P5.2 must stop old writers,
 // back up, verify target collisions and apply stages atomically with the journal.
 type Conversion struct {
-	Report            ConversionReport             `json:"report"`
-	Fingerprint       string                       `json:"-"`
-	Sites             []model.CheckinSite          `json:"-"`
-	Accounts          []model.CheckinAccount       `json:"-"`
-	Credentials       []model.CheckinCredential    `json:"-"`
-	Channels          []model.Channel              `json:"-"`
-	ChannelKeys       []model.ChannelKey           `json:"-"`
-	Groups            []model.Group                `json:"-"`
-	GroupItems        []model.GroupItem            `json:"-"`
-	GroupPresets      []model.GroupPreset          `json:"-"`
-	ChannelStats      []model.StatsChannel         `json:"-"`
-	ArchivedSiteStats []model.StatsSiteModelHourly `json:"-"`
-	Logs              []model.CheckinLog           `json:"-"`
-	Batches           []model.CheckinBatchJob      `json:"-"`
-	RetiredBindingIDs []int                        `json:"-"`
+	Report            ConversionReport                   `json:"report"`
+	Fingerprint       string                             `json:"-"`
+	Sites             []model.CheckinSite                `json:"-"`
+	Accounts          []model.CheckinAccount             `json:"-"`
+	Credentials       []model.CheckinCredential          `json:"-"`
+	Channels          []model.Channel                    `json:"-"`
+	ChannelKeys       []model.ChannelKey                 `json:"-"`
+	Groups            []model.Group                      `json:"-"`
+	GroupItems        []model.GroupItem                  `json:"-"`
+	GroupPresets      []model.GroupPreset                `json:"-"`
+	ChannelStats      []model.StatsChannel               `json:"-"`
+	ArchivedSiteStats []model.LegacyStatsSiteModelHourly `json:"-"`
+	Logs              []model.CheckinLog                 `json:"-"`
+	Batches           []model.CheckinBatchJob            `json:"-"`
+	RetiredBindingIDs []int                              `json:"-"`
 }
 
 func (c *Conversion) Ready() bool { return c != nil && c.Report.Blockers == 0 }

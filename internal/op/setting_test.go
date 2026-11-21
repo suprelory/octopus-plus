@@ -1,17 +1,14 @@
 package op
 
 import (
-	"context"
-	"path/filepath"
 	"testing"
 
 	"github.com/suprelory/octopus-plus/internal/conf"
-	dbpkg "github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 )
 
 func TestSettingRefreshSeedsTrustedProxiesFromStartupConfigOnce(t *testing.T) {
-	ctx := setupSettingTestDB(t)
+	ctx := setupOpTestDB(t)
 	previousConfig := conf.AppConfig
 	conf.AppConfig.Server.TrustedProxies = []string{"172.24.0.1", "10.0.0.0/24"}
 	settingCache.Clear()
@@ -47,21 +44,8 @@ func TestSettingRefreshSeedsTrustedProxiesFromStartupConfigOnce(t *testing.T) {
 	}
 }
 
-func setupSettingTestDB(t *testing.T) context.Context {
-	t.Helper()
-	if dbpkg.GetDB() != nil {
-		_ = dbpkg.Close()
-	}
-	dbPath := filepath.Join(t.TempDir(), "octopus-setting-test.db")
-	if err := dbpkg.InitLegacyDB("sqlite", dbPath, false); err != nil {
-		t.Fatalf("InitDB failed: %v", err)
-	}
-	t.Cleanup(func() { _ = dbpkg.Close() })
-	return context.Background()
-}
-
 func TestNotificationSettingsSurviveBackupRestoreAndCacheRefresh(t *testing.T) {
-	ctx := setupSettingTestDB(t)
+	ctx := setupBackupTestDB(t)
 	settingCache.Clear()
 	t.Cleanup(func() { settingCache.Clear() })
 	if err := settingRefreshCache(ctx); err != nil {

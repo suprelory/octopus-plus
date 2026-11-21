@@ -1,11 +1,6 @@
 package model
 
-import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"time"
-)
+import "time"
 
 type SiteCheckinMode string
 type SiteCheckinSupport string
@@ -67,21 +62,6 @@ type SiteCheckinCapability struct {
 	VerifiedAt     *time.Time         `json:"verified_at,omitempty"`
 }
 
-func (s *Site) CheckinAdapter() SiteCheckinAdapter {
-	if s.CheckinHTTPEnabled {
-		return SiteCheckinAdapterHTTP
-	}
-	return PlatformCheckinDefaults(s.Platform).Adapter
-}
-
-func (s *Site) ResolveCheckinCapability() SiteCheckinCapability {
-	verifiedAt := s.CheckinVerifiedAt
-	if verifiedAt != nil && s.CheckinVerificationFingerprint != s.CheckinConfigFingerprint() {
-		verifiedAt = nil
-	}
-	return resolveCheckinCapability(s.Platform, s.CheckinMode, s.CheckinAdapter(), s.CheckinVerificationStatus, verifiedAt)
-}
-
 func resolveCheckinCapability(platform SitePlatform, mode SiteCheckinMode, adapter SiteCheckinAdapter, status SiteCheckinSupport, verifiedAt *time.Time) SiteCheckinCapability {
 	defaults := PlatformCheckinDefaults(platform)
 	capability := SiteCheckinCapability{
@@ -103,34 +83,4 @@ func resolveCheckinCapability(platform SitePlatform, mode SiteCheckinMode, adapt
 	}
 	capability.Enabled = capability.Enabled && capability.CanVerify
 	return capability
-}
-
-// Bind evidence to the exact endpoint configuration. A changed URL, method,
-// body, headers or proxy must never reuse a previous deployment's verdict.
-func (s *Site) CheckinConfigFingerprint() string {
-	config := struct {
-		Platform               SitePlatform
-		BaseURL                string
-		HTTP                   bool
-		Method, Path, Body     string
-		Headers, CustomHeaders []CustomHeader
-		ProxyMode              ProxyUsageMode
-		ProxyID                *int
-		LinkedSiteID           *int                     `json:",omitempty"`
-		Status                 *SiteCheckinStatusConfig `json:",omitempty"`
-		UseSubscriptionToken   bool                     `json:",omitempty"`
-	}{s.Platform, s.BaseURL, s.CheckinHTTPEnabled, s.CheckinHTTPMethod, s.CheckinHTTPPath, s.CheckinHTTPBody, s.CheckinHTTPHeaders, s.CustomHeader, s.ProxyMode, s.ProxyConfigID, s.LinkedSiteID, s.CheckinStatus, s.CheckinUseSubscriptionToken}
-	payload, _ := json.Marshal(config)
-	digest := sha256.Sum256(payload)
-	return hex.EncodeToString(digest[:])
-}
-
-// The API and exports expose the resolved capability without trusting a
-// client-supplied decision or duplicating the platform defaults in the UI.
-func (s Site) MarshalJSON() ([]byte, error) {
-	type siteAlias Site
-	return json.Marshal(struct {
-		siteAlias
-		Capability SiteCheckinCapability `json:"checkin_capability"`
-	}{siteAlias(s), s.ResolveCheckinCapability()})
 }

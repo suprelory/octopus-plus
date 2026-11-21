@@ -16,7 +16,7 @@ import (
 // background flusher takes the same lock, so a long purge would stall it until
 // the pending queue overflows and starts dropping logs.
 func TestRelayLogClearDoesNotBlockFlushLock(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestRelayLogClearDoesNotBlockFlushLock(t *testing.T) {
 
 // The purge still resets the in-memory buffers.
 func TestRelayLogClearResetsBuffers(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestRelayLogClearResetsBuffers(t *testing.T) {
 // Imported logs can carry IDs ahead of the local clock. A clear snapshot must
 // include those persisted IDs and advance the local generator past them.
 func TestRelayLogClearRemovesPersistedIDsAheadOfLocalGenerator(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestRelayLogClearRemovesPersistedIDsAheadOfLocalGenerator(t *testing.T) {
 
 // Overlapping purges are rejected rather than running concurrently.
 func TestRelayLogClearRejectsConcurrentCall(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestRelayLogClearRejectsConcurrentCall(t *testing.T) {
 
 // A cancelled purge must still release the flag, or clearing breaks forever.
 func TestRelayLogClearReleasesFlagOnCancel(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestRelayLogClearReleasesFlagOnCancel(t *testing.T) {
 
 // Flushes queued during a purge are not lost: the buffer keeps draining.
 func TestRelayLogFlushStillDrainsDuringClear(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}

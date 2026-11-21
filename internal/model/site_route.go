@@ -8,8 +8,6 @@ import (
 	"github.com/suprelory/octopus-plus/polywire/outbound"
 )
 
-type SiteModelRouteType string
-
 const (
 	SiteModelRouteTypeOpenAIChat      SiteModelRouteType = "openai_chat"
 	SiteModelRouteTypeOpenAIResponse  SiteModelRouteType = "openai_response"
@@ -19,24 +17,12 @@ const (
 	SiteModelRouteTypeUnknown         SiteModelRouteType = "unknown"
 )
 
-type SiteModelRouteSource string
-
 const (
 	SiteModelRouteSourceSyncInferred    SiteModelRouteSource = "sync_inferred"
 	SiteModelRouteSourceManualOverride  SiteModelRouteSource = "manual_override"
 	SiteModelRouteSourceRuntimeLearned  SiteModelRouteSource = "runtime_learned"
 	SiteModelRouteSourceDefaultAssigned SiteModelRouteSource = "default_assigned"
 )
-
-// SiteRouteBaseURL overrides the projected channel base URL for a specific
-// outbound route type. Some upstreams expose different protocols under
-// different path prefixes (e.g. OpenAI responses at "<base>/v1" but Anthropic
-// messages at "<base>/anthropic/v1"); a single site base URL cannot serve
-// both, so each route type may carry its own full base URL here.
-type SiteRouteBaseURL struct {
-	RouteType SiteModelRouteType `json:"route_type"`
-	BaseURL   string             `json:"base_url"`
-}
 
 // ResolveRouteBaseURL returns the per-route base URL override for routeType,
 // trimmed of trailing slashes. The second return value reports whether a

@@ -270,12 +270,12 @@ func walkRelay(ctx context.Context, d *Document, visit func(string, any) error) 
 	return walkRows(ctx, d, "relay_attempt_contents", d.RelayAttemptContents, func(row model.RelayAttemptContent) error { return visit("relay_attempt_contents", row) })
 }
 
-// LegacyDump adapts the shared reader for the legacy runtime until P5.4.
-func (d *Document) LegacyDump(ctx context.Context) (*model.DBDump, error) {
+// LegacyDump materializes streamed relay rows for the v1 incremental importer.
+func (d *Document) LegacyDump(ctx context.Context) (*model.LegacyDBDump, error) {
 	if d.Version != 1 {
 		return nil, ErrFormat
 	}
-	copy := d.DBDump
+	copy := d.LegacyDBDump
 	if d.archive == nil {
 		return &copy, nil
 	}

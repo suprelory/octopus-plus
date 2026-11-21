@@ -12,7 +12,7 @@ import (
 )
 
 func TestProxyConfigurationSOCKS5H(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	proxyConfigurationCache.Clear()
 	t.Cleanup(proxyConfigurationCache.Clear)
 	item := &model.ProxyConfiguration{

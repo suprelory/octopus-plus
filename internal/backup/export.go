@@ -128,7 +128,7 @@ func statisticsTable(name string) bool {
 }
 
 func exportConfiguration(tx *gorm.DB, includeLogs, includeStats bool) (*Document, error) {
-	d := &Document{DBDump: model.DBDump{Version: Version, ExportedAt: time.Now().UTC(), IncludeLogs: includeLogs, IncludeStats: includeStats}}
+	d := &Document{LegacyDBDump: model.LegacyDBDump{Version: Version, ExportedAt: time.Now().UTC(), IncludeLogs: includeLogs, IncludeStats: includeStats}}
 	for name, rows := range tables(d) {
 		if !v2Table(name) || relayTable(name) || strings.HasPrefix(name, "checkin_") || name == "site_checkin_logs" || statisticsTable(name) && !includeStats {
 			continue
@@ -200,8 +200,8 @@ func exportConfiguration(tx *gorm.DB, includeLogs, includeStats bool) (*Document
 			d.SiteCheckinLogs = append(d.SiteCheckinLogs, logs...)
 		}
 	}
-	if includeStats && tx.Migrator().HasTable(&model.StatsSiteModelHourly{}) {
-		var legacy []model.StatsSiteModelHourly
+	if includeStats && tx.Migrator().HasTable(&model.LegacyStatsSiteModelHourly{}) {
+		var legacy []model.LegacyStatsSiteModelHourly
 		if err := tx.Find(&legacy).Error; err != nil {
 			return nil, err
 		}

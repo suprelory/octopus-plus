@@ -1,8 +1,6 @@
 package op
 
 import (
-	"context"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,14 +9,7 @@ import (
 )
 
 func TestWSResponseAffinityCleanup(t *testing.T) {
-	if dbpkg.GetDB() != nil {
-		_ = dbpkg.Close()
-	}
-	dbPath := filepath.Join(t.TempDir(), "octopus-ws-affinity-cleanup-test.db")
-	if err := dbpkg.InitLegacyDB("sqlite", dbPath, false); err != nil {
-		t.Fatalf("InitDB failed: %v", err)
-	}
-	t.Cleanup(func() { _ = dbpkg.Close() })
+	ctx := setupOpTestDB(t)
 
 	now := time.Now()
 	records := []model.WSResponseAffinity{
@@ -28,7 +19,7 @@ func TestWSResponseAffinityCleanup(t *testing.T) {
 	if err := dbpkg.GetDB().Create(&records).Error; err != nil {
 		t.Fatalf("create affinity rows failed: %v", err)
 	}
-	deleted, err := WSResponseAffinityCleanup(context.Background(), now)
+	deleted, err := WSResponseAffinityCleanup(ctx, now)
 	if err != nil {
 		t.Fatalf("cleanup failed: %v", err)
 	}

@@ -2,6 +2,7 @@ package op
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -12,7 +13,7 @@ import (
 
 func setupChannelSupportTestDB(t *testing.T) context.Context {
 	t.Helper()
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	channelCache.Clear()
 	channelKeyCache.Clear()
 	groupCache.Clear()
@@ -150,5 +151,49 @@ func TestRemovedChannelIsExcludedFromModelPicker(t *testing.T) {
 	}
 	if len(models) != 1 || models[0].ChannelID != supported.ID {
 		t.Fatalf("expected only supported model picker entry, got %+v", models)
+	}
+}
+
+func TestChannelAutoGroupMatchingModesOnV2Database(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		mode    model.AutoGroupType
+		pattern string
+		want    []string
+	}{
+		{"disabled", model.AutoGroupTypeNone, "", nil},
+		{"exact", model.AutoGroupTypeExact, "", []string{"gPt"}},
+		{"fuzzy", model.AutoGroupTypeFuzzy, "", []string{"gPt", "gpt-4", "custom-GPT"}},
+		{"regex lookahead", model.AutoGroupTypeRegex, `^gpt(?=-[0-9])`, []string{"gpt-4"}},
+		{"regex exact fallback", model.AutoGroupTypeRegex, "", []string{"gPt"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := setupChannelSupportTestDB(t)
+			conn := dbpkg.GetDB()
+			if conn.Migrator().HasTable("site_channel_bindings") {
+				t.Fatal("ordinary grouping fixture contains projection bindings")
+			}
+			group := model.Group{Name: "GPT", MatchRegex: tc.pattern}
+			if err := GroupCreate(&group, ctx); err != nil {
+				t.Fatal(err)
+			}
+			channel := model.Channel{Name: "ordinary", Type: outbound.OutboundTypeOpenAIChat, Enabled: true,
+				Model: " gPt, gpt-4,, other ", CustomModel: "custom-GPT, gpt-4", AutoGroup: tc.mode}
+			if err := ChannelCreate(&channel, ctx); err != nil {
+				t.Fatal(err)
+			}
+			ChannelAutoGroup(&channel, ctx)
+			if err := RunGroupAutoGroup([]int{channel.ID}, ctx); err != nil {
+				t.Fatal(err)
+			}
+			var got []string
+			if err := conn.Model(&model.GroupItem{}).Where("group_id = ? AND channel_id = ?", group.ID, channel.ID).
+				Order("priority").Pluck("model_name", &got).Error; err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("grouped models = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

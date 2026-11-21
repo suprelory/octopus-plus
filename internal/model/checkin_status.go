@@ -2,8 +2,6 @@ package model
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -49,18 +47,6 @@ type SiteCheckinPending struct {
 	Reason          string              `json:"reason"`
 }
 
-func (s *Site) CheckinWorkflowFingerprint(account *SiteAccount) string {
-	var credential any = account.Cookie
-	if s.CheckinUseSubscriptionToken {
-		// Refreshing the same subscription account's token must not interrupt
-		// confirmation, but selecting another account changes the workflow.
-		credential = account.LinkedAccountID
-	}
-	payload, _ := json.Marshal([]any{s.CheckinConfigFingerprint(), s.CheckinTimezone, credential, account.Username, account.ProxyMode, account.ProxyConfigID})
-	digest := sha256.Sum256(payload)
-	return hex.EncodeToString(digest[:])
-}
-
 func (c *SiteCheckinStatusConfig) Normalize() {
 	c.Method = strings.ToUpper(strings.TrimSpace(c.Method))
 	if c.Method == "" {
@@ -93,10 +79,8 @@ func (c *SiteCheckinStatusConfig) Normalize() {
 
 func (c *SiteCheckinStatusConfig) Validate() error {
 	c.Normalize()
-	// Reuse all request validation, including restricted headers and URL paths.
-	request := &Site{Name: "status", Kind: SiteKindCheckin, Platform: SitePlatformAPI, BaseURL: "https://example.com", CheckinHTTPEnabled: true,
-		CheckinHTTPMethod: c.Method, CheckinHTTPPath: c.Path, CheckinHTTPBody: c.Body, CheckinHTTPHeaders: c.Headers}
-	if err := request.Validate(); err != nil {
+	normalizeCheckinHeaderKeys(c.Headers)
+	if err := validateSiteCheckinHTTPRequest(c.Method, c.Path, c.Body, c.Headers); err != nil {
 		return fmt.Errorf("checkin status request: %w", err)
 	}
 	if err := ValidateCheckinRewardExtractor(c.Code); err != nil {

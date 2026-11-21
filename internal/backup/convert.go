@@ -39,7 +39,7 @@ func ConvertLegacy(source *Document) (*Document, []model.BackupIssue, error) {
 	if len(source.CheckinSites)+len(source.CheckinCredentials)+len(source.CheckinAccounts)+len(source.CheckinCompletions)+len(source.CheckinDeliveries)+len(source.CheckinCooldowns) != 0 {
 		return nil, nil, ErrFormat
 	}
-	input, err := v2.InputFromDump(&source.DBDump)
+	input, err := v2.InputFromDump(&source.LegacyDBDump)
 	if err != nil {
 		return nil, nil, ErrFormat
 	}

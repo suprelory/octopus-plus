@@ -12,7 +12,7 @@ import (
 // User-Agent with the subscription authentication site's effective User-Agent.
 const legacyUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
 
-func (b *conversionBuilder) convertHTTPSettings(old model.Site, site *model.CheckinSite) {
+func (b *conversionBuilder) convertHTTPSettings(old model.LegacySite, site *model.CheckinSite) {
 	site.CheckinHTTPBody = retirePlaceholders(site.CheckinHTTPBody)
 	for _, header := range site.CustomHeader {
 		if strings.Contains(header.HeaderValue, "{{") {
@@ -99,7 +99,7 @@ func sameCredentialContext(a, c model.CheckinCredential) bool {
 		reflect.DeepEqual(a.CheckinNetwork, c.CheckinNetwork) && reflect.DeepEqual(canonical(a.AuthHeaders), canonical(c.AuthHeaders))
 }
 
-func (b *conversionBuilder) validateTemplateIdentity(site model.Site, account model.SiteAccount, credential model.CheckinCredential) {
+func (b *conversionBuilder) validateTemplateIdentity(site model.LegacySite, account model.LegacySiteAccount, credential model.CheckinCredential) {
 	values := []string{site.CheckinHTTPBody}
 	for _, header := range site.CheckinHTTPHeaders {
 		if !strings.EqualFold(header.HeaderKey, "Cookie") && !strings.EqualFold(header.HeaderKey, "Authorization") {
@@ -123,7 +123,7 @@ func (b *conversionBuilder) validateTemplateIdentity(site model.Site, account mo
 	}
 }
 
-func legacyCookie(site model.Site, account model.SiteAccount) string {
+func legacyCookie(site model.LegacySite, account model.LegacySiteAccount) string {
 	if account.Cookie != "" {
 		return account.Cookie
 	}

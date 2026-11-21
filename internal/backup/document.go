@@ -24,7 +24,7 @@ var (
 // Document keeps the version 1 fields as a decoding boundary. Version 2 exports
 // populate ordinary configuration and the independent check-in fields only.
 type Document struct {
-	model.DBDump
+	model.LegacyDBDump
 	CheckinSites       []Site                          `json:"checkin_sites,omitempty"`
 	CheckinCredentials []model.CheckinCredentialBackup `json:"checkin_credentials,omitempty"`
 	CheckinAccounts    []Account                       `json:"checkin_accounts,omitempty"`
@@ -68,9 +68,9 @@ type Cooldown struct {
 // Subscription statistics remain an archive with an explicit source namespace.
 // They never become check-in account statistics or ordinary channel totals.
 type ArchivedSiteStat struct {
-	Source string                     `json:"source" gorm:"primaryKey;size:64"`
-	Key    string                     `json:"-" gorm:"primaryKey;size:64"`
-	Stats  model.StatsSiteModelHourly `json:"stats" gorm:"type:text;serializer:json"`
+	Source string                           `json:"source" gorm:"primaryKey;size:64"`
+	Key    string                           `json:"-" gorm:"primaryKey;size:64"`
+	Stats  model.LegacyStatsSiteModelHourly `json:"stats" gorm:"type:text;serializer:json"`
 }
 
 func (ArchivedSiteStat) TableName() string { return "v2_backup_site_stats" }

@@ -48,8 +48,6 @@ type CheckinBatchJob struct {
 
 func (CheckinBatchJob) TableName() string { return "site_checkin_batch_jobs" }
 
-type SiteCheckinBatchJob = CheckinBatchJob
-
 // The singleton row serializes creation, worker ownership and expiry across instances.
 type CheckinBatchLease struct {
 	ID         int   `gorm:"primaryKey;autoIncrement:false"`
@@ -83,5 +81,3 @@ type CheckinBatchJobPage struct {
 	Items        []CheckinBatchJob `json:"items"`
 	NextBeforeID int64             `json:"next_before_id,omitempty"`
 }
-
-type SiteCheckinBatchJobPage = CheckinBatchJobPage

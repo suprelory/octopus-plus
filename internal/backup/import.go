@@ -77,7 +77,7 @@ func (s *Service) Import(ctx context.Context, source *Document) (*model.DBImport
 		}
 		state := &importer{tx: tx, document: d, fingerprint: identity, result: result,
 			sites: map[int]model.CheckinSite{}, credentials: map[int]model.CheckinCredential{}, accounts: map[int]model.CheckinAccount{}}
-		common := d.DBDump
+		common := d.LegacyDBDump
 		common.StatsSiteModelHourly = nil
 		common.Settings = slices.DeleteFunc(slices.Clone(common.Settings), func(setting model.Setting) bool {
 			return setting.Key == model.SettingKeyProjectedChannelAutoGroupEnabled

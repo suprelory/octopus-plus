@@ -76,14 +76,14 @@ func TestBackupV2HTTPArchiveRestore(t *testing.T) {
 		t.Fatal("site not restored")
 	}
 	var legacyCount int64
-	if err := db.GetDB().Model(&model.Site{}).Count(&legacyCount).Error; err != nil || legacyCount != 0 {
+	if err := db.GetDB().Model(&model.LegacySite{}).Count(&legacyCount).Error; err != nil || legacyCount != 0 {
 		t.Fatal("restore created legacy site")
 	}
 }
 
 func TestBackupV2HTTPReportsSafeInvalidInput(t *testing.T) {
 	ctx := setupSiteHandlerTestDB(t)
-	document := backup.Document{DBDump: model.DBDump{Version: 2, ExportedAt: time.Now().UTC()}, CheckinCredentials: []model.CheckinCredentialBackup{{ID: 1, CheckinCredentialInput: model.CheckinCredentialInput{Password: "must-not-leak"}}}}
+	document := backup.Document{LegacyDBDump: model.LegacyDBDump{Version: 2, ExportedAt: time.Now().UTC()}, CheckinCredentials: []model.CheckinCredentialBackup{{ID: 1, CheckinCredentialInput: model.CheckinCredentialInput{Password: "must-not-leak"}}}}
 	data, err := json.Marshal(document)
 	if err != nil {
 		t.Fatal(err)

@@ -10,11 +10,3 @@ func (a *SiteAccount) HasSameAccessTokenSession(other *SiteAccount) bool {
 		NormalizeSiteAccessToken(a.AccessToken) == NormalizeSiteAccessToken(other.AccessToken) &&
 		strings.TrimSpace(a.RefreshToken) == strings.TrimSpace(other.RefreshToken)
 }
-
-func NormalizeSiteAccessToken(token string) string {
-	trimmed := strings.TrimSpace(token)
-	if strings.HasPrefix(strings.ToLower(trimmed), "bearer ") {
-		return strings.TrimSpace(trimmed[7:])
-	}
-	return trimmed
-}

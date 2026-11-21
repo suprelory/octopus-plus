@@ -216,7 +216,7 @@ func TestRelayLogStreamTokenConsumedOnce(t *testing.T) {
 }
 
 func TestPasswordChangeRevokesLogStreamGeneration(t *testing.T) {
-	setupSiteOpTestDB(t)
+	setupOpTestDB(t)
 	initTestUser(t)
 	oldUser := UserGet()
 	unused, err := RelayLogStreamTokenCreate()

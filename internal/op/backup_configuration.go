@@ -20,7 +20,7 @@ type BackupConfigurationMappings struct {
 // ImportBackupConfiguration restores the ordinary configuration and statistics
 // within the caller's transaction. Version 2 supplies converted channels and
 // imports its check-in history separately using the same transaction.
-func ImportBackupConfiguration(tx *gorm.DB, dump *model.DBDump, result *model.DBImportResult) (*BackupConfigurationMappings, error) {
+func ImportBackupConfiguration(tx *gorm.DB, dump *model.LegacyDBDump, result *model.DBImportResult) (*BackupConfigurationMappings, error) {
 	state := newDBImportState(tx, dump, result)
 	state.strict = true
 	for _, stage := range []func() error{

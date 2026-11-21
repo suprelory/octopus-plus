@@ -14,7 +14,7 @@
 | P3 独立签到执行 | 已完成 | HTTP/内置平台、会话、调度/批次、余额收益、持久化通知及三种数据库服务验收通过 |
 | P4 新 API 与前端 | 已完成 | 独立 API、签到页面与全局 v2 界面完成；生产默认已由 P5.4 切换 |
 | P5 数据迁移与备份 | 已完成 | P5.1 转换器/迁移日志、P5.2 离线迁移、P5.3 备份导入及 P5.4 生产运行时切换完成 |
-| P6 删除旧模块与发布验收 | 未开始 | 移除订阅/投影运行时、更新文档、完成完整回归 |
+| P6 删除旧模块与发布验收 | 进行中（P6.1 完成） | 移除订阅/投影运行时、更新文档、完成完整回归 |
 
 开发按阶段推进。正式切换前必须同时完成迁移、接口和运行时适配，不在新旧服务之间双写。P1 的离线工具不执行数据库迁移。
 
@@ -377,6 +377,13 @@ P5.1 调用边界与转换约定：
 
 下一阶段为 P6：删除已退出运行时的订阅/投影/旧签到模块、旧路由注册和 `InitLegacyDB` / `LegacyRuntime` 兼容分支；将仍被普通渠道和迁移使用的公共函数、旧 DTO 明确归位，再移除旧界面、构建开关及专属测试。保留 version 1 备份与数据库转换能力；更新 CHECKIN/LOGGING 等旧专题文档，完成无旧表运行、迁移恢复及完整发布回归。旧归档表的清理须独立设计，不在日常启动中自动删除。
 
+P6 分阶段按可验证的边界推进：
+
+- **P6.1 共享逻辑和旧数据边界（已完成）**：普通渠道分组函数位于 `internal/op/channel_auto_group.go`；状态规则校验复用独立 HTTP 请求约束，不再临时构造旧 `Site`。平台、能力、时区、状态及历史类型归入签到模型文件；旧站点/账号、站点模型统计和 v1 完整备份输入显式使用 `Legacy*` 类型，原名称只保留类型别名。v1 JSON 字段顺序及迁移检查点/备份指纹有固定回归值。共享签到历史查询归入 `CheckinStore`；旧数据库历史列升级移入 `internal/migration/v1`，仍由离线 v2 迁移调用。一般渠道、用户、日志、代理、WS 亲和及 relay 测试使用隔离 v2 schema；需要站点或 v1 增量导入的测试仍使用旧 schema。普通渠道 exact/fuzzy/ECMAScript regex 分组在无订阅表的新库通过回归。
+- **P6.2 后端运行时代码清理（下一阶段）**：移除旧站点同步、投影、旧签到执行服务和生产兼容分支；将迁移/备份所需旧结构限制在转换边界。保留 v1 JSON/ZIP 读取及数据库转换入口。
+- **P6.3 前端和文档清理**：移除 `NEXT_PUBLIC_V2_UI` 与旧订阅界面，清理过时指南和专属 UI 测试。
+- **P6.4 发布验收**：在不含订阅表的新库执行渠道、转发、代理和签到回归；验证 v1 转换、备份恢复与迁移断点重试，并完成数据库、竞态、静态检查及前端验收。
+
 ## 开发记录
 
 - 2026-11-15：从 dev 的 2158e12 创建 v2；保存设计方案。开始 P1 的离线迁移预检与回归样本。
@@ -402,3 +409,4 @@ P5.1 调用边界与转换约定：
 - 2026-11-21：完成 P5.3 独立备份服务、本地 JSON/ZIP 上传与 WebDAV 恢复，复用旧数据转换器，加入导入指纹/映射和事务回滚、工作流与通知恢复、统计归属保护及数据库 CI。最终通过 `go test ./... -count=1`、`go vet ./...`、`go build -tags=jsoniter ./...`、gofmt 与 diff 检查；相关包完整竞态命令为 `go test -race ./internal/backup ./internal/op ./internal/server/handlers ./internal/webdav -count=1`，最后统计归属修正后补跑 `go test -race ./internal/backup ./internal/op -run 'TestBackup|TestDBImport|TestDBExport|TestConfiguration|TestRestore|TestRetention' -count=1`。上述竞态验证配置了隔离测试 DSN，MySQL 8.4.4 与 PostgreSQL 17.5 的备份数据库子测试实际执行通过。前端 `pnpm exec tsc --noEmit`、`pnpm lint` 与 `pnpm exec playwright test --config=playwright.v2.config.ts v2-workspace.spec.ts --grep 'backup uploads'` 通过。本轮新建 PostgreSQL 测试实例已停止，临时目录删除被执行策略拒绝后保留；既有测试服务未停止。生产入口、默认备份版本和定时 WebDAV 尚未切换，下一步 P5.4。
 - 2026-11-21：完成 P5.4 生产运行时切换。新启动入口检查离线迁移完成证据与关键状态表，默认装配共享独立签到服务、API、调度、批次、余额和通知；普通渠道/分组/代理/转发/统计退出订阅查询，默认备份、WebDAV 与前端使用 v2。增加任务和服务关闭准入、取消、在途保存等待及超时退出保护，更新 API/README/前端说明和 CI。P5 标记完成，下一阶段为 P6 旧模块与临时兼容分支删除。
 - 2026-11-21：P5.4 验证通过 `go test ./... -count=1 -timeout=180s`、`go test -race ./internal/checkin ./internal/db ./internal/task ./internal/server/... ./internal/webdav ./internal/migration/v2 -count=1 -timeout=180s`、普通渠道/转发竞态测试、`go vet ./...`、`go build -tags=jsoniter ./...` 和 jsoniter 生产路由测试。补充门禁/关闭修正后通过 `go test -race ./internal/db ./internal/checkin ./internal/task ./internal/migration/v2 -run 'TestRuntime|TestServices|TestJobs|TestBatch' -count=1 -v -timeout=180s`，最后关闭响应契约修正后 `go test -race ./internal/server ./internal/server/middleware -count=1 -timeout=120s`、vet 和构建再次通过。数据层完整竞态初次因现有日志清理用例批量准备 SQLite 数据超过 180 秒而超时，改用 `go test -race ./internal/op -count=1 -timeout=10m` 后完整通过（约 241 秒）；转发包竞态通过。上述外部数据库测试使用隔离 DSN，MySQL 8.4.4 / PostgreSQL 17.5 实际执行。前端 `pnpm test`（63 项）、TypeScript、lint、`pnpm test:e2e:v2`（28 项）和默认 `pnpm build` 通过，gofmt 与 diff 检查通过。本轮只复用隔离测试服务和本机 HTTP 替身，重新启动的 PostgreSQL 实例已停止并保留测试目录，既有服务未停止；未操作生产配置/数据库，未提交或推送。
+- 2026-11-21：完成 P6.1。普通渠道自动分组与投影代码分离，独立签到和旧签到共用 HTTP 规则校验、历史筛选及收益查询。旧站点、账号、投影关联和 v1 备份使用显式 `Legacy*` 类型，旧历史表升级归入 `internal/migration/v1`。新增无订阅表的普通渠道分组回归和 v1 指纹回归。

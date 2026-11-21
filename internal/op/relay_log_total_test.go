@@ -62,7 +62,7 @@ func TestRelayLogTotalCacheKeyIgnoresPagination(t *testing.T) {
 }
 
 func TestRelayLogDBCountBounded(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestRelayLogDBCountBounded(t *testing.T) {
 }
 
 func TestRelayLogDBTotalUsesCache(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatalf("settingRefreshCache failed: %v", err)
 	}

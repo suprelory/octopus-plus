@@ -14,19 +14,19 @@ func id(value int) *int { return &value }
 func fixture() *Snapshot {
 	return &Snapshot{
 		Version: 1, IncludeLogs: true, IncludeStats: true,
-		Sites: []model.Site{
+		Sites: []model.LegacySite{
 			{ID: 1, Kind: model.SiteKindRelay, Platform: model.SitePlatformSub2API, BaseURL: "https://login.example", ProxyMode: model.ProxyUsageModePool, ProxyConfigID: id(7)},
 			{ID: 2, Kind: model.SiteKindCheckin, Platform: model.SitePlatformSub2API, BaseURL: "https://checkin.example", LinkedSiteID: id(1), CheckinHTTPEnabled: true, CheckinUseSubscriptionToken: true, ProxyMode: model.ProxyUsageModeDirect},
 			{ID: 3, Kind: model.SiteKindCheckin, Platform: model.SitePlatformAPI, BaseURL: "https://external.example", LinkedSiteID: id(1), CheckinHTTPEnabled: true, ProxyMode: model.ProxyUsageModeDirect},
 		},
-		SiteAccounts: []model.SiteAccount{
+		SiteAccounts: []model.LegacySiteAccount{
 			{ID: 10, SiteID: 1, CredentialType: model.SiteCredentialTypeAccessToken, AccessToken: "source-token", RefreshToken: "source-refresh", ProxyMode: model.ProxyUsageModeInherit},
 			{ID: 20, SiteID: 2, CredentialType: model.SiteCredentialTypeLinkedAccount, LinkedAccountID: id(10), ProxyMode: model.ProxyUsageModeInherit},
 			{ID: 30, SiteID: 3, CredentialType: model.SiteCredentialTypeCookie, Cookie: "session=external-cookie", LinkedAccountID: id(10), ProxyMode: model.ProxyUsageModeInherit},
 		},
 		Channels:            []model.Channel{{ID: 100, Enabled: false, AutoGroup: model.AutoGroupTypeNone, ProxyMode: model.ProxyUsageModePool, ProxyConfigID: id(7)}, {ID: 101, Enabled: true}},
 		ChannelKeys:         []model.ChannelKey{{ID: 200, ChannelID: 100, ChannelKey: "channel-secret"}},
-		SiteChannelBindings: []model.SiteChannelBinding{{ID: 300, SiteID: 1, SiteAccountID: 10, ChannelID: 100}},
+		SiteChannelBindings: []model.LegacySiteChannelBinding{{ID: 300, SiteID: 1, SiteAccountID: 10, ChannelID: 100}},
 		Groups:              []model.Group{{ID: 400}}, GroupItems: []model.GroupItem{{ID: 500, GroupID: 400, ChannelID: 100}},
 		ProxyConfigurations: []model.ProxyConfiguration{{ID: 7, URL: "socks5h://user:proxy-secret@proxy.example:1080", Enabled: true}},
 		Settings:            []model.Setting{{Key: model.SettingKeyProjectedChannelAutoGroupEnabled, Value: "2"}},
@@ -97,9 +97,9 @@ func TestPreflightRetainsInvalidSubmittedWorkflows(t *testing.T) {
 func TestPreflightDetectsBrokenRelationsAndProxy(t *testing.T) {
 	snapshot := fixture()
 	snapshot.ProxyConfigurations[0].Enabled = false
-	snapshot.SiteChannelBindings = append(snapshot.SiteChannelBindings, model.SiteChannelBinding{ID: 301, ChannelID: 999})
+	snapshot.SiteChannelBindings = append(snapshot.SiteChannelBindings, model.LegacySiteChannelBinding{ID: 301, ChannelID: 999})
 	snapshot.GroupItems = append(snapshot.GroupItems, model.GroupItem{ID: 501, ChannelID: 101, GroupID: 999})
-	snapshot.SiteAccounts = append(snapshot.SiteAccounts, model.SiteAccount{ID: 40, SiteID: 999})
+	snapshot.SiteAccounts = append(snapshot.SiteAccounts, model.LegacySiteAccount{ID: 40, SiteID: 999})
 	report, err := Analyze(snapshot)
 	if err != nil {
 		t.Fatal(err)
