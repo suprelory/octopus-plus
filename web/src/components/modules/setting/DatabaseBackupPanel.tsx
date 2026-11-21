@@ -1,7 +1,7 @@
 'use client';
 
 import type { ChangeEvent, RefObject } from 'react';
-import { AlertTriangle, Download, FileArchive, Upload } from 'lucide-react';
+import { Download, FileArchive, Upload } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,15 +54,14 @@ export function DatabaseBackupPanel({
                     <FileArchive className="size-4" />
                     {exportingKind === 'logs' ? t('backup.export.exporting') : t('backup.export.withLogsButton')}
                 </Button>
-                <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+                <p className="text-xs text-muted-foreground">
                     {t('backup.export.withLogsWarning')}
                 </p>
             </div>
 
             <SettingSection title={t('backup.import.title')} />
             <div className="space-y-3">
-                <Input ref={fileInputRef} type="file" accept="application/json,.json" onChange={onFileChange} className="rounded-xl" />
+                <Input ref={fileInputRef} type="file" accept="application/json,application/zip,.json,.zip" onChange={onFileChange} className="rounded-xl" />
                 <Button type="button" variant="destructive" className="w-full rounded-xl" onClick={onImport} disabled={importPending}>
                     <Upload className="size-4" />
                     {importPending ? t('backup.import.importing') : t('backup.import.button')}

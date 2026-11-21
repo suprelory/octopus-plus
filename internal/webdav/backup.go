@@ -1,6 +1,7 @@
 package webdav
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/suprelory/octopus-plus/internal/backup"
+	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/op"
 	"github.com/suprelory/octopus-plus/internal/utils/log"
@@ -25,12 +28,24 @@ type BackupInfo struct {
 }
 
 func RunBackup(ctx context.Context) error {
+	return RunBackupVersion(ctx, 1)
+}
+
+func RunBackupVersion(ctx context.Context, version int) error {
+	if version != 1 && version != 2 {
+		return backup.ErrFormat
+	}
 	cfg, err := LoadConfig()
 	if err != nil {
 		return err
 	}
 
-	dump, err := op.DBExportAll(ctx, false, cfg.IncludeStats)
+	var dump any
+	if version == 2 {
+		dump, err = backup.NewService(db.GetDB()).Export(ctx, false, cfg.IncludeStats)
+	} else {
+		dump, err = op.DBExportAll(ctx, false, cfg.IncludeStats)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to export database: %w", err)
 	}
@@ -93,6 +108,13 @@ func ListBackups(ctx context.Context) ([]BackupInfo, error) {
 }
 
 func RestoreFromBackup(ctx context.Context, filename string) (*model.DBImportResult, error) {
+	return RestoreFromBackupVersion(ctx, filename, 1)
+}
+
+func RestoreFromBackupVersion(ctx context.Context, filename string, version int) (*model.DBImportResult, error) {
+	if version != 1 && version != 2 {
+		return nil, backup.ErrFormat
+	}
 	if !isBackupFile(filename) {
 		return nil, fmt.Errorf("invalid backup filename")
 	}
@@ -113,12 +135,21 @@ func RestoreFromBackup(ctx context.Context, filename string) (*model.DBImportRes
 		return nil, fmt.Errorf("failed to download backup: %w", err)
 	}
 
-	var dump model.DBDump
-	if err := json.Unmarshal(data, &dump); err != nil {
+	document, err := backup.Read(ctx, bytes.NewReader(data))
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse backup: %w", err)
 	}
-
-	result, err := op.DBImportIncremental(ctx, &dump)
+	defer document.Close()
+	var result *model.DBImportResult
+	if version == 2 {
+		result, err = backup.NewService(db.GetDB()).Import(ctx, document)
+	} else {
+		var dump *model.DBDump
+		dump, err = document.LegacyDump(ctx)
+		if err == nil {
+			result, err = op.DBImportIncremental(ctx, dump)
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to import backup: %w", err)
 	}
@@ -185,5 +216,5 @@ func isBackupFile(name string) bool {
 	if strings.Contains(name, "/") || strings.Contains(name, "\\") || strings.Contains(name, "..") {
 		return false
 	}
-	return strings.HasPrefix(name, backupPrefix) && strings.HasSuffix(name, backupSuffix)
+	return strings.HasPrefix(name, backupPrefix) && (strings.HasSuffix(name, backupSuffix) || strings.HasSuffix(name, ".zip"))
 }

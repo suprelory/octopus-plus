@@ -29,7 +29,7 @@ export function SettingData() {
     const importDB = useImportDB();
 
     const [includeStats, setIncludeStats] = useState(true);
-    // 常规导出固定 JSON（可导入恢复）；含日志导出为 ZIP 流式归档，单独成按钮
+    // 常规备份使用 JSON，含日志的备份使用 ZIP。
     const [exportingKind, setExportingKind] = useState<DatabaseExportKind | null>(null);
 
     const [file, setFile] = useState<File | null>(null);
@@ -56,7 +56,7 @@ export function SettingData() {
             return;
         }
         // accept 属性只约束选择器默认过滤，仍可手动选任意文件，导入前再校验一次
-        if (file.type !== 'application/json' && !file.name.toLowerCase().endsWith('.json')) {
+        if (!['application/json', 'application/zip', 'application/x-zip-compressed'].includes(file.type) && !/\.(json|zip)$/i.test(file.name)) {
             toast.error(t('backup.import.invalidFileType'));
             if (fileInputRef.current) fileInputRef.current.value = '';
             setFile(null);

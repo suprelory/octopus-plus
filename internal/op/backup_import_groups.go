@@ -29,6 +29,9 @@ func (s *dbImportState) importGroups() error {
 
 		var existing model.Group
 		if err := tx.Where("name = ?", g.Name).First(&existing).Error; err == nil {
+			if s.strict {
+				return ErrBackupConflict
+			}
 			groupIDMap[oldID] = existing.ID
 			continue
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {

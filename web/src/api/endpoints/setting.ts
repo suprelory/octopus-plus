@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, authenticatedFetch } from '../client';
 import { logger } from '@/lib/logger';
+import { V2_UI } from '@/lib/v2-ui';
 
 /**
  * Setting 数据
@@ -153,6 +154,8 @@ export function useTestNotificationChannel() {
  */
 export interface DBImportResult {
     rows_affected: Record<string, number>;
+    already_imported?: boolean;
+    issues?: Array<{ code: string; severity: string; entity?: string; id?: number }>;
 }
 
 export interface DBExportOptions {
@@ -221,6 +224,7 @@ export function useExportDB() {
             params.set('include_logs', String(!!options.include_logs));
             params.set('include_stats', String(!!options.include_stats));
             params.set('format', format);
+            if (V2_UI) params.set('version', '2');
 
             const { blob, filename } = await authenticatedFetch(`/api/v1/setting/export?${params.toString()}`, {
                 method: 'GET',
@@ -244,7 +248,7 @@ export function useExportDB() {
 }
 
 /**
- * 导入数据库（上传 JSON 文件，增量导入）
+ * 导入数据库（上传 JSON 或 ZIP 备份，增量导入）
  */
 export function useImportDB() {
     return useMutation({
@@ -252,7 +256,7 @@ export function useImportDB() {
             const form = new FormData();
             form.append('file', file);
 
-            return authenticatedFetch('/api/v1/setting/import', {
+            return authenticatedFetch(`/api/v1/setting/import${V2_UI ? '?version=2' : ''}`, {
                 method: 'POST',
                 body: form,
             }, async (res) => {
@@ -294,7 +298,7 @@ export function useTriggerWebDAVBackup() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async () => {
-            return apiClient.post<{ message: string }>('/api/v1/webdav-backup/trigger', {});
+            return apiClient.post<{ message: string }>(`/api/v1/webdav-backup/trigger${V2_UI ? '?version=2' : ''}`, {});
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['webdav-backups'] });
@@ -317,7 +321,7 @@ export function useRestoreWebDAVBackup() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (filename: string) => {
-            return apiClient.post<DBImportResult>('/api/v1/webdav-backup/restore', { filename });
+            return apiClient.post<DBImportResult>(`/api/v1/webdav-backup/restore${V2_UI ? '?version=2' : ''}`, { filename });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['settings', 'list'] });

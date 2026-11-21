@@ -27,7 +27,10 @@ func (s *dbImportState) importProxies() error {
 
 		var existing model.ProxyConfiguration
 		if err := tx.Where("url = ?", proxyConfig.URL).First(&existing).Error; err == nil {
-			if proxyConfig.Enabled && !existing.Enabled {
+			if s.strict && proxyConfig.Enabled != existing.Enabled {
+				return ErrBackupConflict
+			}
+			if !s.strict && proxyConfig.Enabled && !existing.Enabled {
 				if err := tx.Model(&existing).Update("enabled", true).Error; err != nil {
 					return fmt.Errorf("import proxy_configurations: %w", err)
 				}
@@ -38,6 +41,9 @@ func (s *dbImportState) importProxies() error {
 			return fmt.Errorf("import proxy_configurations: %w", err)
 		}
 		if err := tx.Where("name = ?", proxyConfig.Name).First(&existing).Error; err == nil {
+			if s.strict {
+				return ErrBackupConflict
+			}
 			oldName := proxyConfig.Name
 			proxyConfig.Name = uniqueProxyConfigName(proxyConfig.Name, tx)
 			log.Warnw("proxy configuration name conflict during import",
@@ -53,6 +59,11 @@ func (s *dbImportState) importProxies() error {
 		}
 		if err := tx.Create(&proxyConfig).Error; err != nil {
 			return fmt.Errorf("import proxy_configurations: %w", err)
+		}
+		if !dump.ProxyConfigurations[i].Enabled {
+			if err := tx.Model(&proxyConfig).Update("enabled", false).Error; err != nil {
+				return err
+			}
 		}
 		proxyConfigIDMap[oldID] = proxyConfig.ID
 		res.RowsAffected["proxy_configurations"]++
@@ -80,6 +91,9 @@ func (s *dbImportState) importChannels() error {
 
 		var existing model.Channel
 		if err := tx.Where("name = ?", ch.Name).First(&existing).Error; err == nil {
+			if s.strict {
+				return ErrBackupConflict
+			}
 			// Reuse a name only when its protocol matches the imported channel.
 			if existing.Type == ch.Type {
 				channelIDMap[oldID] = existing.ID
@@ -101,6 +115,11 @@ func (s *dbImportState) importChannels() error {
 		if err := tx.Omit("Keys", "Stats").Create(&ch).Error; err != nil {
 			return fmt.Errorf("import channels: %w", err)
 		}
+		if !dump.Channels[i].Enabled {
+			if err := tx.Model(&ch).Update("enabled", false).Error; err != nil {
+				return err
+			}
+		}
 		channelIDMap[oldID] = ch.ID
 		res.RowsAffected["channels"]++
 	}
@@ -115,6 +134,7 @@ func (s *dbImportState) importChannelKeys() error {
 	// 3. ChannelKeys (remap channel_id, dedup by channel_id+channel_key)
 	for i := range dump.ChannelKeys {
 		key := dump.ChannelKeys[i]
+		sourceID := key.ID
 		resolved, err := resolveImportedChannel(key.ChannelID)
 		if err != nil {
 			return fmt.Errorf("import channel_keys: resolve channel: %w", err)
@@ -127,6 +147,7 @@ func (s *dbImportState) importChannelKeys() error {
 		key.ChannelID = resolved.ID
 		var existing model.ChannelKey
 		if err := tx.Where("channel_id = ? AND channel_key = ?", key.ChannelID, key.ChannelKey).First(&existing).Error; err == nil {
+			s.channelKeyIDs[sourceID] = existing.ID
 			continue
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("import channel_keys: %w", err)
@@ -134,7 +155,13 @@ func (s *dbImportState) importChannelKeys() error {
 		if err := tx.Create(&key).Error; err != nil {
 			return fmt.Errorf("import channel_keys: %w", err)
 		}
+		if !dump.ChannelKeys[i].Enabled {
+			if err := tx.Model(&key).Update("enabled", false).Error; err != nil {
+				return err
+			}
+		}
 		res.RowsAffected["channel_keys"]++
+		s.channelKeyIDs[sourceID] = key.ID
 	}
 	return nil
 }
@@ -159,6 +186,12 @@ func (s *dbImportState) resolveChannel(sourceID int) (resolvedImportChannel, err
 	targetID := sourceID
 	if remappedID, ok := channelIDMap[sourceID]; ok {
 		targetID = remappedID
+	} else if s.strict {
+		// Source IDs are not identities in another database. Retained statistics
+		// for deleted channels must never overwrite an unrelated target channel.
+		resolvedChannels[sourceID] = resolvedImportChannel{}
+		s.result.Issues = append(s.result.Issues, model.BackupIssue{Code: "channel_statistics_owner_missing", Severity: "review", Entity: "channel", ID: sourceID})
+		return resolvedImportChannel{}, nil
 	}
 	var channel model.Channel
 	if err := tx.Select("id", "type").Where("id = ?", targetID).First(&channel).Error; err != nil {

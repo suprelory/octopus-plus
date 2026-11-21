@@ -405,20 +405,7 @@ func validateCredentialReferences(tx *gorm.DB, candidate model.CheckinCredential
 }
 
 func validateCheckinBalanceCredential(config model.CheckinBalanceConfig, credential model.CheckinCredential) error {
-	if config.Platform != credential.Platform {
-		return checkinConfigurationError(errors.New("balance platform must match its credential"))
-	}
-	switch config.Platform {
-	case model.SitePlatformSub2API:
-		if credential.Type == model.CheckinCredentialAccessToken || credential.Type == model.CheckinCredentialAPIKey {
-			return nil
-		}
-	case model.SitePlatformNewAPI, model.SitePlatformAnyRouter, model.SitePlatformAgentRouter, model.SitePlatformOneAPI, model.SitePlatformOneHub, model.SitePlatformDoneHub:
-		if credential.Type == model.CheckinCredentialAccessToken || credential.Type == model.CheckinCredentialPassword || credential.Type == model.CheckinCredentialCookie {
-			return nil
-		}
-	}
-	return checkinConfigurationError(errors.New("credential cannot query platform balances"))
+	return checkinConfigurationError(model.ValidateCheckinBalanceCredential(config, credential))
 }
 
 func validateCheckinProxy(tx *gorm.DB, network model.CheckinNetwork) error {

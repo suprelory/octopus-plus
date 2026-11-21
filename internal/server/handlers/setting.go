@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/backup"
+	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/op"
 	"github.com/suprelory/octopus-plus/internal/server/middleware"
@@ -87,6 +88,10 @@ func setSetting(c *gin.Context) {
 }
 
 func exportDB(c *gin.Context) {
+	version, ok := backupVersion(c)
+	if !ok {
+		return
+	}
 	includeLogs, _ := strconv.ParseBool(c.DefaultQuery("include_logs", "false"))
 	includeStats, _ := strconv.ParseBool(c.DefaultQuery("include_stats", "false"))
 	format := strings.ToLower(strings.TrimSpace(c.DefaultQuery("format", "json")))
@@ -101,7 +106,11 @@ func exportDB(c *gin.Context) {
 		c.Header("Content-Type", "application/zip")
 		c.Header("Content-Disposition", "attachment; filename=\""+filename+"\"")
 		wrapper := &countingResponseWriter{ResponseWriter: c.Writer}
-		if err := op.DBExportZip(c.Request.Context(), wrapper, includeLogs, includeStats); err != nil {
+		export := op.DBExportZip
+		if version == 2 {
+			export = backup.NewService(db.GetDB()).ExportZIP
+		}
+		if err := export(c.Request.Context(), wrapper, includeLogs, includeStats); err != nil {
 			if wrapper.bytesWritten == 0 {
 				c.Header("Content-Type", "application/json")
 				c.Header("Content-Disposition", "")
@@ -115,7 +124,13 @@ func exportDB(c *gin.Context) {
 		return
 	}
 
-	dump, err := op.DBExportAll(c.Request.Context(), includeLogs, includeStats)
+	var dump any
+	var err error
+	if version == 2 {
+		dump, err = backup.NewService(db.GetDB()).Export(c.Request.Context(), includeLogs, includeStats)
+	} else {
+		dump, err = op.DBExportAll(c.Request.Context(), includeLogs, includeStats)
+	}
 	if err != nil {
 		resp.InternalErrorWithLog(c, err)
 		return
@@ -127,7 +142,11 @@ func exportDB(c *gin.Context) {
 }
 
 func importDB(c *gin.Context) {
-	var dump model.DBDump
+	version, ok := backupVersion(c)
+	if !ok {
+		return
+	}
+	var reader io.Reader = c.Request.Body
 
 	contentType := c.GetHeader("Content-Type")
 	if strings.Contains(contentType, "multipart/form-data") {
@@ -142,28 +161,25 @@ func importDB(c *gin.Context) {
 			return
 		}
 		defer f.Close()
-		body, err := io.ReadAll(f)
-		if err != nil {
-			resp.Error(c, http.StatusBadRequest, err.Error())
-			return
-		}
-		if err := decodeDBDump(body, &dump); err != nil {
-			resp.Error(c, http.StatusBadRequest, err.Error())
-			return
-		}
+		defer c.Request.MultipartForm.RemoveAll()
+		reader = f
+	}
+	document, err := backup.Read(c.Request.Context(), reader)
+	if err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer document.Close()
+	var result *model.DBImportResult
+	if version == 2 {
+		result, err = backup.NewService(db.GetDB()).Import(c.Request.Context(), document)
 	} else {
-		body, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			resp.Error(c, http.StatusBadRequest, err.Error())
-			return
-		}
-		if err := decodeDBDump(body, &dump); err != nil {
-			resp.Error(c, http.StatusBadRequest, err.Error())
-			return
+		var dump *model.DBDump
+		dump, err = document.LegacyDump(c.Request.Context())
+		if err == nil {
+			result, err = op.DBImportIncremental(c.Request.Context(), dump)
 		}
 	}
-
-	result, err := op.DBImportIncremental(c.Request.Context(), &dump)
 	if err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -178,47 +194,17 @@ func importDB(c *gin.Context) {
 	resp.Success(c, result)
 }
 
-func decodeDBDump(body []byte, dump *model.DBDump) error {
-	if dump == nil {
-		return json.Unmarshal(body, &struct{}{})
+// The v2 UI opts into the new service until P5.4 switches production defaults.
+func backupVersion(c *gin.Context) (int, bool) {
+	version := c.DefaultQuery("version", "1")
+	if version == "1" {
+		return 1, true
 	}
-
-	if err := json.Unmarshal(body, dump); err != nil {
-		return err
+	if version == "2" {
+		return 2, true
 	}
-
-	if dump.Version == 0 &&
-		len(dump.Channels) == 0 &&
-		len(dump.Sites) == 0 &&
-		len(dump.SiteAccounts) == 0 &&
-		len(dump.SiteTokens) == 0 &&
-		len(dump.SiteUserGroups) == 0 &&
-		len(dump.SiteModels) == 0 &&
-		len(dump.SiteChannelBindings) == 0 &&
-		len(dump.Groups) == 0 &&
-		len(dump.GroupItems) == 0 &&
-		len(dump.GroupPresets) == 0 &&
-		len(dump.Settings) == 0 &&
-		len(dump.APIKeys) == 0 &&
-		len(dump.LLMInfos) == 0 &&
-		len(dump.RelayLogs) == 0 &&
-		len(dump.StatsDaily) == 0 &&
-		len(dump.StatsHourly) == 0 &&
-		len(dump.StatsTotal) == 0 &&
-		len(dump.StatsChannel) == 0 &&
-		len(dump.StatsModel) == 0 &&
-		len(dump.StatsAPIKey) == 0 {
-		var wrapper struct {
-			Code    int             `json:"code"`
-			Message string          `json:"message"`
-			Data    json.RawMessage `json:"data"`
-		}
-		if err := json.Unmarshal(body, &wrapper); err == nil && len(wrapper.Data) > 0 {
-			return json.Unmarshal(wrapper.Data, dump)
-		}
-	}
-
-	return nil
+	resp.Error(c, http.StatusBadRequest, "unsupported backup version")
+	return 0, false
 }
 
 // countingResponseWriter wraps gin.ResponseWriter to track whether the body

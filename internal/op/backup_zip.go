@@ -152,6 +152,9 @@ func exportZipSnapshot(ctx context.Context, w io.Writer, conn *gorm.DB, includeL
 		if err := writeZipSiteCheckinLogsNDJSON(zw, conn); err != nil {
 			return err
 		}
+		if err := writeZipTable(ctx, zw, conn, "site_checkin_batch_jobs.json", &[]model.SiteCheckinBatchJob{}); err != nil {
+			return err
+		}
 	}
 
 	return nil

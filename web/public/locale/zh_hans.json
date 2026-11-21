@@ -1001,15 +1001,15 @@
                 "success": "开始导出",
                 "failed": "导出失败",
                 "withLogsButton": "导出含日志归档 (ZIP)",
-                "withLogsWarning": "含日志归档为 ZIP 流式导出，仅供留存查阅，无法导入恢复。"
+                "withLogsWarning": "ZIP 备份包含日志，可导入恢复数据。"
             },
             "import": {
                 "title": "导入（增量）",
                 "selected": "已选择文件",
-                "button": "导入 JSON",
+                "button": "导入备份",
                 "importing": "导入中...",
-                "noFile": "请先选择 JSON 文件",
-                "invalidFileType": "仅支持 JSON（.json）格式的备份文件",
+                "noFile": "请先选择 JSON 或 ZIP 备份文件",
+                "invalidFileType": "请选择 JSON（.json）或 ZIP（.zip）格式的备份文件",
                 "success": "导入成功",
                 "failed": "导入失败",
                 "result": "导入结果"

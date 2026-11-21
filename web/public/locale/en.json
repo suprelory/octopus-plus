@@ -1001,15 +1001,15 @@
                 "success": "Export started",
                 "failed": "Export failed",
                 "withLogsButton": "Export Archive with Logs (ZIP)",
-                "withLogsWarning": "The archive with logs is a streamed ZIP export for archival only; it cannot be imported to restore data."
+                "withLogsWarning": "The ZIP backup includes logs and can be imported to restore data."
             },
             "import": {
                 "title": "Import (Incremental)",
                 "selected": "File selected",
-                "button": "Import JSON",
+                "button": "Import Backup",
                 "importing": "Importing...",
-                "noFile": "Please select a JSON file first",
-                "invalidFileType": "Only JSON (.json) backup files are supported",
+                "noFile": "Please select a JSON or ZIP backup file first",
+                "invalidFileType": "Choose a JSON (.json) or ZIP (.zip) backup file",
                 "success": "Import successful",
                 "failed": "Import failed",
                 "result": "Import result"

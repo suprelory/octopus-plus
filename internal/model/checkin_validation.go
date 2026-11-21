@@ -298,3 +298,20 @@ func ValidateCheckinIdentity(site CheckinSite, account CheckinAccount, credentia
 	}
 	return nil
 }
+
+func ValidateCheckinBalanceCredential(config CheckinBalanceConfig, credential CheckinCredential) error {
+	if config.Platform != credential.Platform {
+		return errors.New("balance platform must match its credential")
+	}
+	switch config.Platform {
+	case SitePlatformSub2API:
+		if credential.Type == CheckinCredentialAccessToken || credential.Type == CheckinCredentialAPIKey {
+			return nil
+		}
+	case SitePlatformNewAPI, SitePlatformAnyRouter, SitePlatformAgentRouter, SitePlatformOneAPI, SitePlatformOneHub, SitePlatformDoneHub:
+		if credential.Type == CheckinCredentialAccessToken || credential.Type == CheckinCredentialPassword || credential.Type == CheckinCredentialCookie {
+			return nil
+		}
+	}
+	return errors.New("credential cannot query platform balances")
+}

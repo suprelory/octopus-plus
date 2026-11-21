@@ -11,6 +11,37 @@ import {
     longID,
 } from './checkin-fixtures';
 
+test('backup uploads preserve ZIP bytes and use the v2 import and export service', async ({ page }) => {
+    const state = await installCheckinAPI(page, { nav: 'setting' });
+    const archive = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0xff, 0x81, 0x00]);
+    let imports = 0;
+    await page.route('**/api/v1/setting/import?*', async route => {
+        const request = route.request();
+        expect(new URL(request.url()).searchParams.get('version')).toBe('2');
+        expect(request.headers()['content-type']).toContain('multipart/form-data');
+        expect(request.postDataBuffer()?.includes(archive)).toBe(true);
+        imports++;
+        await route.fulfill({ json: { code: 200, data: { rows_affected: { checkin_sites: 1 } } } });
+    });
+    await page.route('**/api/v1/setting/export?*', async route => {
+        const params = new URL(route.request().url()).searchParams;
+        expect(params.get('version')).toBe('2');
+        expect(params.get('format')).toBe('zip');
+        expect(params.get('include_logs')).toBe('true');
+        await route.fulfill({ body: archive, contentType: 'application/zip', headers: { 'content-disposition': 'attachment; filename="backup.zip"' } });
+    });
+    await page.goto('/');
+    await page.getByRole('group', { name: '设置分类' }).getByRole('button', { name: '数据与备份' }).click();
+    await page.locator('input[type="file"]').setInputFiles({ name: 'backup.zip', mimeType: 'application/zip', buffer: archive });
+    await page.getByRole('button', { name: '导入备份', exact: true }).click();
+    await expect(page.getByText('checkin_sites', { exact: true })).toBeVisible();
+    expect(imports).toBe(1);
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: '导出含日志归档 (ZIP)', exact: true }).click();
+    expect((await downloadPromise).suggestedFilename()).toBe('backup.zip');
+    expectIndependent(state);
+});
+
 test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
         sessionStorage.setItem('octopus:channel-tab', 'site');

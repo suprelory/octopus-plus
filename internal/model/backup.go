@@ -53,5 +53,14 @@ type DBDump struct {
 
 type DBImportResult struct {
 	// RowsAffected contains the rows affected for each table operation (insert/upsert depending on table).
-	RowsAffected map[string]int64 `json:"rows_affected"`
+	RowsAffected    map[string]int64 `json:"rows_affected"`
+	AlreadyImported bool             `json:"already_imported,omitempty"`
+	Issues          []BackupIssue    `json:"issues,omitempty"`
+}
+
+type BackupIssue struct {
+	Code     string `json:"code"`
+	Severity string `json:"severity"`
+	Entity   string `json:"entity,omitempty"`
+	ID       int    `json:"id,omitempty"`
 }
