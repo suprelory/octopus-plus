@@ -1,11 +1,11 @@
 package task
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/suprelory/octopus-plus/internal/backup"
 	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/op"
@@ -13,7 +13,7 @@ import (
 
 func TestTaskIntervalsApplyOnSettingWritesAndRestore(t *testing.T) {
 	resetTaskScheduler(t)
-	if err := db.InitLegacyDB("sqlite", filepath.Join(t.TempDir(), "settings.db"), false); err != nil {
+	if err := db.InitDB("sqlite", filepath.Join(t.TempDir(), "settings.db"), false); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
@@ -34,7 +34,8 @@ func TestTaskIntervalsApplyOnSettingWritesAndRestore(t *testing.T) {
 			t.Fatalf("%s interval = %v, want %v", spec.name, got, time.Duration(count)*spec.unit)
 		}
 	}
-	dump := model.DBDump{Version: 1}
+	service := backup.NewService(db.GetDB())
+	dump := backup.Document{LegacyDBDump: model.LegacyDBDump{Version: backup.Version, ExportedAt: time.Now().UTC()}}
 	for _, spec := range intervalTasks() {
 		for _, value := range []int{0, 3, 0, 1} {
 			if err := op.SettingSetInt(spec.key, value); err != nil {
@@ -44,7 +45,7 @@ func TestTaskIntervalsApplyOnSettingWritesAndRestore(t *testing.T) {
 		}
 		dump.Settings = append(dump.Settings, model.Setting{Key: spec.key, Value: "7"})
 	}
-	if _, err := op.DBImportIncremental(context.Background(), &dump); err != nil {
+	if _, err := service.Import(t.Context(), &dump); err != nil {
 		t.Fatal(err)
 	}
 	if err := op.RefreshCacheAfterImport(); err != nil {
@@ -55,7 +56,7 @@ func TestTaskIntervalsApplyOnSettingWritesAndRestore(t *testing.T) {
 	}
 	// An invalid imported interval disables that schedule and surfaces an error.
 	dump.Settings = []model.Setting{{Key: model.SettingKeyStatsSaveInterval, Value: "-1"}}
-	if _, err := op.DBImportIncremental(context.Background(), &dump); err != nil {
+	if _, err := service.Import(t.Context(), &dump); err != nil {
 		t.Fatal(err)
 	}
 	if err := op.RefreshCacheAfterImport(); err == nil {

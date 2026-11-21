@@ -63,7 +63,7 @@ func interruptExpiredBatch(tx *gorm.DB, lease model.CheckinBatchLease, now time.
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
-	if err == nil && slices.Contains(activeSiteCheckinBatchStatuses, job.Status) {
+	if err == nil && slices.Contains(activeCheckinBatchStatuses, job.Status) {
 		updates := map[string]any{"status": model.SiteCheckinBatchJobStatusInterrupted, "finished_at": now, "duration_ms": max(int64(0), now.Sub(job.StartedAt).Milliseconds()),
 			"current_site_id": 0, "current_account_id": 0, "current_site_name": "", "current_account_name": "", "error_message": "签到批次执行已中断"}
 		if err := tx.Model(&job).Updates(updates).Error; err != nil {

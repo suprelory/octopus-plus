@@ -14,14 +14,10 @@ import (
 
 var settingCache = cache.New[model.SettingKey, string](16)
 
-func retiredSetting(key model.SettingKey) bool {
-	return !db.LegacyRuntime() && (key == model.SettingKeySiteSyncInterval || key == model.SettingKeyProjectedChannelAutoGroupEnabled)
-}
-
 func SettingList(ctx context.Context) ([]model.Setting, error) {
 	settings := make([]model.Setting, 0, settingCache.Len())
 	for key, value := range settingCache.GetAll() {
-		if retiredSetting(key) {
+		if key.Retired() {
 			continue
 		}
 		settings = append(settings, model.Setting{
@@ -41,7 +37,7 @@ func SettingGetString(key model.SettingKey) (string, error) {
 }
 
 func SettingSetString(key model.SettingKey, value string) error {
-	if retiredSetting(key) {
+	if key.Retired() {
 		return fmt.Errorf("setting is no longer supported")
 	}
 	settingWriteLock.Lock()
@@ -108,9 +104,6 @@ func settingRefreshCache(ctx context.Context) error {
 	missingSettings := make([]model.Setting, 0, len(defaultSettings))
 
 	for _, defaultSetting := range defaultSettings {
-		if retiredSetting(defaultSetting.Key) {
-			continue
-		}
 		if !existingKeys[defaultSetting.Key] {
 			// Preserve deployments that already configured trusted proxies in
 			// data/config.json. This seed runs only while the database key is
@@ -133,7 +126,7 @@ func settingRefreshCache(ctx context.Context) error {
 		settings = append(settings, missingSettings...)
 	}
 	for _, setting := range settings {
-		if retiredSetting(setting.Key) {
+		if setting.Key.Retired() {
 			settingCache.Del(setting.Key)
 			continue
 		}

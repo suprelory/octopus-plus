@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
-	"slices"
 	"time"
 
 	"github.com/suprelory/octopus-plus/internal/model"
@@ -51,6 +50,8 @@ func (s *Service) Import(ctx context.Context, source *Document) (*model.DBImport
 		if err != nil {
 			return &model.DBImportResult{Issues: issues}, err
 		}
+	} else {
+		d.Settings = discardRetiredSettings(d.Settings)
 	}
 	if err := validateDocument(d); err != nil {
 		return nil, err
@@ -77,13 +78,8 @@ func (s *Service) Import(ctx context.Context, source *Document) (*model.DBImport
 		}
 		state := &importer{tx: tx, document: d, fingerprint: identity, result: result,
 			sites: map[int]model.CheckinSite{}, credentials: map[int]model.CheckinCredential{}, accounts: map[int]model.CheckinAccount{}}
-		common := d.LegacyDBDump
-		common.StatsSiteModelHourly = nil
-		common.Settings = slices.DeleteFunc(slices.Clone(common.Settings), func(setting model.Setting) bool {
-			return setting.Key == model.SettingKeyProjectedChannelAutoGroupEnabled
-		})
 		var err error
-		state.configuration, err = op.ImportBackupConfiguration(tx, &common, result)
+		state.configuration, err = op.ImportBackupConfiguration(tx, &d.LegacyDBDump, result)
 		if err != nil {
 			return nil, err
 		}

@@ -80,7 +80,7 @@ func TestPrepareCheckinSchemaPreservesSubmittedWorkflowAndHistory(t *testing.T) 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = pool.Close() })
-	for _, table := range []any{&accountBeforeWorkflowVersion{}, &model.SiteCheckinLog{}} {
+	for _, table := range []any{&accountBeforeWorkflowVersion{}, &model.CheckinLog{}} {
 		if err := conn.Migrator().CreateTable(table); err != nil {
 			t.Fatal(err)
 		}
@@ -89,7 +89,7 @@ func TestPrepareCheckinSchemaPreservesSubmittedWorkflowAndHistory(t *testing.T) 
 		LogID: 42, Date: "2026-11-17", Fingerprint: "original", Submitted: true, BeforeUnchecked: true,
 		StartedAt: time.Now().UTC(), Deadline: time.Now().UTC().Add(time.Hour), Status: model.SiteExecutionStatusPending,
 	}}
-	entry := model.SiteCheckinLog{ID: 42, SiteID: 3, AccountID: before.ID, SiteName: "historical site", AccountName: "historical account",
+	entry := model.CheckinLog{ID: 42, SiteID: 3, AccountID: before.ID, SiteName: "historical site", AccountName: "historical account",
 		Platform: model.SitePlatformAPI, Source: "manual", Status: model.SiteExecutionStatusPending, Reason: "pending_confirmation"}
 	if err := conn.Create(&before).Error; err != nil {
 		t.Fatal(err)
@@ -141,10 +141,10 @@ func TestPrepareCheckinSchemaPreservesBatchHistoryAndActiveLease(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = pool.Close() })
-	if err := conn.Migrator().CreateTable(&model.SiteCheckinBatchJob{}); err != nil {
+	if err := conn.Migrator().CreateTable(&model.CheckinBatchJob{}); err != nil {
 		t.Fatal(err)
 	}
-	history := model.SiteCheckinBatchJob{ID: 42, Status: model.SiteCheckinBatchJobStatusCompleted,
+	history := model.CheckinBatchJob{ID: 42, Status: model.SiteCheckinBatchJobStatusCompleted,
 		Trigger: "manual", SiteIDs: []int{3, 4}, Total: 2, Attempted: 2, Success: 1, Pending: 1,
 		StartedAt: time.Now().UTC()}
 	if err := conn.Create(&history).Error; err != nil {

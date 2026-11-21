@@ -28,28 +28,12 @@ type BackupInfo struct {
 }
 
 func RunBackup(ctx context.Context) error {
-	version := 2
-	if db.LegacyRuntime() {
-		version = 1
-	}
-	return RunBackupVersion(ctx, version)
-}
-
-func RunBackupVersion(ctx context.Context, version int) error {
-	if version != 1 && version != 2 || version == 1 && !db.LegacyRuntime() {
-		return backup.ErrFormat
-	}
 	cfg, err := LoadConfig()
 	if err != nil {
 		return err
 	}
 
-	var dump any
-	if version == 2 {
-		dump, err = backup.NewService(db.GetDB()).Export(ctx, false, cfg.IncludeStats)
-	} else {
-		dump, err = op.DBExportAll(ctx, false, cfg.IncludeStats)
-	}
+	dump, err := backup.NewService(db.GetDB()).Export(ctx, false, cfg.IncludeStats)
 	if err != nil {
 		return fmt.Errorf("failed to export database: %w", err)
 	}
@@ -112,17 +96,6 @@ func ListBackups(ctx context.Context) ([]BackupInfo, error) {
 }
 
 func RestoreFromBackup(ctx context.Context, filename string) (*model.DBImportResult, error) {
-	version := 2
-	if db.LegacyRuntime() {
-		version = 1
-	}
-	return RestoreFromBackupVersion(ctx, filename, version)
-}
-
-func RestoreFromBackupVersion(ctx context.Context, filename string, version int) (*model.DBImportResult, error) {
-	if version != 1 && version != 2 || version == 1 && !db.LegacyRuntime() {
-		return nil, backup.ErrFormat
-	}
 	if !isBackupFile(filename) {
 		return nil, fmt.Errorf("invalid backup filename")
 	}
@@ -148,16 +121,7 @@ func RestoreFromBackupVersion(ctx context.Context, filename string, version int)
 		return nil, fmt.Errorf("failed to parse backup: %w", err)
 	}
 	defer document.Close()
-	var result *model.DBImportResult
-	if version == 2 {
-		result, err = backup.NewService(db.GetDB()).Import(ctx, document)
-	} else {
-		var dump *model.DBDump
-		dump, err = document.LegacyDump(ctx)
-		if err == nil {
-			result, err = op.DBImportIncremental(ctx, dump)
-		}
-	}
+	result, err := backup.NewService(db.GetDB()).Import(ctx, document)
 	if err != nil {
 		return nil, fmt.Errorf("failed to import backup: %w", err)
 	}

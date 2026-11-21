@@ -142,7 +142,7 @@ func Analyze(snapshot *Snapshot) (*Report, error) {
 			}
 		} else {
 			p.report.Summary.SubscriptionSites++
-			if site.Kind != "" && site.Kind != model.SiteKindRelay {
+			if site.Kind != "" && site.Kind != model.LegacySiteKindRelay {
 				p.issue("blocker", "invalid_site_kind", "site", site.ID, 0)
 			}
 			if site.CheckinHTTPEnabled || site.CheckinMode == model.SiteCheckinModeEnabled ||
@@ -339,7 +339,7 @@ func (p *preflight) analyzeAccount(site model.LegacySite, account model.LegacySi
 			plan.AuthMode = "bearer"
 			primarySite, primary, primaryValid = p.linkedSource(site, account)
 			primaryValid = primaryValid && site.Platform == model.SitePlatformSub2API && primarySite.Platform == model.SitePlatformSub2API &&
-				primary.CredentialType == model.SiteCredentialTypeAccessToken && strings.TrimSpace(primary.AccessToken) != ""
+				primary.CredentialType == model.LegacySiteCredentialTypeAccessToken && strings.TrimSpace(primary.AccessToken) != ""
 			if primaryValid {
 				plan.Network = p.accountNetwork(primarySite, primary, "blocker")
 			}
@@ -349,7 +349,7 @@ func (p *preflight) analyzeAccount(site model.LegacySite, account model.LegacySi
 		}
 	} else {
 		plan.AuthMode = "platform"
-		if site.LinkedSiteID != nil || account.LinkedAccountID != nil || account.CredentialType == model.SiteCredentialTypeLinkedAccount {
+		if site.LinkedSiteID != nil || account.LinkedAccountID != nil || account.CredentialType == model.LegacySiteCredentialTypeLinkedAccount {
 			primarySite, primary, primaryValid = p.linkedSource(site, account)
 			primaryValid = primaryValid && site.Platform == primarySite.Platform && strings.TrimRight(site.BaseURL, "/") == strings.TrimRight(primarySite.BaseURL, "/")
 		}
@@ -405,17 +405,17 @@ func (p *preflight) analyzeAccount(site model.LegacySite, account model.LegacySi
 }
 
 func platformCredentialValid(platform model.SitePlatform, account model.LegacySiteAccount) bool {
-	if account.CredentialType == model.SiteCredentialTypeUsernamePassword {
+	if account.CredentialType == model.LegacySiteCredentialTypeUsernamePassword {
 		return strings.TrimSpace(account.Username) != "" && strings.TrimSpace(account.Password) != ""
 	}
-	return platform != model.SitePlatformAgentRouter && account.CredentialType == model.SiteCredentialTypeAccessToken && strings.TrimSpace(account.AccessToken) != ""
+	return platform != model.SitePlatformAgentRouter && account.CredentialType == model.LegacySiteCredentialTypeAccessToken && strings.TrimSpace(account.AccessToken) != ""
 }
 
 func balanceCredentialValid(platform model.SitePlatform, account model.LegacySiteAccount) bool {
 	switch platform {
 	case model.SitePlatformSub2API:
-		return (account.CredentialType == model.SiteCredentialTypeAccessToken && strings.TrimSpace(account.AccessToken) != "") ||
-			(account.CredentialType == model.SiteCredentialTypeAPIKey && strings.TrimSpace(account.APIKey) != "")
+		return (account.CredentialType == model.LegacySiteCredentialTypeAccessToken && strings.TrimSpace(account.AccessToken) != "") ||
+			(account.CredentialType == model.LegacySiteCredentialTypeAPIKey && strings.TrimSpace(account.APIKey) != "")
 	case model.SitePlatformNewAPI, model.SitePlatformAnyRouter, model.SitePlatformAgentRouter, model.SitePlatformOneAPI, model.SitePlatformOneHub, model.SitePlatformDoneHub:
 		// AgentRouter balance queries can use an existing token without logging in.
 		return platformCredentialValid(model.SitePlatformNewAPI, account)

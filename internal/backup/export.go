@@ -43,6 +43,9 @@ func (s *Service) Export(ctx context.Context, includeLogs, includeStats bool) (*
 		})
 	})
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		return nil, ErrStorage
 	}
 	return document, nil
@@ -106,6 +109,9 @@ func (s *Service) ExportZIP(ctx context.Context, output io.Writer, includeLogs, 
 		})
 	})
 	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return ErrStorage
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
@@ -140,9 +146,7 @@ func exportConfiguration(tx *gorm.DB, includeLogs, includeStats bool) (*Document
 			return nil, err
 		}
 	}
-	d.Settings = slices.DeleteFunc(d.Settings, func(setting model.Setting) bool {
-		return setting.Key == model.SettingKeyProjectedChannelAutoGroupEnabled
-	})
+	d.Settings = discardRetiredSettings(d.Settings)
 	var sites []model.CheckinSite
 	var accounts []model.CheckinAccount
 	var credentials []model.CheckinCredential

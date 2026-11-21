@@ -11,14 +11,7 @@ import (
 )
 
 func ChannelAutoGroup(channel *model.Channel, ctx context.Context) {
-	if channel == nil {
-		return
-	}
-	ChannelAutoGroupWithMode(channel, channel.AutoGroup, ctx)
-}
-
-func ChannelAutoGroupWithMode(channel *model.Channel, autoGroup model.AutoGroupType, ctx context.Context) {
-	if channel == nil || autoGroup == model.AutoGroupTypeNone || !supportedChannelType(channel.Type) {
+	if channel == nil || channel.AutoGroup == model.AutoGroupTypeNone || !supportedChannelType(channel.Type) {
 		return
 	}
 	groups, err := GroupList(ctx)
@@ -35,7 +28,7 @@ func ChannelAutoGroupWithMode(channel *model.Channel, autoGroup model.AutoGroupT
 	for _, group := range groups {
 		matchedModelNames := make([]string, 0, len(channelModelNames))
 
-		switch autoGroup {
+		switch channel.AutoGroup {
 		case model.AutoGroupTypeExact:
 			for _, modelName := range channelModelNames {
 				if strings.EqualFold(modelName, group.Name) {

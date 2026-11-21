@@ -120,7 +120,7 @@ func (b *conversionBuilder) selectRecords() {
 		if !exists {
 			continue
 		} // A removed source does not invalidate an independent account.
-		if b.planner.sites[source.SiteID].Kind == model.SiteKindCheckin || site.LinkedSiteID == nil || source.SiteID != *site.LinkedSiteID {
+		if b.planner.sites[source.SiteID].Kind == model.LegacySiteKindCheckin || site.LinkedSiteID == nil || source.SiteID != *site.LinkedSiteID {
 			b.result.issue("blocker", "invalid_split_provenance", "account", a.ID, source.ID)
 			continue
 		}
@@ -254,19 +254,19 @@ func (b *conversionBuilder) convertAccounts() {
 		account := old
 		// Only the oldest credential forms support cookie extraction. Explicit
 		// linked/cookie records never fall back to dormant tokens or headers.
-		if oldSite.CheckinHTTPEnabled && !oldSite.CheckinUseSubscriptionToken && account.CredentialType != model.SiteCredentialTypeCookie && account.CredentialType != model.SiteCredentialTypeLinkedAccount {
+		if oldSite.CheckinHTTPEnabled && !oldSite.CheckinUseSubscriptionToken && account.CredentialType != model.LegacySiteCredentialTypeCookie && account.CredentialType != model.LegacySiteCredentialTypeLinkedAccount {
 			account.Cookie = legacyCookie(oldSite, account)
 			b.planner.accounts[id] = account
 		}
 		// Match the earliest split format's explicit provenance upgrade. Newer
 		// Cookie/linked records never fall back to a removed or edited binding.
-		if !oldSite.CheckinHTTPEnabled && account.CredentialType != model.SiteCredentialTypeCookie && account.CredentialType != model.SiteCredentialTypeLinkedAccount && account.LinkedAccountID == nil && account.CheckinSourceAccountID != nil && oldSite.LinkedSiteID != nil {
+		if !oldSite.CheckinHTTPEnabled && account.CredentialType != model.LegacySiteCredentialTypeCookie && account.CredentialType != model.LegacySiteCredentialTypeLinkedAccount && account.LinkedAccountID == nil && account.CheckinSourceAccountID != nil && oldSite.LinkedSiteID != nil {
 			source, found := b.planner.accounts[*account.CheckinSourceAccountID]
 			sourceSite := b.planner.sites[source.SiteID]
 			if found && !sourceSite.IsCheckinOnly() && source.SiteID == *oldSite.LinkedSiteID && sourceSite.Platform == oldSite.Platform && sourceSite.BaseURL == oldSite.BaseURL &&
-				(source.CredentialType == model.SiteCredentialTypeAccessToken || source.CredentialType == model.SiteCredentialTypeUsernamePassword) {
+				(source.CredentialType == model.LegacySiteCredentialTypeAccessToken || source.CredentialType == model.LegacySiteCredentialTypeUsernamePassword) {
 				account.LinkedAccountID = clonePointer(account.CheckinSourceAccountID)
-				account.CredentialType = model.SiteCredentialTypeLinkedAccount
+				account.CredentialType = model.LegacySiteCredentialTypeLinkedAccount
 			}
 		}
 		b.planner.analyzeAccount(oldSite, account)

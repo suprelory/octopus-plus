@@ -61,7 +61,7 @@ func (s *CheckinStore) ListHistory(ctx context.Context, filter SiteCheckinLogFil
 }
 
 func (s *CheckinStore) RewardStats(ctx context.Context, filter SiteCheckinLogFilter) (*model.SiteCheckinStats, error) {
-	return checkinStatsAt(s.conn, &model.CheckinSite{}, ctx, filter, time.Now())
+	return checkinStatsAt(s.conn, ctx, filter, time.Now())
 }
 
 func checkinLogList(conn *gorm.DB, ctx context.Context, filter SiteCheckinLogFilter) (*model.SiteCheckinLogPage, error) {
@@ -88,7 +88,7 @@ const siteCheckinStatsBatchSize = 1000
 
 var checkinRewardNumberRE = regexp.MustCompile(`^\+?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$`)
 
-func checkinStatsAt(conn *gorm.DB, siteModel any, ctx context.Context, filter SiteCheckinLogFilter, now time.Time) (*model.SiteCheckinStats, error) {
+func checkinStatsAt(conn *gorm.DB, ctx context.Context, filter SiteCheckinLogFilter, now time.Time) (*model.SiteCheckinStats, error) {
 	location := filter.Location
 	if location == nil {
 		location = time.Local
@@ -199,7 +199,7 @@ func checkinStatsAt(conn *gorm.DB, siteModel any, ctx context.Context, filter Si
 			Name string
 		}
 		end := min(start+siteCheckinStatsBatchSize, len(siteIDs))
-		if err := conn.WithContext(ctx).Model(siteModel).Select("id", "name").
+		if err := conn.WithContext(ctx).Model(&model.CheckinSite{}).Select("id", "name").
 			Where("id IN ?", siteIDs[start:end]).Find(&sites).Error; err != nil {
 			return nil, fmt.Errorf("load site names for checkin stats: %w", err)
 		}

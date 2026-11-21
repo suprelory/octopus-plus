@@ -15,7 +15,7 @@ import (
 )
 
 func TestCreateAPIKeyEnabledContract(t *testing.T) {
-	ctx := setupSiteHandlerTestDB(t)
+	ctx := setupHandlerTestDB(t)
 	if err := op.InitCache(); err != nil {
 		t.Fatal(err)
 	}

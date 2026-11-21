@@ -20,7 +20,6 @@ const (
 	SettingKeyStatsSaveInterval                SettingKey = "stats_save_interval"        // 将统计信息写入数据库的周期(分钟)
 	SettingKeyModelInfoUpdateInterval          SettingKey = "model_info_update_interval" // 模型信息更新间隔(小时)
 	SettingKeySyncLLMInterval                  SettingKey = "sync_llm_interval"          // LLM 同步间隔(小时)
-	SettingKeySiteSyncInterval                 SettingKey = "site_sync_interval"         // 站点账号同步间隔(小时)
 	SettingKeyRelayLogKeepPeriod               SettingKey = "relay_log_keep_period"      // 日志保存时间范围(天)
 	SettingKeyRelayLogKeepEnabled              SettingKey = "relay_log_keep_enabled"     // 是否保留历史日志
 	SettingKeyRelayLogContentEnabled           SettingKey = "relay_log_content_enabled"
@@ -45,35 +44,44 @@ const (
 	SettingKeyRelayCompactMaxChannelAttempts   SettingKey = "relay_compact_max_channel_attempts"
 	SettingKeyRelayCompactMaxTotalAttempts     SettingKey = "relay_compact_max_total_attempts"
 	SettingKeyRelayCompactTimeoutSeconds       SettingKey = "relay_compact_timeout_seconds"
-	SettingKeyCapabilityDegradationPolicy      SettingKey = "capability_degradation_policy"        // 能力降级策略：allow/warn/strict
-	SettingKeyResponsesWSEnabled               SettingKey = "responses_ws_enabled"                 // 是否启用 OpenAI Responses WS 上游能力（仅客户端 WS 入站）
-	SettingKeyResponsesWSDefaultMode           SettingKey = "responses_ws_default_mode"            // OpenAI Responses WS 默认模式：off/transform/passthrough
-	SettingKeySSEHeartbeatInterval             SettingKey = "sse_heartbeat_interval"               // SSE/WS 流式保活间隔（秒），0 表示禁用
-	SettingKeySSEPreStreamHeartbeatDelay       SettingKey = "sse_pre_stream_heartbeat_delay"       // SSE 上游流建立前心跳首次延迟（秒），0 表示禁用
-	SettingKeyNonStreamKeepAliveInterval       SettingKey = "nonstream_keepalive_interval"         // 非流式 JSON 保活间隔（秒），0 表示禁用
-	SettingKeyProjectedChannelAutoGroupEnabled SettingKey = "projected_channel_auto_group_enabled" // 全局站点投影渠道自动分组模式（0关闭/1模糊/2精确/3正则）
-	SettingKeyJWTSecret                        SettingKey = "jwt_secret"                           // JWT 签名密钥（自动生成）
-	SettingKeyApiBaseUrl                       SettingKey = "api_base_url"                         // 对外服务基础地址，用于一键导出客户端配置，为空时不显示导出入口
-	SettingKeyWebDAVURL                        SettingKey = "webdav_url"                           // WebDAV 服务器地址
-	SettingKeyWebDAVUsername                   SettingKey = "webdav_username"                      // WebDAV 用户名
-	SettingKeyWebDAVPassword                   SettingKey = "webdav_password"                      // WebDAV 密码
-	SettingKeyWebDAVBackupPath                 SettingKey = "webdav_backup_path"                   // WebDAV 远程备份目录
-	SettingKeyWebDAVBackupInterval             SettingKey = "webdav_backup_interval"               // WebDAV 自动备份间隔(小时)，0=禁用
-	SettingKeyWebDAVRetentionCount             SettingKey = "webdav_retention_count"               // WebDAV 保留备份份数
-	SettingKeyWebDAVIncludeStats               SettingKey = "webdav_include_stats"                 // WebDAV 备份是否包含统计数据
-	SettingKeyNotificationChannels             SettingKey = "notification_channels"                // 统一通知渠道配置，JSON
-	SettingKeyCheckinNotifyEnabled             SettingKey = "checkin_notify_enabled"               // 是否发送签到结果通知
-	SettingKeyCheckinNotifySuccessEnabled      SettingKey = "checkin_notify_success_enabled"       // 是否包含成功和已签到结果
-	SettingKeyCheckinNotifyManualEnabled       SettingKey = "checkin_notify_manual_enabled"        // 是否包含手动签到结果
-	SettingKeyCheckinNotifyWebhookURL          SettingKey = "checkin_notify_webhook_url"           // 签到异常通知 Webhook
-	SettingKeyCheckinNotifyCooldownSeconds     SettingKey = "checkin_notify_cooldown_seconds"      // 同一账号/原因通知冷却时间（秒）
-	SettingKeyCheckinLowBalanceThreshold       SettingKey = "checkin_low_balance_threshold"        // 低余额通知阈值，0 表示关闭
-	SettingKeyTurnstileSolverEnabled           SettingKey = "turnstile_solver_enabled"             // 签到 Turnstile 求解总开关
-	SettingKeyTurnstileCloudflareSolverEnabled SettingKey = "turnstile_cloudflare_solver_enabled"  // 是否使用 Cloudflare Solver 平台
-	SettingKeyTurnstileCloudflareSolverAPIKey  SettingKey = "turnstile_cloudflare_solver_api_key"  // Cloudflare Solver 令牌
-	SettingKeyTurnstileSolverQEnabled          SettingKey = "turnstile_solverq_enabled"            // 是否使用 SolverQ 平台
-	SettingKeyTurnstileSolverQAPIKey           SettingKey = "turnstile_solverq_api_key"            // SolverQ 令牌
+	SettingKeyCapabilityDegradationPolicy      SettingKey = "capability_degradation_policy"       // 能力降级策略：allow/warn/strict
+	SettingKeyResponsesWSEnabled               SettingKey = "responses_ws_enabled"                // 是否启用 OpenAI Responses WS 上游能力（仅客户端 WS 入站）
+	SettingKeyResponsesWSDefaultMode           SettingKey = "responses_ws_default_mode"           // OpenAI Responses WS 默认模式：off/transform/passthrough
+	SettingKeySSEHeartbeatInterval             SettingKey = "sse_heartbeat_interval"              // SSE/WS 流式保活间隔（秒），0 表示禁用
+	SettingKeySSEPreStreamHeartbeatDelay       SettingKey = "sse_pre_stream_heartbeat_delay"      // SSE 上游流建立前心跳首次延迟（秒），0 表示禁用
+	SettingKeyNonStreamKeepAliveInterval       SettingKey = "nonstream_keepalive_interval"        // 非流式 JSON 保活间隔（秒），0 表示禁用
+	SettingKeyJWTSecret                        SettingKey = "jwt_secret"                          // JWT 签名密钥（自动生成）
+	SettingKeyApiBaseUrl                       SettingKey = "api_base_url"                        // 对外服务基础地址，用于一键导出客户端配置，为空时不显示导出入口
+	SettingKeyWebDAVURL                        SettingKey = "webdav_url"                          // WebDAV 服务器地址
+	SettingKeyWebDAVUsername                   SettingKey = "webdav_username"                     // WebDAV 用户名
+	SettingKeyWebDAVPassword                   SettingKey = "webdav_password"                     // WebDAV 密码
+	SettingKeyWebDAVBackupPath                 SettingKey = "webdav_backup_path"                  // WebDAV 远程备份目录
+	SettingKeyWebDAVBackupInterval             SettingKey = "webdav_backup_interval"              // WebDAV 自动备份间隔(小时)，0=禁用
+	SettingKeyWebDAVRetentionCount             SettingKey = "webdav_retention_count"              // WebDAV 保留备份份数
+	SettingKeyWebDAVIncludeStats               SettingKey = "webdav_include_stats"                // WebDAV 备份是否包含统计数据
+	SettingKeyNotificationChannels             SettingKey = "notification_channels"               // 统一通知渠道配置，JSON
+	SettingKeyCheckinNotifyEnabled             SettingKey = "checkin_notify_enabled"              // 是否发送签到结果通知
+	SettingKeyCheckinNotifySuccessEnabled      SettingKey = "checkin_notify_success_enabled"      // 是否包含成功和已签到结果
+	SettingKeyCheckinNotifyManualEnabled       SettingKey = "checkin_notify_manual_enabled"       // 是否包含手动签到结果
+	SettingKeyCheckinNotifyWebhookURL          SettingKey = "checkin_notify_webhook_url"          // 签到异常通知 Webhook
+	SettingKeyCheckinNotifyCooldownSeconds     SettingKey = "checkin_notify_cooldown_seconds"     // 同一账号/原因通知冷却时间（秒）
+	SettingKeyCheckinLowBalanceThreshold       SettingKey = "checkin_low_balance_threshold"       // 低余额通知阈值，0 表示关闭
+	SettingKeyTurnstileSolverEnabled           SettingKey = "turnstile_solver_enabled"            // 签到 Turnstile 求解总开关
+	SettingKeyTurnstileCloudflareSolverEnabled SettingKey = "turnstile_cloudflare_solver_enabled" // 是否使用 Cloudflare Solver 平台
+	SettingKeyTurnstileCloudflareSolverAPIKey  SettingKey = "turnstile_cloudflare_solver_api_key" // Cloudflare Solver 令牌
+	SettingKeyTurnstileSolverQEnabled          SettingKey = "turnstile_solverq_enabled"           // 是否使用 SolverQ 平台
+	SettingKeyTurnstileSolverQAPIKey           SettingKey = "turnstile_solverq_api_key"           // SolverQ 令牌
 )
+
+// These v1 keys can still appear in migrated databases and backups.
+const (
+	SettingKeySiteSyncInterval                 SettingKey = "site_sync_interval"
+	SettingKeyProjectedChannelAutoGroupEnabled SettingKey = "projected_channel_auto_group_enabled"
+)
+
+func (key SettingKey) Retired() bool {
+	return key == SettingKeySiteSyncInterval || key == SettingKeyProjectedChannelAutoGroupEnabled
+}
 
 type Setting struct {
 	Key   SettingKey `json:"key" gorm:"primaryKey"`
@@ -88,7 +96,6 @@ func DefaultSettings() []Setting {
 		{Key: SettingKeyCORSAllowOrigins, Value: ""},          // CORS 默认不允许跨域，设置为 "*" 才允许所有来源
 		{Key: SettingKeyModelInfoUpdateInterval, Value: "24"}, // 默认24小时更新一次模型信息
 		{Key: SettingKeySyncLLMInterval, Value: "24"},         // 默认24小时同步一次LLM
-		{Key: SettingKeySiteSyncInterval, Value: "12"},        // 默认12小时同步一次站点账号信息
 		{Key: SettingKeyRelayLogKeepPeriod, Value: "7"},       // 默认日志保存7天
 		{Key: SettingKeyRelayLogKeepEnabled, Value: "true"},   // 默认保留历史日志
 		{Key: SettingKeyRelayLogContentEnabled, Value: "true"},
@@ -118,7 +125,6 @@ func DefaultSettings() []Setting {
 		{Key: SettingKeySSEHeartbeatInterval, Value: "0"},             // 默认禁用 SSE 流式心跳
 		{Key: SettingKeySSEPreStreamHeartbeatDelay, Value: "0"},       // 默认禁用 SSE 上游流建立前心跳
 		{Key: SettingKeyNonStreamKeepAliveInterval, Value: "0"},       // 默认禁用非流式保活
-		{Key: SettingKeyProjectedChannelAutoGroupEnabled, Value: "0"}, // 默认不强制站点投影渠道自动分组
 		{Key: SettingKeyJWTSecret, Value: ""},                         // 为空时自动生成
 		{Key: SettingKeyApiBaseUrl, Value: ""},                        // 默认为空，不显示客户端导出入口
 		{Key: SettingKeyWebDAVURL, Value: ""},                         // 默认为空，未配置

@@ -14,7 +14,7 @@
 | P3 独立签到执行 | 已完成 | HTTP/内置平台、会话、调度/批次、余额收益、持久化通知及三种数据库服务验收通过 |
 | P4 新 API 与前端 | 已完成 | 独立 API、签到页面与全局 v2 界面完成；生产默认已由 P5.4 切换 |
 | P5 数据迁移与备份 | 已完成 | P5.1 转换器/迁移日志、P5.2 离线迁移、P5.3 备份导入及 P5.4 生产运行时切换完成 |
-| P6 删除旧模块与发布验收 | 进行中（P6.1 完成） | 移除订阅/投影运行时、更新文档、完成完整回归 |
+| P6 删除旧模块与发布验收 | 进行中（P6.2 已完成，下一步 P6.3） | 移除订阅/投影运行时、更新文档、完成完整回归 |
 
 开发按阶段推进。正式切换前必须同时完成迁移、接口和运行时适配，不在新旧服务之间双写。P1 的离线工具不执行数据库迁移。
 
@@ -375,13 +375,15 @@ P5.1 调用边界与转换约定：
 - 渠道转换输出保留原 ID、Key、GroupItem、分组预设、启停/同步状态和普通统计，只展开投影全局 AutoGroup 并清除临时托管元数据。输出待解除的绑定 ID；数据库解除绑定在 P5.2 执行。旧站点模型统计单独保留，不叠加到普通渠道累计值。
 - `PrepareJournalSchema` 只创建 `v2_migration_runs/stages/mappings`，DDL 在业务事务外执行。`Journal.Open` 固定来源与输入指纹，`Apply` 依序处理 sites → credentials → accounts → channels → history → verify；回调只能使用给定事务，不能执行 DDL、网络请求或外部副作用。失败记录只存稳定错误码；`Mappings` 读取已提交映射。离线 `migrate v2-database` 负责实际转换，生产启动只检查完成证据，不自动调用迁移；代码阶段完成不表示已迁移实际生产库。
 
-下一阶段为 P6：删除已退出运行时的订阅/投影/旧签到模块、旧路由注册和 `InitLegacyDB` / `LegacyRuntime` 兼容分支；将仍被普通渠道和迁移使用的公共函数、旧 DTO 明确归位，再移除旧界面、构建开关及专属测试。保留 version 1 备份与数据库转换能力；更新 CHECKIN/LOGGING 等旧专题文档，完成无旧表运行、迁移恢复及完整发布回归。旧归档表的清理须独立设计，不在日常启动中自动删除。
+P6 保留 v1 备份读取、离线数据库转换和启动时的迁移检查。日常启动保留旧归档表，物理清理另行设计。
 
 P6 分阶段按可验证的边界推进：
 
-- **P6.1 共享逻辑和旧数据边界（已完成）**：普通渠道分组函数位于 `internal/op/channel_auto_group.go`；状态规则校验复用独立 HTTP 请求约束，不再临时构造旧 `Site`。平台、能力、时区、状态及历史类型归入签到模型文件；旧站点/账号、站点模型统计和 v1 完整备份输入显式使用 `Legacy*` 类型，原名称只保留类型别名。v1 JSON 字段顺序及迁移检查点/备份指纹有固定回归值。共享签到历史查询归入 `CheckinStore`；旧数据库历史列升级移入 `internal/migration/v1`，仍由离线 v2 迁移调用。一般渠道、用户、日志、代理、WS 亲和及 relay 测试使用隔离 v2 schema；需要站点或 v1 增量导入的测试仍使用旧 schema。普通渠道 exact/fuzzy/ECMAScript regex 分组在无订阅表的新库通过回归。
-- **P6.2 后端运行时代码清理（下一阶段）**：移除旧站点同步、投影、旧签到执行服务和生产兼容分支；将迁移/备份所需旧结构限制在转换边界。保留 v1 JSON/ZIP 读取及数据库转换入口。
-- **P6.3 前端和文档清理**：移除 `NEXT_PUBLIC_V2_UI` 与旧订阅界面，清理过时指南和专属 UI 测试。
+- **P6.1 共享逻辑和旧数据边界（已完成）**。普通渠道自动分组归入 `internal/op/channel_auto_group.go`，独立签到管理请求校验、历史查询及收益统计。v1 记录与备份使用显式 `Legacy*` 类型，旧历史列升级归入 `internal/migration/v1`。固定指纹回归覆盖 v1 JSON 序列化，普通渠道三种分组模式均在无订阅表的新库验证。
+- **P6.2 后端运行时代码清理（已完成）**
+  - **P6.2.1 备份入口统一**。HTTP、手动和定时 WebDAV 导出 v2。恢复入口按文件版本读取 v1 JSON/ZIP 并转换，保留原文件指纹去重。导出与恢复均跳过订阅同步间隔和投影全局设置。
+  - **P6.2.2 运行时代码清理**。删除 `internal/site`、`internal/sitesync`、旧管理路由、订阅任务、投影渠道写入、转发路由学习以及 `InitLegacyDB`、`LegacyRuntime`。转发只累计普通统计，旧站点模型统计通过归档恢复。签到使用独立站点、账号与凭据。保留旧备份和数据库转换所需的记录、原表名、序列化顺序及工作流指纹。
+- **P6.3 前端和文档清理（下一步）**。移除 `NEXT_PUBLIC_V2_UI`、旧订阅界面和投影渠道页签，更新签到操作指南、前端构建和浏览器用例。
 - **P6.4 发布验收**：在不含订阅表的新库执行渠道、转发、代理和签到回归；验证 v1 转换、备份恢复与迁移断点重试，并完成数据库、竞态、静态检查及前端验收。
 
 ## 开发记录
@@ -410,3 +412,5 @@ P6 分阶段按可验证的边界推进：
 - 2026-11-21：完成 P5.4 生产运行时切换。新启动入口检查离线迁移完成证据与关键状态表，默认装配共享独立签到服务、API、调度、批次、余额和通知；普通渠道/分组/代理/转发/统计退出订阅查询，默认备份、WebDAV 与前端使用 v2。增加任务和服务关闭准入、取消、在途保存等待及超时退出保护，更新 API/README/前端说明和 CI。P5 标记完成，下一阶段为 P6 旧模块与临时兼容分支删除。
 - 2026-11-21：P5.4 验证通过 `go test ./... -count=1 -timeout=180s`、`go test -race ./internal/checkin ./internal/db ./internal/task ./internal/server/... ./internal/webdav ./internal/migration/v2 -count=1 -timeout=180s`、普通渠道/转发竞态测试、`go vet ./...`、`go build -tags=jsoniter ./...` 和 jsoniter 生产路由测试。补充门禁/关闭修正后通过 `go test -race ./internal/db ./internal/checkin ./internal/task ./internal/migration/v2 -run 'TestRuntime|TestServices|TestJobs|TestBatch' -count=1 -v -timeout=180s`，最后关闭响应契约修正后 `go test -race ./internal/server ./internal/server/middleware -count=1 -timeout=120s`、vet 和构建再次通过。数据层完整竞态初次因现有日志清理用例批量准备 SQLite 数据超过 180 秒而超时，改用 `go test -race ./internal/op -count=1 -timeout=10m` 后完整通过（约 241 秒）；转发包竞态通过。上述外部数据库测试使用隔离 DSN，MySQL 8.4.4 / PostgreSQL 17.5 实际执行。前端 `pnpm test`（63 项）、TypeScript、lint、`pnpm test:e2e:v2`（28 项）和默认 `pnpm build` 通过，gofmt 与 diff 检查通过。本轮只复用隔离测试服务和本机 HTTP 替身，重新启动的 PostgreSQL 实例已停止并保留测试目录，既有服务未停止；未操作生产配置/数据库，未提交或推送。
 - 2026-11-21：完成 P6.1。普通渠道自动分组与投影代码分离，独立签到和旧签到共用 HTTP 规则校验、历史筛选及收益查询。旧站点、账号、投影关联和 v1 备份使用显式 `Legacy*` 类型，旧历史表升级归入 `internal/migration/v1`。新增无订阅表的普通渠道分组回归和 v1 指纹回归。
+- 2026-11-22，完成 P6.2。删除旧增量导入器、订阅运行时与专属测试。备份快照一致性、ZIP 下载前释放数据库连接、分组预设、事务回滚、历史统计、调度配置和通知等用例迁至 v2 路径。新增回归覆盖带旧托管字段的渠道创建后仍可作为普通渠道使用，以及 v1/v2 备份只恢复有效设置。CI 竞态命令纳入备份、数据库和模型包。
+- 2026-11-22，P6.2 验证通过 `go test ./... -count=1 -timeout=10m`、`go vet ./...`、`go build -tags=jsoniter ./...`、gofmt 和差异检查。受影响包通过 `go test -race ./cmd ./internal/backup ./internal/checkin/... ./internal/db ./internal/migration/... ./internal/model ./internal/op ./internal/relay/... ./internal/server/... ./internal/task ./internal/webdav -count=1 -timeout=10m`。最后的模型及渠道修正补跑了模型、迁移和备份包竞态，以及普通分组、渠道列表、实际转发和备份恢复的运行时竞态用例。`go test -tags=jsoniter ./internal/backup ./internal/migration/v2 ./internal/model ./internal/server/handlers -count=1 -timeout=10m` 通过。本轮使用隔离 SQLite 和本机 HTTP/WebDAV 测试服务，MySQL、PostgreSQL 集成用例因缺少测试 DSN 跳过。

@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/glebarez/sqlite"
-	"github.com/suprelory/octopus-plus/internal/migration/v1"
-	"github.com/suprelory/octopus-plus/internal/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -52,24 +50,6 @@ func OpenMigrationConnection(dbType, dsn string, preview bool) (*gorm.DB, error)
 	}
 	pool.SetMaxOpenConns(1)
 	return conn, nil
-}
-
-// InitLegacyDB is retained for legacy compatibility fixtures until P6. The
-// application start command uses InitDB and cannot select this initializer.
-func InitLegacyDB(dbType, dsn string, debug bool) error {
-	conn, err := openConnection(dbType, dsn, debug)
-	if err != nil {
-		return err
-	}
-	if err := initializeSchema(conn); err != nil {
-		if pool, poolErr := conn.DB(); poolErr == nil {
-			_ = pool.Close()
-		}
-		return err
-	}
-	db = conn
-	legacyRuntime.Store(true)
-	return nil
 }
 
 func openConnection(dbType, dsn string, debug bool) (*gorm.DB, error) {
@@ -116,153 +96,6 @@ func openConnection(dbType, dsn string, debug bool) (*gorm.DB, error) {
 	}
 
 	return db, nil
-}
-
-// Create missing tables and apply only targeted compatibility migrations to
-// existing schemas.
-func initializeSchema(db *gorm.DB) error {
-	models := []interface{}{
-		&model.User{},
-		&model.Channel{},
-		&model.ChannelKey{},
-		&model.ProxyConfiguration{},
-		&model.Site{},
-		&model.SiteAccount{},
-		&model.SiteCheckinLog{},
-		&model.SiteCheckinBatchJob{},
-		&model.SiteToken{},
-		&model.SiteUserGroup{},
-		&model.SiteModel{},
-		&model.SiteChannelBinding{},
-		&model.Group{},
-		&model.GroupItem{},
-		&model.GroupPreset{},
-		&model.LLMInfo{},
-		&model.APIKey{},
-		&model.Setting{},
-		&model.StatsTotal{},
-		&model.StatsDaily{},
-		&model.StatsHourly{},
-		&model.StatsChannel{},
-		&model.StatsAPIKey{},
-		&model.StatsSiteModelHourly{},
-		&model.WSResponseAffinity{},
-		&model.RelayLog{},
-		&model.RelayRequestContent{},
-		&model.RelayAttemptContent{},
-	}
-	for _, table := range models {
-		if !db.Migrator().HasTable(table) {
-			if err := db.Migrator().CreateTable(table); err != nil {
-				return err
-			}
-		}
-	}
-	if err := ensureStatsHourlyHourKey(db); err != nil {
-		return err
-	}
-	if err := ensureSiteCheckinHTTPColumns(db); err != nil {
-		return err
-	}
-	if err := ensureSiteCheckinCapabilityColumns(db); err != nil {
-		return err
-	}
-	if err := ensureSiteKindColumns(db); err != nil {
-		return err
-	}
-	if err := ensureSiteCheckinCredentialColumns(db); err != nil {
-		return err
-	}
-	if err := ensureSiteAccountSessionColumns(db); err != nil {
-		return err
-	}
-	if err := ensureSiteNameScope(db); err != nil {
-		return err
-	}
-	if err := ensureSiteCheckinBatchJobSchema(db); err != nil {
-		return err
-	}
-	return SeparateLegacySiteCheckins(db)
-}
-
-func ensureSiteCheckinBatchJobSchema(db *gorm.DB) error {
-	if err := v1.PrepareCheckinHistorySchema(db); err != nil {
-		return err
-	}
-
-	var interruptedCount int64
-	if err := db.Model(&model.SiteCheckinBatchJob{}).
-		Where("status IN ?", []model.SiteCheckinBatchJobStatus{model.SiteCheckinBatchJobStatusQueued, model.SiteCheckinBatchJobStatusRunning}).
-		Count(&interruptedCount).Error; err != nil {
-		return fmt.Errorf("count unfinished site checkin batch jobs: %w", err)
-	}
-	if interruptedCount == 0 {
-		return nil
-	}
-	now := time.Now().UTC()
-	if err := db.Model(&model.SiteCheckinBatchJob{}).
-		Where("status IN ?", []model.SiteCheckinBatchJobStatus{model.SiteCheckinBatchJobStatusQueued, model.SiteCheckinBatchJobStatusRunning}).
-		Updates(map[string]any{
-			"status":        model.SiteCheckinBatchJobStatusInterrupted,
-			"error_message": "server restarted before the batch finished",
-			"updated_at":    now,
-			"finished_at":   now,
-		}).Error; err != nil {
-		return fmt.Errorf("mark unfinished site checkin batch jobs interrupted: %w", err)
-	}
-	return nil
-}
-
-func ensureSiteCheckinHTTPColumns(db *gorm.DB) error {
-	for _, column := range []string{"CheckinHTTPEnabled", "CheckinUseSubscriptionToken", "CheckinHTTPMethod", "CheckinHTTPPath", "CheckinHTTPBody", "CheckinHTTPHeaders", "CheckinRewardExtractor", "CheckinStatus"} {
-		if db.Migrator().HasColumn(&model.Site{}, column) {
-			continue
-		}
-		if err := db.Migrator().AddColumn(&model.Site{}, column); err != nil {
-			return fmt.Errorf("add site column %s: %w", column, err)
-		}
-	}
-	if !db.Migrator().HasColumn(&model.SiteAccount{}, "CheckinPending") {
-		if err := db.Migrator().AddColumn(&model.SiteAccount{}, "CheckinPending"); err != nil {
-			return fmt.Errorf("add checkin pending state: %w", err)
-		}
-	}
-	return nil
-}
-
-func ensureSiteCheckinCapabilityColumns(db *gorm.DB) error {
-	for _, column := range []string{"CheckinMode", "CheckinVerificationStatus", "CheckinVerificationFingerprint", "CheckinVerifiedAt"} {
-		if db.Migrator().HasColumn(&model.Site{}, column) {
-			continue
-		}
-		if err := db.Migrator().AddColumn(&model.Site{}, column); err != nil {
-			return fmt.Errorf("add site column %s: %w", column, err)
-		}
-	}
-	return nil
-}
-
-// Existing sites become subscription (relay) sites through the column default.
-func ensureSiteKindColumns(db *gorm.DB) error {
-	for _, column := range []string{"Kind", "LinkedSiteID"} {
-		if db.Migrator().HasColumn(&model.Site{}, column) {
-			continue
-		}
-		if err := db.Migrator().AddColumn(&model.Site{}, column); err != nil {
-			return fmt.Errorf("add site column %s: %w", column, err)
-		}
-	}
-	if !db.Migrator().HasColumn(&model.SiteAccount{}, "CheckinSourceAccountID") {
-		if err := db.Migrator().AddColumn(&model.SiteAccount{}, "CheckinSourceAccountID"); err != nil {
-			return fmt.Errorf("add check-in account migration reference: %w", err)
-		}
-	}
-	if !db.Migrator().HasIndex(&model.SiteAccount{}, "CheckinSourceAccountID") {
-		if err := db.Migrator().CreateIndex(&model.SiteAccount{}, "CheckinSourceAccountID"); err != nil {
-			return fmt.Errorf("index check-in account migration reference: %w", err)
-		}
-	}
-	return nil
 }
 
 func initSQLite(path string, config *gorm.Config) (*gorm.DB, error) {

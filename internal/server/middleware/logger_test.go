@@ -56,7 +56,7 @@ func TestAuditRecordsZeroValueChangesWithoutRequestValues(t *testing.T) {
 	entries := captureRequestLogs(t)
 	router := gin.New()
 	router.Use(Logger(LoggerConfig{}))
-	router.POST("/api/v1/site/account/update", func(c *gin.Context) {
+	router.POST("/api/v1/channel/update", func(c *gin.Context) {
 		c.Set(adminAuthenticatedKey, true)
 		var request struct {
 			ID       int     `json:"id"`
@@ -69,7 +69,7 @@ func TestAuditRecordsZeroValueChangesWithoutRequestValues(t *testing.T) {
 		AuditChanges(c, request.ID, &request)
 		resp.Success(c, nil)
 	})
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/site/account/update", strings.NewReader(`{"id":42,"enabled":false,"password":"opaque-private-value"}`))
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/channel/update", strings.NewReader(`{"id":42,"enabled":false,"password":"opaque-private-value"}`))
 	request.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(httptest.NewRecorder(), request)
 	if entries.Len() != 1 {
@@ -86,12 +86,12 @@ func TestLoggerKeepsPollingQuietAndRecordsBusinessTestFailure(t *testing.T) {
 	router := gin.New()
 	router.Use(Logger(LoggerConfig{}))
 	router.Use(func(c *gin.Context) { c.Set(adminAuthenticatedKey, true); c.Next() })
-	router.GET("/api/v1/site/list", func(c *gin.Context) { resp.Success(c, nil) })
+	router.GET("/api/v1/channel/list", func(c *gin.Context) { resp.Success(c, nil) })
 	router.POST("/api/v1/proxy-pool/test", func(c *gin.Context) {
 		AuditResult(c, false, "reason", "connection refused")
 		resp.Success(c, nil)
 	})
-	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/v1/site/list", nil))
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/v1/channel/list", nil))
 	if entries.Len() != 0 {
 		t.Fatal("polling produced an access log")
 	}

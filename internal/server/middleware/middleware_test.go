@@ -64,7 +64,7 @@ func TestBodyLimitForPath(t *testing.T) {
 		{"/v1/images/edits", 0},
 		// 导入端点上传数据库快照，给宽松但有界的上限。
 		{"/api/v1/setting/import", importLimit},
-		{"/api/v1/site/import/all-api-hub", importLimit},
+		{"/api/v1/site/import/all-api-hub", base},
 	}
 
 	for _, tc := range cases {

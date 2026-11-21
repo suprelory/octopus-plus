@@ -3,7 +3,6 @@ package op
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/utils/log"
@@ -27,13 +26,8 @@ func (s *dbImportState) importProxies() error {
 
 		var existing model.ProxyConfiguration
 		if err := tx.Where("url = ?", proxyConfig.URL).First(&existing).Error; err == nil {
-			if s.strict && proxyConfig.Enabled != existing.Enabled {
+			if proxyConfig.Enabled != existing.Enabled {
 				return ErrBackupConflict
-			}
-			if !s.strict && proxyConfig.Enabled && !existing.Enabled {
-				if err := tx.Model(&existing).Update("enabled", true).Error; err != nil {
-					return fmt.Errorf("import proxy_configurations: %w", err)
-				}
 			}
 			proxyConfigIDMap[oldID] = existing.ID
 			continue
@@ -41,19 +35,7 @@ func (s *dbImportState) importProxies() error {
 			return fmt.Errorf("import proxy_configurations: %w", err)
 		}
 		if err := tx.Where("name = ?", proxyConfig.Name).First(&existing).Error; err == nil {
-			if s.strict {
-				return ErrBackupConflict
-			}
-			oldName := proxyConfig.Name
-			proxyConfig.Name = uniqueProxyConfigName(proxyConfig.Name, tx)
-			log.Warnw("proxy configuration name conflict during import",
-				"old_id", oldID,
-				"existing_id", existing.ID,
-				"existing_url", existing.URL,
-				"import_url", proxyConfig.URL,
-				"old_name", oldName,
-				"new_name", proxyConfig.Name,
-			)
+			return ErrBackupConflict
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("import proxy_configurations: %w", err)
 		}
@@ -91,24 +73,7 @@ func (s *dbImportState) importChannels() error {
 
 		var existing model.Channel
 		if err := tx.Where("name = ?", ch.Name).First(&existing).Error; err == nil {
-			if s.strict {
-				return ErrBackupConflict
-			}
-			// Reuse a name only when its protocol matches the imported channel.
-			if existing.Type == ch.Type {
-				channelIDMap[oldID] = existing.ID
-				continue
-			}
-			oldName := ch.Name
-			ch.Name = uniqueChannelName(ch.Name, tx)
-			log.Warnw("channel name conflict with different protocol during import",
-				"old_id", oldID,
-				"existing_id", existing.ID,
-				"old_name", oldName,
-				"new_name", ch.Name,
-				"existing_type", existing.Type,
-				"import_type", ch.Type,
-			)
+			return ErrBackupConflict
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("import channels: %w", err)
 		}
@@ -183,10 +148,8 @@ func (s *dbImportState) resolveChannel(sourceID int) (resolvedImportChannel, err
 		return cached, nil
 	}
 
-	targetID := sourceID
-	if remappedID, ok := channelIDMap[sourceID]; ok {
-		targetID = remappedID
-	} else if s.strict {
+	targetID, ok := channelIDMap[sourceID]
+	if !ok {
 		// Source IDs are not identities in another database. Retained statistics
 		// for deleted channels must never overwrite an unrelated target channel.
 		resolvedChannels[sourceID] = resolvedImportChannel{}
@@ -208,44 +171,6 @@ func (s *dbImportState) resolveChannel(sourceID int) (resolvedImportChannel, err
 	}
 	resolvedChannels[sourceID] = resolved
 	return resolved, nil
-}
-
-func uniqueProxyConfigName(baseName string, tx *gorm.DB) string {
-	baseName = strings.TrimSpace(baseName)
-	if baseName == "" {
-		baseName = "imported-proxy"
-	}
-	candidate := baseName
-	index := 2
-	for {
-		var count int64
-		if err := tx.Model(&model.ProxyConfiguration{}).Where("name = ?", candidate).Count(&count).Error; err != nil {
-			return candidate
-		}
-		if count == 0 {
-			return candidate
-		}
-		candidate = fmt.Sprintf("%s (%d)", baseName, index)
-		index++
-	}
-}
-
-func uniqueChannelName(baseName string, tx *gorm.DB) string {
-	baseName = strings.TrimSpace(baseName)
-	if baseName == "" {
-		baseName = "imported-channel"
-	}
-	candidate := baseName
-	for index := 2; ; index++ {
-		var count int64
-		if err := tx.Model(&model.Channel{}).Where("name = ?", candidate).Count(&count).Error; err != nil {
-			return candidate
-		}
-		if count == 0 {
-			return candidate
-		}
-		candidate = fmt.Sprintf("%s (%d)", baseName, index)
-	}
 }
 
 func remapProxyConfigID(mode *model.ProxyUsageMode, id **int, idMap map[int]int) {

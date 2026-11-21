@@ -5,15 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func loadLegacyStatsModels(conn *gorm.DB) ([]model.StatsModel, error) {
-	rows := []model.StatsModel{}
-	if !conn.Migrator().HasTable(&model.StatsModel{}) {
-		return rows, nil
-	}
-	err := conn.Order("id ASC").Find(&rows).Error
-	return rows, err
-}
-
 func importLegacyStatsModels(tx *gorm.DB, rows []model.StatsModel) (int64, error) {
 	// IDs change when channels and records are restored. Compare the remapped
 	// channel, model name and all metrics so identical imports are idempotent,

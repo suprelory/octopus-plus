@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/backup"
 	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/op"
@@ -27,7 +29,7 @@ func TestRestoreAppliesTrustedProxiesForJSONAndWebDAV(t *testing.T) {
 			{"invalid", "not-an-ip-or-cidr", 0, true},
 		} {
 			t.Run(source+"/"+tc.name, func(t *testing.T) {
-				ctx := setupSiteHandlerTestDB(t)
+				ctx := setupHandlerTestDB(t)
 				if err := op.InitCache(); err != nil {
 					t.Fatal(err)
 				}
@@ -38,7 +40,7 @@ func TestRestoreAppliesTrustedProxiesForJSONAndWebDAV(t *testing.T) {
 				if middleware.TrustedProxyCount() != 2 {
 					t.Fatal("initial trust setting was not applied")
 				}
-				dump := model.DBDump{Version: 1, Settings: []model.Setting{{Key: model.SettingKeyTrustedProxies, Value: tc.value}}}
+				dump := model.LegacyDBDump{Version: 1, ExportedAt: time.Now().UTC(), Settings: []model.Setting{{Key: model.SettingKeyTrustedProxies, Value: tc.value}}}
 				data, err := json.Marshal(dump)
 				if err != nil {
 					t.Fatal(err)
@@ -93,6 +95,44 @@ func TestRestoreAppliesTrustedProxiesForJSONAndWebDAV(t *testing.T) {
 					t.Fatalf("restored resolver retained old trust: %s", ip)
 				}
 			})
+		}
+	}
+}
+
+func TestNotificationSettingsSurviveBackupRestoreAndCacheRefresh(t *testing.T) {
+	ctx := setupHandlerTestDB(t)
+	if err := op.InitCache(); err != nil {
+		t.Fatal(err)
+	}
+	values := map[model.SettingKey]string{
+		model.SettingKeyNotificationChannels:        `{"webhook_url":"https://example.com/notify","telegram_bot_token":"123:test-token","telegram_chat_id":"-100123"}`,
+		model.SettingKeyCheckinNotifyEnabled:        "true",
+		model.SettingKeyCheckinNotifySuccessEnabled: "true",
+		model.SettingKeyCheckinNotifyManualEnabled:  "true",
+	}
+	for key, value := range values {
+		if err := op.SettingSetString(key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	service := backup.NewService(db.GetDB())
+	dump, err := service.Export(ctx, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := op.SettingSetString(model.SettingKeyNotificationChannels, `{}`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Import(ctx, dump); err != nil {
+		t.Fatal(err)
+	}
+	if err := op.RefreshCacheAfterImport(); err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range values {
+		got, err := op.SettingGetString(key)
+		if err != nil || got != want {
+			t.Fatalf("notification setting %s was not restored", key)
 		}
 	}
 }

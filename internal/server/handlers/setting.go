@@ -1,13 +1,11 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -19,10 +17,7 @@ import (
 	"github.com/suprelory/octopus-plus/internal/server/resp"
 	"github.com/suprelory/octopus-plus/internal/server/router"
 	"github.com/suprelory/octopus-plus/internal/utils/log"
-	"github.com/suprelory/octopus-plus/internal/utils/safe"
 )
-
-var projectedAutoGroupQueued atomic.Bool
 
 func init() {
 	router.NewGroupRouter("/api/v1/setting").
@@ -70,26 +65,11 @@ func setSetting(c *gin.Context) {
 		resp.InternalErrorWithLog(c, err)
 		return
 	}
-	switch setting.Key {
-	case model.SettingKeyProjectedChannelAutoGroupEnabled:
-		mode, _ := model.ParseAutoGroupSettingValue(setting.Value)
-		if mode != model.AutoGroupTypeNone && projectedAutoGroupQueued.CompareAndSwap(false, true) {
-			safe.Go("projected-channel-auto-group-all", func() {
-				defer projectedAutoGroupQueued.Store(false)
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-				defer cancel()
-				if err := op.AutoGroupAllProjectedChannels(ctx); err != nil {
-					log.Warnf("failed to auto group all projected channels: %v", err)
-				}
-			})
-		}
-	}
 	resp.Success(c, setting)
 }
 
 func exportDB(c *gin.Context) {
-	version, ok := backupVersion(c)
-	if !ok {
+	if !validBackupVersion(c) {
 		return
 	}
 	includeLogs, _ := strconv.ParseBool(c.DefaultQuery("include_logs", "false"))
@@ -106,11 +86,7 @@ func exportDB(c *gin.Context) {
 		c.Header("Content-Type", "application/zip")
 		c.Header("Content-Disposition", "attachment; filename=\""+filename+"\"")
 		wrapper := &countingResponseWriter{ResponseWriter: c.Writer}
-		export := op.DBExportZip
-		if version == 2 {
-			export = backup.NewService(db.GetDB()).ExportZIP
-		}
-		if err := export(c.Request.Context(), wrapper, includeLogs, includeStats); err != nil {
+		if err := backup.NewService(db.GetDB()).ExportZIP(c.Request.Context(), wrapper, includeLogs, includeStats); err != nil {
 			if wrapper.bytesWritten == 0 {
 				c.Header("Content-Type", "application/json")
 				c.Header("Content-Disposition", "")
@@ -124,13 +100,7 @@ func exportDB(c *gin.Context) {
 		return
 	}
 
-	var dump any
-	var err error
-	if version == 2 {
-		dump, err = backup.NewService(db.GetDB()).Export(c.Request.Context(), includeLogs, includeStats)
-	} else {
-		dump, err = op.DBExportAll(c.Request.Context(), includeLogs, includeStats)
-	}
+	dump, err := backup.NewService(db.GetDB()).Export(c.Request.Context(), includeLogs, includeStats)
 	if err != nil {
 		resp.InternalErrorWithLog(c, err)
 		return
@@ -142,8 +112,7 @@ func exportDB(c *gin.Context) {
 }
 
 func importDB(c *gin.Context) {
-	version, ok := backupVersion(c)
-	if !ok {
+	if !validBackupVersion(c) {
 		return
 	}
 	var reader io.Reader = c.Request.Body
@@ -170,16 +139,7 @@ func importDB(c *gin.Context) {
 		return
 	}
 	defer document.Close()
-	var result *model.DBImportResult
-	if version == 2 {
-		result, err = backup.NewService(db.GetDB()).Import(c.Request.Context(), document)
-	} else {
-		var dump *model.DBDump
-		dump, err = document.LegacyDump(c.Request.Context())
-		if err == nil {
-			result, err = op.DBImportIncremental(c.Request.Context(), dump)
-		}
-	}
+	result, err := backup.NewService(db.GetDB()).Import(c.Request.Context(), document)
 	if err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -194,22 +154,12 @@ func importDB(c *gin.Context) {
 	resp.Success(c, result)
 }
 
-// Production always restores through the independent service. A v1 file is an
-// input format, not permission to reactivate the retired subscription importer.
-func backupVersion(c *gin.Context) (int, bool) {
-	defaultVersion := "2"
-	if db.LegacyRuntime() {
-		defaultVersion = "1"
-	}
-	version := c.DefaultQuery("version", defaultVersion)
-	if version == "1" && db.LegacyRuntime() {
-		return 1, true
-	}
-	if version == "2" {
-		return 2, true
+func validBackupVersion(c *gin.Context) bool {
+	if c.DefaultQuery("version", "2") == "2" {
+		return true
 	}
 	resp.Error(c, http.StatusBadRequest, "unsupported backup version")
-	return 0, false
+	return false
 }
 
 // countingResponseWriter wraps gin.ResponseWriter to track whether the body

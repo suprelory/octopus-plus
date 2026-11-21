@@ -30,6 +30,10 @@ func fingerprint(ctx context.Context, d *Document) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
+func discardRetiredSettings(settings []model.Setting) []model.Setting {
+	return slices.DeleteFunc(settings, func(setting model.Setting) bool { return setting.Key.Retired() })
+}
+
 // ConvertLegacy shares P5.1's conversion semantics, while keeping ordinary
 // configuration, relay history and statistical archives in the backup document.
 func ConvertLegacy(source *Document) (*Document, []model.BackupIssue, error) {
@@ -60,9 +64,7 @@ func ConvertLegacy(source *Document) (*Document, []model.BackupIssue, error) {
 	d.Groups, d.GroupItems, d.GroupPresets = converted.Groups, converted.GroupItems, converted.GroupPresets
 	d.StatsChannel = converted.ChannelStats
 	d.SiteCheckinLogs, d.SiteCheckinBatchJobs = converted.Logs, converted.Batches
-	d.Settings = slices.DeleteFunc(slices.Clone(d.Settings), func(setting model.Setting) bool {
-		return setting.Key == model.SettingKeyProjectedChannelAutoGroupEnabled
-	})
+	d.Settings = discardRetiredSettings(slices.Clone(d.Settings))
 	for _, site := range converted.Sites {
 		d.CheckinSites = append(d.CheckinSites, Site{site, site.VerificationFingerprint})
 	}

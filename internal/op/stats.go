@@ -193,12 +193,6 @@ func persistStatsSnapshots(
 		}
 	}
 
-	if db.LegacyRuntime() {
-		if err := statsSiteModelHourlySaveDB(ctx); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -389,7 +383,7 @@ func statsAPIKeyUpdate(apiKeyID int, metrics model.StatsMetrics) error {
 
 // StatsRecordRequest settles all usage dimensions on the same side of a restore.
 // Attempt success/failure counters may already have been recorded separately.
-func StatsRecordRequest(ctx context.Context, apiKeyID, channelID int, metrics model.StatsMetrics, includeChannelOutcome bool, attempts []model.ChannelAttempt, actualModel string) error {
+func StatsRecordRequest(ctx context.Context, apiKeyID, channelID int, metrics model.StatsMetrics, includeChannelOutcome bool) error {
 	apiKeyWriteLock.RLock()
 	defer apiKeyWriteLock.RUnlock()
 	statsLifecycleLock.RLock()
@@ -405,9 +399,6 @@ func StatsRecordRequest(ctx context.Context, apiKeyID, channelID int, metrics mo
 			channelMetrics.RequestFailed = 0
 		}
 		statsChannelUpdate(channelID, channelMetrics)
-	}
-	if db.LegacyRuntime() {
-		statsSiteModelHourlyRecordAttempts(attempts, actualModel)
 	}
 	return statsDailyUpdate(ctx, metrics)
 }
@@ -615,7 +606,4 @@ func (s *statsCacheSnapshot) publish() {
 	pendingDailyOverridesLock.Lock()
 	pendingDailyOverrides = nil
 	pendingDailyOverridesLock.Unlock()
-	siteModelHourlyCacheLock.Lock()
-	siteModelHourlyCache = make(map[siteModelHourlyKey]*model.StatsSiteModelHourly)
-	siteModelHourlyCacheLock.Unlock()
 }

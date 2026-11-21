@@ -112,8 +112,13 @@ func TestRuntimeIndependentHTTPRelayAndBackupRestart(t *testing.T) {
 		t.Fatalf("independent execution failed: %+v", result)
 	}
 	channel := model.Channel{Name: "runtime-channel", Type: outbound.OutboundTypeOpenAIChat, Enabled: true, BaseUrls: []model.BaseUrl{{URL: upstream.URL + "/v1"}}, Model: "upstream-model", Keys: []model.ChannelKey{{Enabled: true, ChannelKey: "upstream-fixture"}}}
+	channel.Managed, channel.ManagedSource = true, &model.ManagedChannelSource{SiteID: 99}
 	if err := op.ChannelCreate(&channel, ctx); err != nil {
 		t.Fatal(err)
+	}
+	channels := runtimeData[[]model.Channel](t, runtimeRequest(t, r, token, "GET", "/api/v1/channel/list", nil, 200))
+	if len(channels) != 1 || channels[0].ID != channel.ID || channels[0].Managed || channels[0].ManagedSource != nil {
+		t.Fatal("new channel retained retired projection metadata")
 	}
 	group := model.Group{Name: "runtime-model", Mode: model.GroupModeRoundRobin}
 	if err := op.GroupCreate(&group, ctx); err != nil {
@@ -126,7 +131,7 @@ func TestRuntimeIndependentHTTPRelayAndBackupRestart(t *testing.T) {
 	if err := op.APIKeyCreate(&key, ctx); err != nil {
 		t.Fatal(err)
 	}
-	for _, endpoint := range []string{"/api/v1/channel/list", "/api/v1/group/list", "/api/v1/group/auto-group/config", "/api/v1/model/list"} {
+	for _, endpoint := range []string{"/api/v1/group/list", "/api/v1/group/auto-group/config", "/api/v1/model/list"} {
 		runtimeRequest(t, r, token, "GET", endpoint, nil, 200)
 	}
 	response := runtimeRequest(t, r, key.APIKey, "POST", "/v1/chat/completions", []byte(`{"model":"runtime-model","messages":[{"role":"user","content":"hello"}],"stream":false}`), 200)

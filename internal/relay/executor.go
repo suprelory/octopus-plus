@@ -129,9 +129,6 @@ func (r *relayExecutor) run() relayOutcome {
 				result.RetryAt = recordFailureAndResolveRetryAt(channel.ID, key.ID, item.ModelName, result.Failure, result.RetryAt)
 				result.Failure.RetryAt = result.RetryAt
 				outcome.result = result
-				if failureCircuitKind(result.Failure) == balancer.FailureTransient {
-					maybeLearnManagedRoute(ctx, channel.ID, item.ModelName, req.inboundType, result.Err)
-				}
 			}
 			if mayRotateKey(result, currentPreviousResponseID(req.internalRequest) != "") {
 				excludedKeys[key.ID] = struct{}{}

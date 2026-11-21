@@ -13,9 +13,45 @@ import (
 	"github.com/suprelory/octopus-plus/internal/op"
 )
 
+func TestBackupRetiredSettings(t *testing.T) {
+	active := model.Setting{Key: model.SettingKeySyncLLMInterval, Value: "6"}
+	retired := []model.Setting{
+		{Key: model.SettingKeySiteSyncInterval, Value: "12"},
+		{Key: model.SettingKeyProjectedChannelAutoGroupEnabled, Value: "2"},
+	}
+	for _, version := range []int{1, Version} {
+		t.Run(fmt.Sprint(version), func(t *testing.T) {
+			s := testService(t)
+			d := &Document{LegacyDBDump: model.LegacyDBDump{Version: version, ExportedAt: time.Now().UTC(),
+				Settings: []model.Setting{retired[0], active, retired[1]}}}
+			if got := requireImport(t, s, d).RowsAffected["settings"]; got != 1 {
+				t.Fatalf("restored %d settings, want 1", got)
+			}
+			var stored []model.Setting
+			if err := s.conn.Find(&stored).Error; err != nil || len(stored) != 1 || stored[0] != active {
+				t.Fatalf("ordinary setting was not restored on its own: %v", err)
+			}
+			if !requireImport(t, s, d).AlreadyImported {
+				t.Fatal("restoring the same input twice changed its identity")
+			}
+			// Migrated databases may still hold retired rows on disk.
+			if err := s.conn.Create(&retired).Error; err != nil {
+				t.Fatal(err)
+			}
+			exported, err := s.Export(t.Context(), false, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(exported.Settings) != 1 || exported.Settings[0] != active {
+				t.Fatal("export did not preserve just the active setting")
+			}
+		})
+	}
+}
+
 func legacyFixture() *Document {
 	now := time.Now().UTC().Truncate(time.Second)
-	site := model.LegacySite{ID: 3, Name: "legacy cookie site", Kind: model.SiteKindCheckin, Platform: model.SitePlatformNewAPI, BaseURL: "https://legacy.example.test", Enabled: true,
+	site := model.LegacySite{ID: 3, Name: "legacy cookie site", Kind: model.LegacySiteKindCheckin, Platform: model.SitePlatformNewAPI, BaseURL: "https://legacy.example.test", Enabled: true,
 		ProxyMode: model.ProxyUsageModeDirect, CheckinHTTPEnabled: true, CheckinHTTPMethod: "POST", CheckinHTTPPath: "/daily", CheckinMode: model.SiteCheckinModeEnabled,
 		CheckinTimezone: "UTC", CheckinWindowStart: "00:00", CheckinWindowEnd: "23:59"}
 	account := model.LegacySiteAccount{ID: 7, SiteID: site.ID, Name: "legacy account", Cookie: "session=legacy-fixture-secret", Enabled: true, ProxyMode: model.ProxyUsageModeInherit}

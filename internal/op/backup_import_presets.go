@@ -60,7 +60,7 @@ func (s *dbImportState) importGroupPresets() error {
 	}
 	for _, group := range s.dump.Groups {
 		groupID := s.groupIDs[group.ID]
-		if !s.newGroupIDs[groupID] || group.ActivePresetID == nil {
+		if group.ActivePresetID == nil {
 			continue
 		}
 		preset, ok := presets[*group.ActivePresetID]

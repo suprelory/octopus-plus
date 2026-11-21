@@ -205,9 +205,9 @@ func TestConversionPreservesExpiredRefreshUncertaintyWithoutRestoringLocks(t *te
 
 func TestConversionDetectsIncompatibleSharedSessionContexts(t *testing.T) {
 	input := conversionFixture()
-	input.Configuration.Sites = append(input.Configuration.Sites, model.LegacySite{ID: 4, Name: "Platform", Kind: model.SiteKindCheckin, Platform: model.SitePlatformSub2API,
+	input.Configuration.Sites = append(input.Configuration.Sites, model.LegacySite{ID: 4, Name: "Platform", Kind: model.LegacySiteKindCheckin, Platform: model.SitePlatformSub2API,
 		BaseURL: "https://login.example", LinkedSiteID: id(1), ProxyMode: model.ProxyUsageModeDirect})
-	input.Configuration.SiteAccounts = append(input.Configuration.SiteAccounts, model.LegacySiteAccount{ID: 40, SiteID: 4, Name: "Linked", CredentialType: model.SiteCredentialTypeLinkedAccount, LinkedAccountID: id(10)})
+	input.Configuration.SiteAccounts = append(input.Configuration.SiteAccounts, model.LegacySiteAccount{ID: 40, SiteID: 4, Name: "Linked", CredentialType: model.LegacySiteCredentialTypeLinkedAccount, LinkedAccountID: id(10)})
 	c, err := Convert(input)
 	if err != nil || c.Ready() || !conversionIssue(c, "shared_credential_network_conflict") {
 		t.Fatalf("conflicting shared context accepted: %v", err)
@@ -279,7 +279,7 @@ func TestConversionOldCredentialFormsAndArchivedSites(t *testing.T) {
 	site, account := &input.Configuration.Sites[2], &input.Configuration.SiteAccounts[2]
 	site.Archived, site.Enabled, site.ArchivedAt = true, false, clonePointer(&input.CapturedAt)
 	site.CustomHeader = []model.CustomHeader{{HeaderKey: "Cookie", HeaderValue: "session=legacy"}}
-	account.CredentialType, account.Cookie, account.AccessToken = model.SiteCredentialTypeAccessToken, "", "old=token"
+	account.CredentialType, account.Cookie, account.AccessToken = model.LegacySiteCredentialTypeAccessToken, "", "old=token"
 	account.NextAutoCheckinAt = clonePointer(&input.CapturedAt)
 	site.CheckinHTTPHeaders = []model.CustomHeader{{HeaderKey: "Cookie", HeaderValue: "session={{access_token}}"}}
 	c := requireConversion(t, input)
@@ -297,12 +297,12 @@ func TestConversionOldCredentialFormsAndArchivedSites(t *testing.T) {
 	input.Configuration.Sites[1].BaseURL = input.Configuration.Sites[0].BaseURL
 	account = &input.Configuration.SiteAccounts[1]
 	account.CheckinSourceAccountID, account.LinkedAccountID = id(10), nil
-	account.CredentialType, account.AccessToken = model.SiteCredentialTypeAccessToken, "stale-copy"
+	account.CredentialType, account.AccessToken = model.LegacySiteCredentialTypeAccessToken, "stale-copy"
 	c = requireConversion(t, input)
 	if len(c.Credentials) != 1 || c.Credentials[0].ID != 10 || c.Credentials[0].AccessToken != "source-token" || c.Accounts[0].CredentialID != 10 {
 		t.Fatal("old split duplicated or restored a stale session")
 	}
-	account.CredentialType = model.SiteCredentialTypeLinkedAccount
+	account.CredentialType = model.LegacySiteCredentialTypeLinkedAccount
 	c = requireConversion(t, input)
 	if c.Accounts[0].CredentialID != 0 || c.Accounts[0].AutoCheckin || len(c.Credentials) != 0 {
 		t.Fatal("explicitly removed link was restored from provenance")

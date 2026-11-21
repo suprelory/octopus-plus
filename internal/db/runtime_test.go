@@ -56,7 +56,7 @@ func TestRuntimeSchemaFreshRestartAndMissingIdentity(t *testing.T) {
 
 func TestRuntimeSchemaRejectsUnmigratedDatabaseWithoutWrites(t *testing.T) {
 	conn := runtimeTestDB(t)
-	if err := initializeSchema(conn); err != nil {
+	if err := conn.Migrator().CreateTable(&model.LegacySite{}, &model.CheckinBatchJob{}); err != nil {
 		t.Fatal(err)
 	}
 	job := model.CheckinBatchJob{ID: 9, Status: model.SiteCheckinBatchJobStatusRunning}

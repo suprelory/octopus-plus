@@ -269,27 +269,3 @@ func walkRelay(ctx context.Context, d *Document, visit func(string, any) error) 
 	}
 	return walkRows(ctx, d, "relay_attempt_contents", d.RelayAttemptContents, func(row model.RelayAttemptContent) error { return visit("relay_attempt_contents", row) })
 }
-
-// LegacyDump materializes streamed relay rows for the v1 incremental importer.
-func (d *Document) LegacyDump(ctx context.Context) (*model.LegacyDBDump, error) {
-	if d.Version != 1 {
-		return nil, ErrFormat
-	}
-	copy := d.LegacyDBDump
-	if d.archive == nil {
-		return &copy, nil
-	}
-	copy.RelayLogs, copy.RelayRequestContents, copy.RelayAttemptContents = nil, nil, nil
-	err := walkRelay(ctx, d, func(_ string, row any) error {
-		switch value := row.(type) {
-		case model.RelayLog:
-			copy.RelayLogs = append(copy.RelayLogs, value)
-		case model.RelayRequestContent:
-			copy.RelayRequestContents = append(copy.RelayRequestContents, value)
-		case model.RelayAttemptContent:
-			copy.RelayAttemptContents = append(copy.RelayAttemptContents, value)
-		}
-		return nil
-	})
-	return &copy, err
-}

@@ -10,11 +10,12 @@ import (
 	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
-func setupRestoreConcurrency(t *testing.T) (context.Context, *model.Channel, model.APIKey, *model.DBDump) {
+func setupRestoreConcurrency(t *testing.T) (context.Context, *model.Channel, model.APIKey, func(bool) error) {
 	t.Helper()
-	ctx := setupBackupTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := InitCache(); err != nil {
 		t.Fatal(err)
 	}
@@ -23,20 +24,31 @@ func setupRestoreConcurrency(t *testing.T) (context.Context, *model.Channel, mod
 	if err := APIKeyCreate(&key, ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := StatsRecordRequest(ctx, key.ID, channel.ID, model.StatsMetrics{InputCost: 4}, true, nil, ""); err != nil {
+	if err := StatsRecordRequest(ctx, key.ID, channel.ID, model.StatsMetrics{InputCost: 4}, true); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now()
 	metrics := model.StatsMetrics{InputCost: 100}
-	dump := &model.DBDump{Version: dbDumpVersion, IncludeStats: true,
-		Channels: []model.Channel{*channel}, APIKeys: []model.APIKey{key},
-		StatsTotal:   []model.StatsTotal{{ID: 1, StatsMetrics: metrics}},
-		StatsDaily:   []model.StatsDaily{{Date: now.Format("20060102"), StatsMetrics: metrics}},
-		StatsHourly:  []model.StatsHourly{{Hour: now.Hour(), Date: now.Format("20060102"), StatsMetrics: metrics}},
-		StatsChannel: []model.StatsChannel{{ChannelID: channel.ID, StatsMetrics: metrics}},
-		StatsAPIKey:  []model.StatsAPIKey{{APIKeyID: key.ID, StatsMetrics: metrics}},
+	restore := func(includeStats bool) error {
+		_, err := RestoreBackupTransaction(ctx, db.GetDB(), includeStats, func(*gorm.DB) error { return nil }, func(tx *gorm.DB) (*model.DBImportResult, error) {
+			if includeStats {
+				for _, row := range []any{
+					&model.StatsTotal{ID: 1, StatsMetrics: metrics},
+					&model.StatsDaily{Date: now.Format("20060102"), StatsMetrics: metrics},
+					&model.StatsHourly{Hour: now.Hour(), Date: now.Format("20060102"), StatsMetrics: metrics},
+					&model.StatsChannel{ChannelID: channel.ID, StatsMetrics: metrics},
+					&model.StatsAPIKey{APIKeyID: key.ID, StatsMetrics: metrics},
+				} {
+					if err := tx.Clauses(clause.OnConflict{UpdateAll: true}).Create(row).Error; err != nil {
+						return nil, err
+					}
+				}
+			}
+			return &model.DBImportResult{}, nil
+		})
+		return err
 	}
-	return ctx, channel, key, dump
+	return ctx, channel, key, restore
 }
 
 func assertRestoredCost(t *testing.T, channelID, keyID int, want float64) {
@@ -56,10 +68,10 @@ func assertRestoredCost(t *testing.T, channelID, keyID int, want float64) {
 }
 
 func TestRestorePublishesStatsBeforeReturning(t *testing.T) {
-	ctx, channel, key, dump := setupRestoreConcurrency(t)
+	ctx, channel, key, restore := setupRestoreConcurrency(t)
 	// An old rollover retry must not overwrite the imported day afterward.
 	enqueuePendingDailyOverride(model.StatsDaily{Date: time.Now().Format("20060102"), StatsMetrics: model.StatsMetrics{InputCost: 4}})
-	if _, err := DBImportIncremental(ctx, dump); err != nil {
+	if err := restore(true); err != nil {
 		t.Fatal(err)
 	}
 	// This is the exact historical failure window: real periodic flush before
@@ -68,7 +80,7 @@ func TestRestorePublishesStatsBeforeReturning(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertRestoredCost(t, channel.ID, key.ID, 100)
-	if err := StatsRecordRequest(ctx, key.ID, channel.ID, model.StatsMetrics{InputCost: 1}, true, nil, ""); err != nil {
+	if err := StatsRecordRequest(ctx, key.ID, channel.ID, model.StatsMetrics{InputCost: 1}, true); err != nil {
 		t.Fatal(err)
 	}
 	if err := RefreshCacheAfterImport(); err != nil {
@@ -85,7 +97,7 @@ func TestRestorePublishesStatsBeforeReturning(t *testing.T) {
 }
 
 func TestRestoreOrdersConcurrentSettlementAndFlush(t *testing.T) {
-	ctx, channel, key, dump := setupRestoreConcurrency(t)
+	ctx, channel, key, restore := setupRestoreConcurrency(t)
 	entered, release := make(chan struct{}), make(chan struct{})
 	var once sync.Once
 	callback := "test:pause_stats_import"
@@ -98,11 +110,11 @@ func TestRestoreOrdersConcurrentSettlementAndFlush(t *testing.T) {
 	}
 	t.Cleanup(func() { db.GetDB().Callback().Create().Remove(callback) })
 	imported := make(chan error, 1)
-	go func() { _, err := DBImportIncremental(ctx, dump); imported <- err }()
+	go func() { imported <- restore(true) }()
 	<-entered
 	settled, flushed := make(chan error, 1), make(chan error, 1)
 	go func() {
-		settled <- StatsRecordRequest(ctx, key.ID, channel.ID, model.StatsMetrics{InputCost: 1}, true, nil, "")
+		settled <- StatsRecordRequest(ctx, key.ID, channel.ID, model.StatsMetrics{InputCost: 1}, true)
 	}()
 	go func() { flushed <- StatsSaveDB(ctx) }()
 	close(release)
@@ -118,7 +130,7 @@ func TestRestoreOrdersConcurrentSettlementAndFlush(t *testing.T) {
 }
 
 func TestRestoreReadFailureRollsBackDatabaseAndCaches(t *testing.T) {
-	ctx, channel, key, dump := setupRestoreConcurrency(t)
+	ctx, channel, key, restore := setupRestoreConcurrency(t)
 	if err := StatsSaveDB(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +144,7 @@ func TestRestoreReadFailureRollsBackDatabaseAndCaches(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.GetDB().Callback().Query().Remove(callback) })
-	if _, err := DBImportIncremental(ctx, dump); !errors.Is(err, injected) {
+	if err := restore(true); !errors.Is(err, injected) {
 		t.Fatalf("snapshot failure lost: %v", err)
 	}
 	assertRestoredCost(t, channel.ID, key.ID, 4)
@@ -143,12 +155,11 @@ func TestRestoreReadFailureRollsBackDatabaseAndCaches(t *testing.T) {
 }
 
 func TestConfigurationOnlyRestorePreservesPendingStatsAndKeyRuntime(t *testing.T) {
-	ctx, channel, key, dump := setupRestoreConcurrency(t)
-	dump.IncludeStats = false
+	ctx, channel, key, restore := setupRestoreConcurrency(t)
 	if err := ChannelKeyUpdateWithDelta(channel.Keys[0], 7.25); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := DBImportIncremental(ctx, dump); err != nil {
+	if err := restore(false); err != nil {
 		t.Fatal(err)
 	}
 	if err := RefreshCacheAfterImport(); err != nil {

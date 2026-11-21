@@ -17,8 +17,8 @@ func captureTestMessage(text string) *model.RelayMessage {
 	return body.Snapshot()
 }
 
-func TestRelayContentRoundTripExpirationAndClear(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+func TestRelayContentPersistenceExpirationAndClear(t *testing.T) {
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -62,10 +62,6 @@ func TestRelayContentRoundTripExpirationAndClear(t *testing.T) {
 			t.Fatalf("body search (flushed %v): %+v %v", flush, matches, err)
 		}
 	}
-	dump, err := DBExportAll(ctx, true, false)
-	if err != nil || len(dump.RelayRequestContents) != 1 || len(dump.RelayAttemptContents) != 1 {
-		t.Fatalf("body backup missing: %v", err)
-	}
 	if err := relayLogCleanup(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -85,17 +81,11 @@ func TestRelayContentRoundTripExpirationAndClear(t *testing.T) {
 			t.Fatalf("clear left %T rows: %d %v", table, count, err)
 		}
 	}
-	if _, err := DBImportIncremental(ctx, dump); err != nil {
-		t.Fatal(err)
-	}
-	restored, err := RelayLogContentGet(ctx, live.ID, "1", "response")
-	if err != nil || restored.Body != "provider response" {
-		t.Fatalf("restored body: %+v %v", restored, err)
-	}
+
 }
 
 func TestRelayContentBudgetKeepsSummary(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	if err := settingRefreshCache(ctx); err != nil {
 		t.Fatal(err)
 	}

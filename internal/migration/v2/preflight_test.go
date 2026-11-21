@@ -15,14 +15,14 @@ func fixture() *Snapshot {
 	return &Snapshot{
 		Version: 1, IncludeLogs: true, IncludeStats: true,
 		Sites: []model.LegacySite{
-			{ID: 1, Kind: model.SiteKindRelay, Platform: model.SitePlatformSub2API, BaseURL: "https://login.example", ProxyMode: model.ProxyUsageModePool, ProxyConfigID: id(7)},
-			{ID: 2, Kind: model.SiteKindCheckin, Platform: model.SitePlatformSub2API, BaseURL: "https://checkin.example", LinkedSiteID: id(1), CheckinHTTPEnabled: true, CheckinUseSubscriptionToken: true, ProxyMode: model.ProxyUsageModeDirect},
-			{ID: 3, Kind: model.SiteKindCheckin, Platform: model.SitePlatformAPI, BaseURL: "https://external.example", LinkedSiteID: id(1), CheckinHTTPEnabled: true, ProxyMode: model.ProxyUsageModeDirect},
+			{ID: 1, Kind: model.LegacySiteKindRelay, Platform: model.SitePlatformSub2API, BaseURL: "https://login.example", ProxyMode: model.ProxyUsageModePool, ProxyConfigID: id(7)},
+			{ID: 2, Kind: model.LegacySiteKindCheckin, Platform: model.SitePlatformSub2API, BaseURL: "https://checkin.example", LinkedSiteID: id(1), CheckinHTTPEnabled: true, CheckinUseSubscriptionToken: true, ProxyMode: model.ProxyUsageModeDirect},
+			{ID: 3, Kind: model.LegacySiteKindCheckin, Platform: model.SitePlatformAPI, BaseURL: "https://external.example", LinkedSiteID: id(1), CheckinHTTPEnabled: true, ProxyMode: model.ProxyUsageModeDirect},
 		},
 		SiteAccounts: []model.LegacySiteAccount{
-			{ID: 10, SiteID: 1, CredentialType: model.SiteCredentialTypeAccessToken, AccessToken: "source-token", RefreshToken: "source-refresh", ProxyMode: model.ProxyUsageModeInherit},
-			{ID: 20, SiteID: 2, CredentialType: model.SiteCredentialTypeLinkedAccount, LinkedAccountID: id(10), ProxyMode: model.ProxyUsageModeInherit},
-			{ID: 30, SiteID: 3, CredentialType: model.SiteCredentialTypeCookie, Cookie: "session=external-cookie", LinkedAccountID: id(10), ProxyMode: model.ProxyUsageModeInherit},
+			{ID: 10, SiteID: 1, CredentialType: model.LegacySiteCredentialTypeAccessToken, AccessToken: "source-token", RefreshToken: "source-refresh", ProxyMode: model.ProxyUsageModeInherit},
+			{ID: 20, SiteID: 2, CredentialType: model.LegacySiteCredentialTypeLinkedAccount, LinkedAccountID: id(10), ProxyMode: model.ProxyUsageModeInherit},
+			{ID: 30, SiteID: 3, CredentialType: model.LegacySiteCredentialTypeCookie, Cookie: "session=external-cookie", LinkedAccountID: id(10), ProxyMode: model.ProxyUsageModeInherit},
 		},
 		Channels:            []model.Channel{{ID: 100, Enabled: false, AutoGroup: model.AutoGroupTypeNone, ProxyMode: model.ProxyUsageModePool, ProxyConfigID: id(7)}, {ID: 101, Enabled: true}},
 		ChannelKeys:         []model.ChannelKey{{ID: 200, ChannelID: 100, ChannelKey: "channel-secret"}},

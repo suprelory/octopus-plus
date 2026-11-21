@@ -13,12 +13,6 @@ import (
 // 损坏的上传把内存吃光。
 const importBodyLimitMultiplier = 16
 
-// importPathPrefixes 是走「宽松上限」的导入端点。都需要管理员 JWT。
-var importPathPrefixes = []string{
-	"/api/v1/setting/import",
-	"/api/v1/site/import",
-}
-
 // imagesPathPrefix 下的请求体由 relay.ImagesHandler 交给 bodycache 处理：
 // 它自己有上限（OCTOPUS_IMAGES_BODY_MAX_MB，默认 256 MB），并且超过内存阈值
 // 就落盘，不会把整个 body 驻留内存。这里再包一层只会重复限制。
@@ -49,10 +43,8 @@ func bodyLimitForPath(path string, base, importLimit int64) int64 {
 	if strings.HasPrefix(path, imagesPathPrefix) {
 		return 0
 	}
-	for _, prefix := range importPathPrefixes {
-		if strings.HasPrefix(path, prefix) {
-			return importLimit
-		}
+	if path == "/api/v1/setting/import" {
+		return importLimit
 	}
 	return base
 }

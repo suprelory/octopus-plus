@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/suprelory/octopus-plus/internal/db"
@@ -18,62 +17,34 @@ func GroupAutoGroupConfigGet(ctx context.Context) (*model.GroupAutoGroupConfig, 
 		return nil, err
 	}
 
-	channelIDs := make([]int, 0, len(channels))
-	for _, channel := range channels {
-		if !supportedChannelType(channel.Type) {
-			continue
-		}
-		channelIDs = append(channelIDs, channel.ID)
-	}
-	bindingMap, err := SiteChannelBindingMapByChannelIDs(channelIDs, ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	globalMode := ProjectedChannelGlobalAutoGroupMode()
 	sources := make([]model.GroupAutoGroupSource, 0, len(channels))
 	for _, channel := range channels {
 		if !supportedChannelType(channel.Type) {
 			continue
 		}
 		models := splitChannelModelNames(channel.Model, channel.CustomModel)
-		binding, managed := bindingMap[channel.ID]
-		effective := channel.AutoGroup
-		globalOverride := managed && globalMode != model.AutoGroupTypeNone
-		if globalOverride {
-			effective = globalMode
-		}
-
 		source := model.GroupAutoGroupSource{
 			ChannelID:          channel.ID,
 			ChannelName:        channel.Name,
 			Enabled:            channel.Enabled,
-			Managed:            managed,
 			AutoGroup:          channel.AutoGroup,
-			EffectiveAutoGroup: effective,
-			GlobalOverride:     globalOverride,
+			EffectiveAutoGroup: channel.AutoGroup,
 			ModelCount:         len(models),
 			Models:             models,
 			EndpointType:       channelEndpointType(channel.Type),
-		}
-		if managed {
-			fillManagedAutoGroupSourceMetadata(&source, binding, ctx)
 		}
 		sources = append(sources, source)
 	}
 
 	sort.Slice(sources, func(i, j int) bool {
-		left, right := autoGroupSourceSortName(sources[i]), autoGroupSourceSortName(sources[j])
+		left, right := strings.ToLower(sources[i].ChannelName), strings.ToLower(sources[j].ChannelName)
 		if left == right {
 			return sources[i].ChannelID < sources[j].ChannelID
 		}
 		return left < right
 	})
 
-	return &model.GroupAutoGroupConfig{
-		ProjectedGlobalAutoGroup: globalMode,
-		Sources:                  sources,
-	}, nil
+	return &model.GroupAutoGroupConfig{Sources: sources}, nil
 }
 
 func GroupAutoGroupConfigUpdate(req *model.GroupAutoGroupConfigUpdateRequest, ctx context.Context) (*model.GroupAutoGroupConfig, error) {
@@ -81,13 +52,8 @@ func GroupAutoGroupConfigUpdate(req *model.GroupAutoGroupConfigUpdateRequest, ct
 		return nil, newGroupAutoGroupBadRequestError("auto group config request is nil")
 	}
 
-	if !db.LegacyRuntime() && req.ProjectedGlobalAutoGroup != nil {
-		return nil, newGroupAutoGroupBadRequestError("projected channels are no longer supported")
-	}
 	if req.ProjectedGlobalAutoGroup != nil {
-		if !req.ProjectedGlobalAutoGroup.Valid() {
-			return nil, newGroupAutoGroupBadRequestError("invalid projected global auto group type")
-		}
+		return nil, newGroupAutoGroupBadRequestError("projected channels are no longer supported")
 	}
 	seen := make(map[int]struct{}, len(req.Items))
 	for _, item := range req.Items {
@@ -113,19 +79,6 @@ func GroupAutoGroupConfigUpdate(req *model.GroupAutoGroupConfigUpdateRequest, ct
 		}
 	}
 
-	if req.ProjectedGlobalAutoGroup != nil {
-		mode := *req.ProjectedGlobalAutoGroup
-		if err := SettingSetString(model.SettingKeyProjectedChannelAutoGroupEnabled, strconv.Itoa(int(mode))); err != nil {
-			return nil, err
-		}
-		// Preserve the old global-setting behavior: enabling a global projected-channel
-		// mode immediately applies auto grouping to existing projected channels.
-		if mode != model.AutoGroupTypeNone {
-			if err := AutoGroupAllProjectedChannels(ctx); err != nil {
-				return nil, err
-			}
-		}
-	}
 	for _, item := range req.Items {
 		if item.AutoGroup == nil {
 			continue
@@ -191,93 +144,29 @@ func RunGroupAutoGroup(channelIDs []int, ctx context.Context) error {
 		}
 	}
 
-	targetIDs := make([]int, 0, len(targets))
-	for id := range targets {
-		targetIDs = append(targetIDs, id)
-	}
-	bindingMap, err := SiteChannelBindingMapByChannelIDs(targetIDs, ctx)
-	if err != nil {
-		return err
-	}
-	globalMode := ProjectedChannelGlobalAutoGroupMode()
-
-	for id, channel := range targets {
+	for _, channel := range targets {
 		if !supportedChannelType(channel.Type) {
 			continue
 		}
-		_, managed := bindingMap[id]
-		mode := channel.AutoGroup
-		if managed && globalMode != model.AutoGroupTypeNone {
-			mode = globalMode
-		}
-		if mode == model.AutoGroupTypeNone {
+		if channel.AutoGroup == model.AutoGroupTypeNone {
 			continue
 		}
-		ChannelAutoGroupWithMode(&channel, mode, ctx)
+		ChannelAutoGroup(&channel, ctx)
 	}
 	return nil
-}
-
-func fillManagedAutoGroupSourceMetadata(source *model.GroupAutoGroupSource, binding model.SiteChannelBinding, ctx context.Context) {
-	if source == nil {
-		return
-	}
-	siteID := binding.SiteID
-	accountID := binding.SiteAccountID
-	source.SiteID = &siteID
-	source.SiteAccountID = &accountID
-	baseGroupKey, routeType := model.ParseSiteChannelBindingKey(binding.GroupKey)
-	source.SiteGroupKey = baseGroupKey
-	if routeType != "" {
-		source.EndpointType = string(routeType)
-	}
-	source.SiteGroupName = model.NormalizeSiteGroupName(baseGroupKey, "")
-
-	site, err := SiteGet(binding.SiteID, ctx)
-	if err != nil || site == nil {
-		return
-	}
-	source.SiteName = site.Name
-	for i := range site.Accounts {
-		account := &site.Accounts[i]
-		if account.ID != binding.SiteAccountID {
-			continue
-		}
-		source.SiteAccountName = account.Name
-		for _, group := range account.UserGroups {
-			groupKey := model.NormalizeSiteGroupKey(group.GroupKey)
-			if binding.SiteUserGroupID != nil && group.ID == *binding.SiteUserGroupID {
-				source.SiteGroupKey = groupKey
-				source.SiteGroupName = model.NormalizeSiteGroupName(groupKey, group.Name)
-				return
-			}
-			if groupKey == baseGroupKey {
-				source.SiteGroupName = model.NormalizeSiteGroupName(groupKey, group.Name)
-			}
-		}
-		return
-	}
-}
-
-func autoGroupSourceSortName(source model.GroupAutoGroupSource) string {
-	parts := []string{source.ChannelName}
-	if source.Managed {
-		parts = []string{source.SiteName, source.SiteAccountName, source.SiteGroupName, source.EndpointType, source.ChannelName}
-	}
-	return strings.ToLower(strings.Join(parts, "/"))
 }
 
 func channelEndpointType(channelType outboundmodel.OutboundType) string {
 	switch channelType {
 	case outboundmodel.OutboundTypeOpenAIResponse:
-		return string(model.SiteModelRouteTypeOpenAIResponse)
+		return "openai_response"
 	case outboundmodel.OutboundTypeAnthropic:
-		return string(model.SiteModelRouteTypeAnthropic)
+		return "anthropic"
 	case outboundmodel.OutboundTypeGemini:
-		return string(model.SiteModelRouteTypeGemini)
+		return "gemini"
 	case outboundmodel.OutboundTypeOpenAIEmbedding:
-		return string(model.SiteModelRouteTypeOpenAIEmbedding)
+		return "openai_embedding"
 	default:
-		return string(model.SiteModelRouteTypeOpenAIChat)
+		return "openai_chat"
 	}
 }

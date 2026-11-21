@@ -6,20 +6,12 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-	"sync/atomic"
 	"time"
 
 	"github.com/suprelory/octopus-plus/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
-
-var legacyRuntime atomic.Bool
-
-// LegacyRuntime is enabled only by the explicit legacy fixture initializer.
-// Production startup always uses InitDB and never selects the legacy runtime.
-// The compatibility branches can be removed with the old modules in P6.
-func LegacyRuntime() bool { return legacyRuntime.Load() }
 
 var ErrRuntimeMigrationRequired = errors.New("database requires a completed v2 migration; stop old writers, back up the database, then run migrate v2-database before starting")
 var ErrRuntimeSchemaIncomplete = errors.New("v2 database schema is incomplete or unsupported; restore a verified backup before starting")
@@ -45,7 +37,6 @@ func InitDB(dbType, dsn string, debug bool) error {
 		return err
 	}
 	db = conn
-	legacyRuntime.Store(false)
 	return nil
 }
 

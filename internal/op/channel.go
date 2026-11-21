@@ -64,6 +64,8 @@ func ChannelCreate(channel *model.Channel, ctx context.Context) error {
 	if _, ok := model2.Descriptor(channel.Type); !ok {
 		return fmt.Errorf("unsupported channel type: %d", channel.Type)
 	}
+	// v1 backup metadata is never part of a newly created channel.
+	channel.Managed, channel.ManagedSource = false, nil
 	if channel.ProxyMode == "" {
 		channel.ProxyMode = model.ProxyUsageModeDirect
 	}
@@ -243,13 +245,6 @@ func ChannelUpdate(req *model.ChannelUpdateRequest, ctx context.Context) (update
 		return nil, fmt.Errorf("channel not found")
 	}
 	normalizeChannelProxyFields(&existingChannel)
-	if !req.BypassManagedCheck {
-		if _, managed, err := ChannelManagedBinding(req.ID, ctx); err != nil {
-			return nil, err
-		} else if managed {
-			return nil, fmt.Errorf("managed site channel is read-only; please edit it from the site account")
-		}
-	}
 
 	tx := db.GetDB().WithContext(ctx).Begin()
 	if tx.Error != nil {
@@ -450,11 +445,6 @@ func ChannelEnabled(id int, enabled bool, ctx context.Context) error {
 	if !ok {
 		return fmt.Errorf("channel not found")
 	}
-	if _, managed, err := ChannelManagedBinding(id, ctx); err != nil {
-		return err
-	} else if managed {
-		return fmt.Errorf("managed site channel is read-only; please enable or disable it from the site account")
-	}
 	if enabled {
 		if _, supported := model2.Descriptor(oldChannel.Type); !supported {
 			return fmt.Errorf("unsupported channel type: %d cannot be enabled", oldChannel.Type)
@@ -470,54 +460,12 @@ func ChannelEnabled(id int, enabled bool, ctx context.Context) error {
 	return nil
 }
 
-func ChannelEnabledManaged(id int, enabled bool, ctx context.Context) error {
-	channelWriteLock.Lock()
-	defer channelWriteLock.Unlock()
-	oldChannel, ok := channelCache.Get(id)
-	if !ok {
-		return fmt.Errorf("channel not found")
-	}
-	if enabled {
-		if _, supported := model2.Descriptor(oldChannel.Type); !supported {
-			return fmt.Errorf("unsupported channel type: %d cannot be enabled", oldChannel.Type)
-		}
-	}
-	if err := db.GetDB().WithContext(ctx).Model(&model.Channel{}).Where("id = ?", id).Update("enabled", enabled).Error; err != nil {
-		return err
-	}
-	oldChannel.Enabled = enabled
-	normalizeChannelProxyFields(&oldChannel)
-	setChannelCache(id, oldChannel)
-	resetBalancerStateForChannel(id)
-	return nil
-}
-
-func ChannelDel(id int, ctx context.Context) error {
-	return channelDel(id, ctx, false)
-}
-
-func ChannelDelManaged(id int, ctx context.Context) error {
-	if _, managed, err := ChannelManagedBinding(id, ctx); err != nil {
-		return err
-	} else if !managed {
-		return fmt.Errorf("channel is not a managed site channel")
-	}
-	return channelDel(id, ctx, true)
-}
-
-func channelDel(id int, ctx context.Context, bypassManagedCheck bool) (operationErr error) {
+func ChannelDel(id int, ctx context.Context) (operationErr error) {
 	channelWriteLock.Lock()
 	defer channelWriteLock.Unlock()
 	ch, ok := channelCache.Get(id)
 	if !ok {
 		return fmt.Errorf("channel not found")
-	}
-	if !bypassManagedCheck {
-		if _, managed, err := ChannelManagedBinding(id, ctx); err != nil {
-			return err
-		} else if managed {
-			return fmt.Errorf("managed site channel cannot be deleted directly; delete the site account or site binding instead")
-		}
 	}
 
 	// 开启事务
@@ -589,77 +537,12 @@ func channelDel(id int, ctx context.Context, bypassManagedCheck bool) (operation
 
 func ChannelLLMList(ctx context.Context) ([]model.LLMChannel, error) {
 	channelsByID := channelCache.GetAll()
-	channelIDs := make([]int, 0, len(channelsByID))
-	for channelID := range channelsByID {
-		channelIDs = append(channelIDs, channelID)
-	}
-	bindingMap, err := SiteChannelBindingMapByChannelIDs(channelIDs, ctx)
-	if err != nil {
-		return nil, err
-	}
-	siteCache := make(map[int]*model.Site)
-	accountCache := make(map[int]*model.SiteAccount)
-
 	models := []model.LLMChannel{}
-	for _, cachedChannel := range channelsByID {
-		channel := cachedChannel
-		normalizeChannelProxyFields(&channel)
+	for _, channel := range channelsByID {
 		if !supportedChannelType(channel.Type) {
 			// The model picker is a routing input, so retired/unknown protocols
 			// must not be offered even when their historical channel row remains.
 			continue
-		}
-		var binding *model.SiteChannelBinding
-		if item, ok := bindingMap[channel.ID]; ok {
-			copy := item
-			binding = &copy
-		}
-		siteName := ""
-		siteAccountName := ""
-		siteGroupKey := ""
-		siteGroupName := ""
-		endpointType := "openai"
-		var siteID *int
-		var siteAccountID *int
-		if binding != nil {
-			siteID = &binding.SiteID
-			siteAccountID = &binding.SiteAccountID
-			siteGroupKey = model.NormalizeSiteGroupKey(binding.GroupKey)
-			if site, ok := siteCache[binding.SiteID]; ok {
-				siteName = site.Name
-			} else if site, getErr := SiteGet(binding.SiteID, ctx); getErr == nil {
-				siteCache[binding.SiteID] = site
-				siteName = site.Name
-			}
-			if account, ok := accountCache[binding.SiteAccountID]; ok {
-				siteAccountName = account.Name
-			} else if account, getErr := SiteAccountGet(binding.SiteAccountID, ctx); getErr == nil {
-				accountCache[binding.SiteAccountID] = account
-				siteAccountName = account.Name
-			}
-			siteGroupName = siteGroupKey
-			if binding.SiteUserGroupID != nil && *binding.SiteUserGroupID > 0 {
-				if account := accountCache[binding.SiteAccountID]; account != nil {
-					for _, group := range account.UserGroups {
-						if group.ID == *binding.SiteUserGroupID {
-							siteGroupName = model.NormalizeSiteGroupName(group.GroupKey, group.Name)
-							siteGroupKey = model.NormalizeSiteGroupKey(group.GroupKey)
-							break
-						}
-					}
-				}
-			}
-			if siteGroupName == "" {
-				siteGroupName = model.NormalizeSiteGroupName(siteGroupKey, "")
-			}
-			switch channel.Type {
-			case model2.OutboundTypeAnthropic:
-				endpointType = "anthropic"
-			case model2.OutboundTypeGemini:
-				endpointType = "gemini"
-			default:
-				endpointType = "openai"
-			}
 		}
 		modelNames := xstrings.SplitTrimCompact(",", channel.Model, channel.CustomModel)
 		for _, modelName := range modelNames {
@@ -667,17 +550,11 @@ func ChannelLLMList(ctx context.Context) ([]model.LLMChannel, error) {
 				continue
 			}
 			models = append(models, model.LLMChannel{
-				Name:            modelName,
-				Enabled:         channel.Enabled,
-				ChannelID:       channel.ID,
-				ChannelName:     channel.Name,
-				SiteID:          siteID,
-				SiteAccountID:   siteAccountID,
-				SiteGroupKey:    siteGroupKey,
-				SiteGroupName:   siteGroupName,
-				SiteName:        siteName,
-				SiteAccountName: siteAccountName,
-				EndpointType:    endpointType,
+				Name:         modelName,
+				Enabled:      channel.Enabled,
+				ChannelID:    channel.ID,
+				ChannelName:  channel.Name,
+				EndpointType: "openai",
 			})
 		}
 	}

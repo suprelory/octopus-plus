@@ -81,7 +81,8 @@ func backupFixture() *Document {
 		SiteCheckinLogs:      []model.CheckinLog{{ID: account.CheckinPending.LogID, SiteID: site.ID, AccountID: account.ID, Status: model.SiteExecutionStatusPending, BatchJobID: account.CheckinPending.BatchJobID, StartedAt: now, FinishedAt: now}, entry},
 		SiteCheckinBatchJobs: []model.CheckinBatchJob{{ID: account.CheckinPending.BatchJobID, Status: model.SiteCheckinBatchJobStatusRunning, SiteIDs: []int{site.ID, 999}, StartedAt: now, UpdatedAt: now}},
 		RelayLogs:            []model.RelayLog{{ID: 9901, ChannelId: 41, Attempts: []model.ChannelAttempt{{ChannelID: 41, ChannelKeyID: 51}}, Success: true}},
-		RelayRequestContents: []model.RelayRequestContent{{LogID: 9901, RequestBody: []byte("request fixture")}}},
+		RelayRequestContents: []model.RelayRequestContent{{LogID: 9901, RequestBody: []byte("request fixture")}},
+		RelayAttemptContents: []model.RelayAttemptContent{{LogID: 9901, AttemptID: "1", ResponseBody: []byte("provider response")}}},
 		CheckinSites:       []Site{{CheckinSite: site, VerificationFingerprint: site.ConfigFingerprint()}},
 		CheckinCredentials: []model.CheckinCredentialBackup{model.ExportCheckinCredential(credential)},
 		CheckinAccounts:    []Account{{CheckinAccount: account, WorkflowVersion: 8, BalanceVersion: 3, BalanceConfigVersion: 2}, {CheckinAccount: second}},
@@ -233,6 +234,14 @@ func assertRestored(t *testing.T, s *Service, includeLogs bool) {
 	if includeLogs {
 		var log model.RelayLog
 		s.conn.First(&log)
+		var request model.RelayRequestContent
+		var attempt model.RelayAttemptContent
+		if err := s.conn.First(&request, "log_id = ?", log.ID).Error; err != nil || string(request.RequestBody) != "request fixture" {
+			t.Fatal("relay request body was not restored")
+		}
+		if err := s.conn.First(&attempt, "log_id = ? AND attempt_id = ?", log.ID, "1").Error; err != nil || string(attempt.ResponseBody) != "provider response" {
+			t.Fatal("relay attempt body was not restored")
+		}
 		if log.ChannelId != channel.ID || log.Attempts[0].ChannelKeyID != key.ID {
 			t.Fatal("relay references not remapped")
 		}
@@ -435,6 +444,7 @@ func TestBackupArchiveStreamsRelayRows(t *testing.T) {
 	s := testService(t)
 	d := backupFixture()
 	d.RelayRequestContents = nil
+	d.RelayAttemptContents = nil
 	d.RelayLogs = nil
 	for i := 1; i <= 1005; i++ {
 		d.RelayLogs = append(d.RelayLogs, model.RelayLog{ID: int64(i), ChannelId: 41, Success: true})

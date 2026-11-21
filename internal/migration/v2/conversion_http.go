@@ -133,7 +133,7 @@ func legacyCookie(site model.LegacySite, account model.LegacySiteAccount) string
 			cookie = strings.TrimSpace(header.HeaderValue)
 		}
 	}
-	if account.CredentialType != model.SiteCredentialTypeAPIKey && strings.Contains(account.AccessToken, "=") && !strings.HasPrefix(strings.ToLower(account.AccessToken), "bearer ") {
+	if account.CredentialType != model.LegacySiteCredentialTypeAPIKey && strings.Contains(account.AccessToken, "=") && !strings.HasPrefix(strings.ToLower(account.AccessToken), "bearer ") {
 		cookie = account.AccessToken
 	}
 	for _, header := range site.CheckinHTTPHeaders {

@@ -10,27 +10,20 @@ import (
 )
 
 func TestIndependentCheckinProxyReferencesProtectAllOwners(t *testing.T) {
-	ctx := setupSiteOpTestDB(t)
+	ctx := setupOpTestDB(t)
 	proxyConfigurationCache.Clear()
 	t.Cleanup(proxyConfigurationCache.Clear)
-	// Existing installations can use the proxy pool before v2 is prepared.
 	unused := &model.ProxyConfiguration{Name: "unused", URL: "socks5h://unused.example:1080", Enabled: true}
 	if err := ProxyConfigurationCreate(unused, ctx); err != nil {
 		t.Fatal(err)
 	}
 	if counts, err := ProxyConfigurationReferenceCounts(ctx); err != nil || len(counts) != 0 {
-		t.Fatalf("proxy counts required absent v2 tables: %v", err)
+		t.Fatalf("unexpected references for unused proxy: %v", err)
 	}
 	if refs, err := ProxyConfigurationReferences(unused.ID, ctx); err != nil || len(refs) != 0 {
-		t.Fatalf("proxy references required absent v2 tables: %v", err)
+		t.Fatalf("unexpected reference list for unused proxy: %v", err)
 	}
 	if err := ProxyConfigurationDelete(unused.ID, ctx); err != nil {
-		t.Fatal(err)
-	}
-	if dbpkg.GetDB().Migrator().HasTable(&model.CheckinSite{}) {
-		t.Fatal("proxy read unexpectedly created checkin tables")
-	}
-	if err := dbpkg.PrepareCheckinSchema(dbpkg.GetDB()); err != nil {
 		t.Fatal(err)
 	}
 	store := NewCheckinStore(dbpkg.GetDB())

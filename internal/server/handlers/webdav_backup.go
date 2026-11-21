@@ -48,11 +48,10 @@ func testWebDAVConnection(c *gin.Context) {
 }
 
 func triggerWebDAVBackup(c *gin.Context) {
-	version, ok := backupVersion(c)
-	if !ok {
+	if !validBackupVersion(c) {
 		return
 	}
-	if err := webdav.RunBackupVersion(c.Request.Context(), version); err != nil {
+	if err := webdav.RunBackup(c.Request.Context()); err != nil {
 		resp.InternalErrorWithLog(c, err)
 		return
 	}
@@ -71,8 +70,7 @@ func listWebDAVBackups(c *gin.Context) {
 }
 
 func restoreWebDAVBackup(c *gin.Context) {
-	version, ok := backupVersion(c)
-	if !ok {
+	if !validBackupVersion(c) {
 		return
 	}
 	var req struct {
@@ -84,7 +82,7 @@ func restoreWebDAVBackup(c *gin.Context) {
 	}
 
 	middleware.AuditFields(c, "filename", req.Filename)
-	result, err := webdav.RestoreFromBackupVersion(c.Request.Context(), req.Filename, version)
+	result, err := webdav.RestoreFromBackup(c.Request.Context(), req.Filename)
 	if err != nil {
 		resp.InternalErrorWithLog(c, err)
 		return

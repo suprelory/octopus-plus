@@ -16,7 +16,7 @@ import (
 
 func setupLogStreamHandlerTest(t *testing.T) string {
 	t.Helper()
-	setupSiteHandlerTestDB(t)
+	setupHandlerTestDB(t)
 	if err := op.InitCache(); err != nil {
 		t.Fatal(err)
 	}

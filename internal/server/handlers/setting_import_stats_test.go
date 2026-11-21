@@ -14,7 +14,7 @@ import (
 )
 
 func TestConfigurationImportPreservesPendingUsage(t *testing.T) {
-	ctx := setupSiteHandlerTestDB(t)
+	ctx := setupHandlerTestDB(t)
 	if err := op.InitCache(); err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestConfigurationImportPreservesPendingUsage(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/setting/import", strings.NewReader(`{"version":1,"include_stats":false,"settings":[{"key":"empty_response_detection_enabled","value":"false"}]}`)).WithContext(ctx)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/setting/import", strings.NewReader(`{"version":1,"exported_at":"2026-11-21T00:00:00Z","include_stats":false,"settings":[{"key":"empty_response_detection_enabled","value":"false"}]}`)).WithContext(ctx)
 	c.Request.Header.Set("Content-Type", "application/json")
 	importDB(c)
 	if w.Code != http.StatusOK {

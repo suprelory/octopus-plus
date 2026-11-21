@@ -22,7 +22,6 @@ type BackupConfigurationMappings struct {
 // imports its check-in history separately using the same transaction.
 func ImportBackupConfiguration(tx *gorm.DB, dump *model.LegacyDBDump, result *model.DBImportResult) (*BackupConfigurationMappings, error) {
 	state := newDBImportState(tx, dump, result)
-	state.strict = true
 	for _, stage := range []func() error{
 		state.importProxies, state.importChannels, state.importChannelKeys,
 		state.importGroups, state.importGroupItems, state.importGroupPresets,

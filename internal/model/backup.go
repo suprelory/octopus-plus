@@ -10,9 +10,6 @@ type StatsModel struct {
 	StatsMetrics
 }
 
-// DBDump is the v1 incremental importer's input.
-type DBDump = LegacyDBDump
-
 type DBImportResult struct {
 	// RowsAffected contains the rows affected for each table operation (insert/upsert depending on table).
 	RowsAffected    map[string]int64 `json:"rows_affected"`

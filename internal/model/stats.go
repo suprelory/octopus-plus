@@ -37,8 +37,6 @@ type StatsAPIKey struct {
 	StatsMetrics
 }
 
-type StatsSiteModelHourly = LegacyStatsSiteModelHourly
-
 // Add aggregates another StatsMetrics into the current one.
 func (s *StatsMetrics) Add(delta StatsMetrics) {
 	s.InputToken += delta.InputToken

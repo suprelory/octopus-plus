@@ -35,8 +35,7 @@ func (s *LegacySite) CheckinConfigFingerprint() string {
 	return checkinFingerprint(config)
 }
 
-// The API and exports expose the resolved capability without trusting a
-// client-supplied decision or duplicating the platform defaults in the UI.
+// The resolved capability is part of the v1 JSON used to fingerprint backups.
 func (s LegacySite) MarshalJSON() ([]byte, error) {
 	type siteAlias LegacySite
 	return json.Marshal(struct {

@@ -11,7 +11,6 @@ func (s *dbImportState) importStats() error {
 	tx := s.tx
 	dump := s.dump
 	res := s.result
-	accountIDMap := s.accountIDs
 	apiKeyIDMap := s.apiKeyIDs
 	resolveImportedChannel := s.resolveChannel
 	// 15. Stats (remap FK IDs, then upsert)
@@ -89,66 +88,6 @@ func (s *dbImportState) importStats() error {
 			res.RowsAffected["stats_api_key"] = n
 		}
 
-		// StatsSiteModelHourly: remap SiteAccountID (composite PK)
-		filteredSiteModelHourly := make([]model.StatsSiteModelHourly, 0, len(dump.StatsSiteModelHourly))
-		for _, row := range dump.StatsSiteModelHourly {
-			newID, ok := accountIDMap[row.SiteAccountID]
-			if !ok {
-				continue
-			}
-			row.SiteAccountID = newID
-			filteredSiteModelHourly = append(filteredSiteModelHourly, row)
-		}
-		if n, err := createUpsertAll(tx, filteredSiteModelHourly, []clause.Column{
-			{Name: "hour"}, {Name: "site_account_id"}, {Name: "group_key"}, {Name: "model_name"},
-		}); err != nil {
-			return fmt.Errorf("import stats_site_model_hourly: %w", err)
-		} else {
-			res.RowsAffected["stats_site_model_hourly"] = n
-		}
-	}
-	return nil
-}
-
-func (s *dbImportState) importLogs() error {
-	tx := s.tx
-	dump := s.dump
-	res := s.result
-	// 16. RelayLogs (Snowflake IDs - keep createDoNothing)
-	if dump.IncludeLogs {
-		if n, err := createDoNothing(tx, dump.RelayLogs); err != nil {
-			return fmt.Errorf("import relay_logs: %w", err)
-		} else {
-			res.RowsAffected["relay_logs"] = n
-		}
-		if n, err := createDoNothing(tx, dump.RelayRequestContents); err != nil {
-			return fmt.Errorf("import relay_request_contents: %w", err)
-		} else {
-			res.RowsAffected["relay_request_contents"] = n
-		}
-		if n, err := createDoNothing(tx, dump.RelayAttemptContents); err != nil {
-			return fmt.Errorf("import relay_attempt_contents: %w", err)
-		} else {
-			res.RowsAffected["relay_attempt_contents"] = n
-		}
-		if n, err := createDoNothing(tx, dump.SiteCheckinBatchJobs); err != nil {
-			return fmt.Errorf("import site_checkin_batch_jobs: %w", err)
-		} else {
-			res.RowsAffected["site_checkin_batch_jobs"] = n
-		}
-		checkinLogs := make([]model.SiteCheckinLog, 0, len(dump.SiteCheckinLogs))
-		for _, entry := range dump.SiteCheckinLogs {
-			// Deleted sites/accounts have no mapping. Retain their name snapshots,
-			// but never associate their old IDs with unrelated destination rows.
-			entry.SiteID = s.siteIDs[entry.SiteID]
-			entry.AccountID = s.accountIDs[entry.AccountID]
-			checkinLogs = append(checkinLogs, entry)
-		}
-		if n, err := createDoNothing(tx, checkinLogs); err != nil {
-			return fmt.Errorf("import site_checkin_logs: %w", err)
-		} else {
-			res.RowsAffected["site_checkin_logs"] = n
-		}
 	}
 	return nil
 }

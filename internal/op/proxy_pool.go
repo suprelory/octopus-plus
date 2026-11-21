@@ -122,18 +122,12 @@ func ProxyConfigurationDelete(id int, ctx context.Context) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
 			return fmt.Errorf("load proxy configuration: %w", err)
 		}
-		tables := []any{&model.Channel{}}
-		if db.LegacyRuntime() {
-			tables = append(tables, &model.Site{}, &model.SiteAccount{})
+		var count int64
+		if err := tx.Model(&model.Channel{}).Where("proxy_mode = ? AND proxy_config_id = ?", model.ProxyUsageModePool, id).Count(&count).Error; err != nil {
+			return err
 		}
-		for _, table := range tables {
-			var count int64
-			if err := tx.Model(table).Where("proxy_mode = ? AND proxy_config_id = ?", model.ProxyUsageModePool, id).Count(&count).Error; err != nil {
-				return err
-			}
-			if count > 0 {
-				return fmt.Errorf("proxy configuration is still referenced")
-			}
+		if count > 0 {
+			return fmt.Errorf("proxy configuration is still referenced")
 		}
 		checkinRefs, err := checkinProxyReferences(tx)
 		if err != nil {
@@ -157,82 +151,18 @@ func ProxyConfigurationReferences(id int, ctx context.Context) ([]model.ProxyCon
 
 	refs := make([]model.ProxyConfigurationReference, 0)
 
-	if db.LegacyRuntime() {
-		var sites []model.Site
-		if err := db.GetDB().WithContext(ctx).
-			Where("proxy_mode = ? AND proxy_config_id = ?", model.ProxyUsageModePool, id).
-			Order("id ASC").Find(&sites).Error; err != nil {
-			return nil, err
-		}
-		for _, site := range sites {
-			refs = append(refs, model.ProxyConfigurationReference{
-				Type:         model.ProxyConfigurationReferenceTypeSite,
-				SiteID:       site.ID,
-				SiteName:     site.Name,
-				SiteArchived: site.Archived,
-			})
-		}
-
-		type accountRefRow struct {
-			ID       int
-			Name     string
-			SiteID   int
-			SiteName string
-			Archived bool
-		}
-		var accountRows []accountRefRow
-		if err := db.GetDB().WithContext(ctx).
-			Table("site_accounts").
-			Select("site_accounts.id, site_accounts.name, site_accounts.site_id, sites.name as site_name, sites.archived").
-			Joins("LEFT JOIN sites ON sites.id = site_accounts.site_id").
-			Where("site_accounts.proxy_mode = ? AND site_accounts.proxy_config_id = ?", model.ProxyUsageModePool, id).
-			Order("site_accounts.id ASC").Scan(&accountRows).Error; err != nil {
-			return nil, err
-		}
-		for _, row := range accountRows {
-			refs = append(refs, model.ProxyConfigurationReference{
-				Type:            model.ProxyConfigurationReferenceTypeSiteAccount,
-				SiteID:          row.SiteID,
-				SiteName:        row.SiteName,
-				SiteArchived:    row.Archived,
-				SiteAccountID:   row.ID,
-				SiteAccountName: row.Name,
-			})
-		}
-	}
 	var channels []model.Channel
 	if err := db.GetDB().WithContext(ctx).
 		Where("proxy_mode = ? AND proxy_config_id = ?", model.ProxyUsageModePool, id).
 		Order("id ASC").Find(&channels).Error; err != nil {
 		return nil, err
 	}
-	channelIDs := make([]int, 0, len(channels))
 	for _, channel := range channels {
-		channelIDs = append(channelIDs, channel.ID)
-	}
-	bindingMap, err := SiteChannelBindingMapByChannelIDs(channelIDs, ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, channel := range channels {
-		ref := model.ProxyConfigurationReference{
+		refs = append(refs, model.ProxyConfigurationReference{
 			Type:        model.ProxyConfigurationReferenceTypeChannel,
 			ChannelID:   channel.ID,
 			ChannelName: channel.Name,
-		}
-		if binding, ok := bindingMap[channel.ID]; ok {
-			ref.Type = model.ProxyConfigurationReferenceTypeManagedChannel
-			ref.Managed = true
-			ref.SiteID = binding.SiteID
-			ref.SiteAccountID = binding.SiteAccountID
-			ref.ManagedSource = &model.ManagedChannelSource{
-				SiteID:          binding.SiteID,
-				SiteAccountID:   binding.SiteAccountID,
-				SiteUserGroupID: binding.SiteUserGroupID,
-				GroupKey:        binding.GroupKey,
-			}
-		}
-		refs = append(refs, ref)
+		})
 	}
 
 	checkinRefs, err := checkinProxyReferences(db.GetDB().WithContext(ctx))
@@ -244,17 +174,7 @@ func ProxyConfigurationReferences(id int, ctx context.Context) ([]model.ProxyCon
 
 func ProxyConfigurationReferenceCounts(ctx context.Context) (map[int]int, error) {
 	counts := make(map[int]int)
-	if db.LegacyRuntime() {
-		if err := countProxyReferences(ctx, model.Site{}, counts); err != nil {
-			return nil, err
-		}
-		if err := countProxyReferences(ctx, model.SiteAccount{}, counts); err != nil {
-			return nil, err
-		}
-		if err := countManualChannelProxyReferences(ctx, counts); err != nil {
-			return nil, err
-		}
-	} else if err := countProxyReferences(ctx, model.Channel{}, counts); err != nil {
+	if err := countChannelProxyReferences(ctx, counts); err != nil {
 		return nil, err
 	}
 	checkinRefs, err := checkinProxyReferences(db.GetDB().WithContext(ctx))
@@ -267,35 +187,16 @@ func ProxyConfigurationReferenceCounts(ctx context.Context) (map[int]int, error)
 	return counts, nil
 }
 
-func countProxyReferences(ctx context.Context, table any, counts map[int]int) error {
+func countChannelProxyReferences(ctx context.Context, counts map[int]int) error {
 	type row struct {
 		ProxyConfigID int
 		Count         int
 	}
 	var rows []row
-	if err := db.GetDB().WithContext(ctx).Model(table).
+	if err := db.GetDB().WithContext(ctx).Model(&model.Channel{}).
 		Select("proxy_config_id, count(*) as count").
 		Where("proxy_mode = ? AND proxy_config_id IS NOT NULL", model.ProxyUsageModePool).
 		Group("proxy_config_id").Scan(&rows).Error; err != nil {
-		return err
-	}
-	for _, r := range rows {
-		counts[r.ProxyConfigID] += r.Count
-	}
-	return nil
-}
-
-func countManualChannelProxyReferences(ctx context.Context, counts map[int]int) error {
-	type row struct {
-		ProxyConfigID int
-		Count         int
-	}
-	var rows []row
-	if err := db.GetDB().WithContext(ctx).Table("channels").
-		Select("channels.proxy_config_id, count(*) as count").
-		Where("channels.proxy_mode = ? AND channels.proxy_config_id IS NOT NULL", model.ProxyUsageModePool).
-		Where("NOT EXISTS (SELECT 1 FROM site_channel_bindings WHERE site_channel_bindings.channel_id = channels.id)").
-		Group("channels.proxy_config_id").Scan(&rows).Error; err != nil {
 		return err
 	}
 	for _, r := range rows {

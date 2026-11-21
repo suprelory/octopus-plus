@@ -10,15 +10,10 @@ import (
 
 func setupOpTestDB(t *testing.T) context.Context {
 	t.Helper()
-	return openOpTestDB(t, db.InitDB)
-}
-
-func openOpTestDB(t *testing.T, initialize func(string, string, bool) error) context.Context {
-	t.Helper()
 	if db.GetDB() != nil {
 		_ = db.Close()
 	}
-	if err := initialize("sqlite", filepath.Join(t.TempDir(), "octopus-test.db"), false); err != nil {
+	if err := db.InitDB("sqlite", filepath.Join(t.TempDir(), "octopus-test.db"), false); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })

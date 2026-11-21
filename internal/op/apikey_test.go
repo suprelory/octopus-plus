@@ -31,11 +31,11 @@ func TestAPIKeyCreateFailureDoesNotPublish(t *testing.T) {
 }
 
 func TestAPIKeyImportPreservesDisabledState(t *testing.T) {
-	ctx := setupBackupTestDB(t)
-	dump := model.DBDump{Version: dbDumpVersion, APIKeys: []model.APIKey{
+	ctx := setupOpTestDB(t)
+	dump := model.LegacyDBDump{APIKeys: []model.APIKey{
 		{ID: 21, Name: "disabled backup", APIKey: "test-only-import", Enabled: false},
 	}}
-	if _, err := DBImportIncremental(ctx, &dump); err != nil {
+	if _, err := ImportBackupConfiguration(db.GetDB().WithContext(ctx), &dump, &model.DBImportResult{RowsAffected: map[string]int64{}}); err != nil {
 		t.Fatal(err)
 	}
 	var stored model.APIKey

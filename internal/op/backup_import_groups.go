@@ -29,11 +29,7 @@ func (s *dbImportState) importGroups() error {
 
 		var existing model.Group
 		if err := tx.Where("name = ?", g.Name).First(&existing).Error; err == nil {
-			if s.strict {
-				return ErrBackupConflict
-			}
-			groupIDMap[oldID] = existing.ID
-			continue
+			return ErrBackupConflict
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("import groups: %w", err)
 		}
@@ -41,7 +37,6 @@ func (s *dbImportState) importGroups() error {
 			return fmt.Errorf("import groups: %w", err)
 		}
 		groupIDMap[oldID] = g.ID
-		s.newGroupIDs[g.ID] = true
 		res.RowsAffected["groups"]++
 	}
 	return nil

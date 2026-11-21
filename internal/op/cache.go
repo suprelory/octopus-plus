@@ -13,7 +13,7 @@ func InitCache() error {
 	return refreshCache(true)
 }
 
-// DBImportIncremental publishes restored statistics atomically with its commit.
+// RestoreBackupTransaction publishes restored statistics atomically with its commit.
 // This follow-up only refreshes configuration: reloading stats here could erase
 // requests that settled after the import returned.
 func RefreshCacheAfterImport() error {

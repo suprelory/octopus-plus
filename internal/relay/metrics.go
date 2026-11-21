@@ -156,7 +156,7 @@ func (m *RelayMetrics) SaveWithChannelStats(ctx context.Context, success bool, e
 	}
 
 	channelID, channelName := finalChannel(attempts)
-	if saveErr := op.StatsRecordRequest(context.Background(), m.APIKeyID, channelID, globalStats, updateChannelStats, attempts, m.ActualModel); saveErr != nil {
+	if saveErr := op.StatsRecordRequest(context.Background(), m.APIKeyID, channelID, globalStats, updateChannelStats); saveErr != nil {
 		log.Warnf("failed to persist daily rollover: %v", saveErr)
 	}
 

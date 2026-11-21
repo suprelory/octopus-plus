@@ -22,9 +22,9 @@ func createMigrationCommandDatabase(t *testing.T, path string) {
 		t.Fatal(err)
 	}
 	for _, table := range []any{
-		&model.Site{}, &model.SiteAccount{}, &model.Channel{}, &model.ChannelKey{}, &model.ProxyConfiguration{},
-		&model.SiteUserGroup{}, &model.SiteChannelBinding{}, &model.Group{}, &model.GroupItem{}, &model.GroupPreset{},
-		&model.Setting{}, &model.StatsChannel{}, &model.StatsSiteModelHourly{}, &model.CheckinLog{}, &model.CheckinBatchJob{},
+		&model.LegacySite{}, &model.LegacySiteAccount{}, &model.Channel{}, &model.ChannelKey{}, &model.ProxyConfiguration{},
+		&model.LegacySiteUserGroup{}, &model.LegacySiteChannelBinding{}, &model.Group{}, &model.GroupItem{}, &model.GroupPreset{},
+		&model.Setting{}, &model.StatsChannel{}, &model.LegacyStatsSiteModelHourly{}, &model.CheckinLog{}, &model.CheckinBatchJob{},
 	} {
 		if err := conn.Migrator().CreateTable(table); err != nil {
 			t.Fatalf("create %T: %v", table, err)

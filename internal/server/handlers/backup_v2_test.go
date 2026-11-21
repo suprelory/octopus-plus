@@ -17,7 +17,7 @@ import (
 )
 
 func TestBackupV2HTTPArchiveRestore(t *testing.T) {
-	ctx := setupSiteHandlerTestDB(t)
+	ctx := setupHandlerTestDB(t)
 	service := backup.NewService(db.GetDB())
 	if err := service.PrepareSchema(ctx); err != nil {
 		t.Fatal(err)
@@ -36,7 +36,7 @@ func TestBackupV2HTTPArchiveRestore(t *testing.T) {
 		t.Fatal("v2 export failed")
 	}
 	archive := append([]byte(nil), w.Body.Bytes()...)
-	ctx = setupSiteHandlerTestDB(t)
+	ctx = setupHandlerTestDB(t)
 	if err := op.InitCache(); err != nil {
 		t.Fatal(err)
 	}
@@ -75,14 +75,66 @@ func TestBackupV2HTTPArchiveRestore(t *testing.T) {
 	if err := db.GetDB().First(&saved).Error; err != nil || saved.Name != site.Name {
 		t.Fatal("site not restored")
 	}
-	var legacyCount int64
-	if err := db.GetDB().Model(&model.LegacySite{}).Count(&legacyCount).Error; err != nil || legacyCount != 0 {
-		t.Fatal("restore created legacy site")
+	if db.GetDB().Migrator().HasTable("sites") {
+		t.Fatal("restore created the subscription table")
+	}
+}
+
+func TestBackupHTTPConvertsV1InputOnV2Runtime(t *testing.T) {
+	ctx := setupHandlerTestDB(t)
+	if err := op.InitCache(); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	legacy := model.LegacyDBDump{
+		Version:    1,
+		ExportedAt: now,
+		Sites: []model.LegacySite{{
+			ID: 3, Name: "legacy check-in", Kind: model.LegacySiteKindCheckin,
+			Platform: model.SitePlatformAPI, BaseURL: "https://legacy.example.test", Enabled: true,
+			ProxyMode: model.ProxyUsageModeDirect, CheckinHTTPEnabled: true,
+			CheckinHTTPMethod: "POST", CheckinHTTPPath: "/daily", CheckinMode: model.SiteCheckinModeEnabled,
+			CheckinTimezone: "UTC", CheckinWindowStart: "00:00", CheckinWindowEnd: "23:59",
+		}},
+		SiteAccounts: []model.LegacySiteAccount{{
+			ID: 4, SiteID: 3, Name: "legacy cookie", Cookie: "session=legacy",
+			Enabled: true, ProxyMode: model.ProxyUsageModeInherit,
+		}},
+	}
+	payload, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/setting/import", bytes.NewReader(payload)).WithContext(ctx)
+	c.Request.Header.Set("Content-Type", "application/json")
+	importDB(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("v1 import failed: %s", w.Body.String())
+	}
+	var site model.CheckinSite
+	if err := db.GetDB().Where("name = ?", "legacy check-in").First(&site).Error; err != nil {
+		t.Fatal(err)
+	}
+	var account model.CheckinAccount
+	if err := db.GetDB().Where("site_id = ?", site.ID).First(&account).Error; err != nil {
+		t.Fatal(err)
+	}
+	var credential model.CheckinCredential
+	if err := db.GetDB().First(&credential, account.CredentialID).Error; err != nil {
+		t.Fatal("could not load the converted credential")
+	}
+	if credential.Cookie != "session=legacy" {
+		t.Fatal("converted credential lost its cookie")
+	}
+	if db.GetDB().Migrator().HasTable("sites") || db.GetDB().Migrator().HasTable("site_accounts") {
+		t.Fatal("v1 import recreated legacy subscription tables")
 	}
 }
 
 func TestBackupV2HTTPReportsSafeInvalidInput(t *testing.T) {
-	ctx := setupSiteHandlerTestDB(t)
+	ctx := setupHandlerTestDB(t)
 	document := backup.Document{LegacyDBDump: model.LegacyDBDump{Version: 2, ExportedAt: time.Now().UTC()}, CheckinCredentials: []model.CheckinCredentialBackup{{ID: 1, CheckinCredentialInput: model.CheckinCredentialInput{Password: "must-not-leak"}}}}
 	data, err := json.Marshal(document)
 	if err != nil {

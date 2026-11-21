@@ -16,7 +16,6 @@ const (
 	TaskSyncLLM              = "sync_llm"
 	TaskCleanLLM             = "clean_llm"
 	TaskBaseUrlDelay         = "base_url_delay"
-	TaskSiteSync             = "site_sync"
 	TaskSiteCheckin          = "site_checkin"
 	TaskCheckinNotifications = "checkin_notifications"
 	TaskWSAffinityCleanup    = "ws_affinity_cleanup"

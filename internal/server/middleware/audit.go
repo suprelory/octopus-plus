@@ -88,8 +88,7 @@ func isAdminOperation(c *gin.Context) bool {
 	if !c.GetBool(adminAuthenticatedKey) || !strings.HasPrefix(c.FullPath(), "/api/v1/") {
 		return false
 	}
-	switch c.FullPath() {
-	case "/api/v1/group/preview", "/api/v1/site/detect", "/api/v1/site/account/manual-sync/preview/:id":
+	if c.FullPath() == "/api/v1/group/preview" {
 		return false
 	}
 	if c.Request.Method == http.MethodGet {
