@@ -110,6 +110,22 @@ func (j *Journal) Open(ctx context.Context, source, fingerprint string) (*Migrat
 	return &saved, nil
 }
 
+func (j *Journal) Find(ctx context.Context, source string) (*MigrationRun, bool, error) {
+	source = strings.ToLower(source)
+	if j == nil || j.conn == nil || !sourceNamePattern.MatchString(source) {
+		return nil, false, errors.New("invalid migration journal source")
+	}
+	var run MigrationRun
+	err := j.conn.WithContext(ctx).Where("source = ?", source).First(&run).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, errors.New("read migration journal failed")
+	}
+	return &run, true, nil
+}
+
 func stageIndex(stage Stage) int {
 	for i, name := range migrationStages {
 		if stage == name {
@@ -163,6 +179,9 @@ func (j *Journal) Apply(ctx context.Context, run MigrationRun, stage Stage, mapp
 			}
 		}
 		if err := write(tx); err != nil {
+			if err == ErrMigrationVerification || err == ErrMigrationSourceChanged {
+				return err
+			}
 			return ErrMigrationStageFailed
 		}
 		if err := recordStage(tx, run.ID, stage, "completed", ""); err != nil {
@@ -191,7 +210,7 @@ func (j *Journal) Apply(ctx context.Context, run MigrationRun, stage Stage, mapp
 				return recordStage(tx, run.ID, stage, "failed", "stage_failed")
 			})
 		}
-		if errors.Is(err, ErrMigrationInputChanged) || errors.Is(err, ErrMigrationStageOrder) || errors.Is(err, ErrMigrationMappingConflict) {
+		if err == ErrMigrationVerification || err == ErrMigrationSourceChanged || errors.Is(err, ErrMigrationInputChanged) || errors.Is(err, ErrMigrationStageOrder) || errors.Is(err, ErrMigrationMappingConflict) {
 			return false, err
 		}
 		return false, ErrMigrationStageFailed

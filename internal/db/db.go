@@ -2,6 +2,8 @@ package db
 
 import (
 	"fmt"
+	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,7 +17,53 @@ import (
 
 var db *gorm.DB
 
+// Preview opens an existing SQLite file read-only without changing its journal
+// mode. Server databases use read-only transactions for snapshot inspection.
+func OpenMigrationConnection(dbType, dsn string, preview bool) (*gorm.DB, error) {
+	if dbType != "sqlite" {
+		return openConnection(dbType, dsn, false)
+	}
+	path, err := filepath.Abs(dsn)
+	if err != nil {
+		return nil, err
+	}
+	path = filepath.ToSlash(path)
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	u := url.URL{Scheme: "file", Path: path}
+	params := u.Query()
+	mode := "rw"
+	if preview {
+		mode = "ro"
+	}
+	params.Set("mode", mode)
+	params.Add("_pragma", "busy_timeout(5000)")
+	params.Add("_pragma", "foreign_keys(ON)")
+	u.RawQuery = params.Encode()
+	conn, err := gorm.Open(sqlite.Open(u.String()), &gorm.Config{Logger: logger.Discard})
+	if err != nil {
+		return nil, err
+	}
+	pool, err := conn.DB()
+	if err != nil {
+		return nil, err
+	}
+	pool.SetMaxOpenConns(1)
+	return conn, nil
+}
+
 func InitDB(dbType, dsn string, debug bool) error {
+	var err error
+	db, err = openConnection(dbType, dsn, debug)
+	if err != nil {
+		return err
+	}
+	return initializeSchema(db)
+}
+
+func openConnection(dbType, dsn string, debug bool) (*gorm.DB, error) {
+	var db *gorm.DB
 	var err error
 	gormConfig := gorm.Config{Logger: logger.Discard}
 	if debug {
@@ -30,16 +78,16 @@ func InitDB(dbType, dsn string, debug bool) error {
 	case "postgres", "postgresql":
 		db, err = initPostgres(dsn, &gormConfig)
 	default:
-		return fmt.Errorf("unsupported database type: %s", dbType)
+		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	switch dbType {
@@ -57,7 +105,7 @@ func InitDB(dbType, dsn string, debug bool) error {
 		sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 	}
 
-	return initializeSchema(db)
+	return db, nil
 }
 
 // Create missing tables and apply only targeted compatibility migrations to
@@ -128,20 +176,8 @@ func initializeSchema(db *gorm.DB) error {
 }
 
 func ensureSiteCheckinBatchJobSchema(db *gorm.DB) error {
-	if !db.Migrator().HasColumn(&model.SiteCheckinBatchJob{}, "Pending") {
-		if err := db.Migrator().AddColumn(&model.SiteCheckinBatchJob{}, "Pending"); err != nil {
-			return fmt.Errorf("add checkin batch pending count: %w", err)
-		}
-	}
-	if !db.Migrator().HasColumn(&model.SiteCheckinLog{}, "BatchJobID") {
-		if err := db.Migrator().AddColumn(&model.SiteCheckinLog{}, "BatchJobID"); err != nil {
-			return fmt.Errorf("add site checkin log batch job id: %w", err)
-		}
-	}
-	if !db.Migrator().HasIndex(&model.SiteCheckinLog{}, "idx_site_checkin_batch_job_id") {
-		if err := db.Migrator().CreateIndex(&model.SiteCheckinLog{}, "BatchJobID"); err != nil {
-			return fmt.Errorf("create site checkin log batch job index: %w", err)
-		}
+	if err := prepareSiteCheckinHistoryColumns(db); err != nil {
+		return err
 	}
 
 	var interruptedCount int64
@@ -163,6 +199,34 @@ func ensureSiteCheckinBatchJobSchema(db *gorm.DB) error {
 			"finished_at":   now,
 		}).Error; err != nil {
 		return fmt.Errorf("mark unfinished site checkin batch jobs interrupted: %w", err)
+	}
+	return nil
+}
+
+// PrepareLegacyCheckinHistorySchema adds the two history fields required by
+// the explicit migration without interrupting or otherwise changing old jobs.
+func PrepareLegacyCheckinHistorySchema(conn *gorm.DB) error {
+	if conn == nil || !conn.Migrator().HasTable(&model.SiteCheckinLog{}) || !conn.Migrator().HasTable(&model.SiteCheckinBatchJob{}) {
+		return fmt.Errorf("legacy checkin history tables are required")
+	}
+	return prepareSiteCheckinHistoryColumns(conn)
+}
+
+func prepareSiteCheckinHistoryColumns(db *gorm.DB) error {
+	if !db.Migrator().HasColumn(&model.SiteCheckinBatchJob{}, "Pending") {
+		if err := db.Migrator().AddColumn(&model.SiteCheckinBatchJob{}, "Pending"); err != nil {
+			return fmt.Errorf("add checkin batch pending count: %w", err)
+		}
+	}
+	if !db.Migrator().HasColumn(&model.SiteCheckinLog{}, "BatchJobID") {
+		if err := db.Migrator().AddColumn(&model.SiteCheckinLog{}, "BatchJobID"); err != nil {
+			return fmt.Errorf("add site checkin log batch job id: %w", err)
+		}
+	}
+	if !db.Migrator().HasIndex(&model.SiteCheckinLog{}, "idx_site_checkin_batch_job_id") {
+		if err := db.Migrator().CreateIndex(&model.SiteCheckinLog{}, "BatchJobID"); err != nil {
+			return fmt.Errorf("create site checkin log batch job index: %w", err)
+		}
 	}
 	return nil
 }

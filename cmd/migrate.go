@@ -9,7 +9,7 @@ import (
 )
 
 func newMigrationCommand() *cobra.Command {
-	command := &cobra.Command{Use: "migrate", Short: "Inspect data for a version upgrade"}
+	command := &cobra.Command{Use: "migrate", Short: "Inspect and migrate data for a version upgrade"}
 	var input string
 	preflight := &cobra.Command{
 		Use: "v2-preflight", Short: "Inspect a v1 JSON or ZIP backup without modifying data",
@@ -36,7 +36,7 @@ func newMigrationCommand() *cobra.Command {
 	}
 	preflight.Flags().StringVar(&input, "input", "", "Path to an existing version 1 JSON or ZIP backup")
 	_ = preflight.MarkFlagRequired("input")
-	command.AddCommand(preflight)
+	command.AddCommand(preflight, newDatabaseMigrationCommand())
 	return command
 }
 

@@ -123,6 +123,7 @@ func (c *Conversion) finishReport() {
 		return compareID(a.RelatedID, b.RelatedID)
 	})
 	c.Report.Issues = slices.Compact(c.Report.Issues)
+	c.Report.Blockers = 0
 	for _, issue := range c.Report.Issues {
 		if issue.Severity == "blocker" {
 			c.Report.Blockers++

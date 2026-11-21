@@ -20,6 +20,12 @@ import (
 // contract test creates and drops only its own randomly named database.
 func externalJournalDatabase(t *testing.T, dialect, dsn string) (*Journal, *gorm.DB) {
 	t.Helper()
+	conn := openExternalDatabase(t, dialect, dsn)
+	return prepareJournalDatabase(t, conn), conn
+}
+
+func openExternalDatabase(t *testing.T, dialect, dsn string) *gorm.DB {
+	t.Helper()
 	open := func(database string) (*gorm.DB, error) {
 		config := &gorm.Config{Logger: logger.Discard}
 		if dialect == "mysql" {
@@ -31,7 +37,10 @@ func externalJournalDatabase(t *testing.T, dialect, dsn string) (*Journal, *gorm
 				parsed.DBName = database
 			}
 			parsed.ParseTime = true
-			return gorm.Open(mysql.Open(parsed.FormatDSN()), config)
+			return gorm.Open(mysql.New(mysql.Config{
+				DSN:               parsed.FormatDSN(),
+				DefaultStringSize: 191,
+			}), config)
 		}
 		parsed, err := pgx.ParseConfig(dsn)
 		if err != nil {
@@ -83,7 +92,7 @@ func externalJournalDatabase(t *testing.T, dialect, dsn string) (*Journal, *gorm
 	}
 	pool.SetMaxOpenConns(8)
 	t.Cleanup(func() { _ = pool.Close() })
-	return prepareJournalDatabase(t, conn), conn
+	return conn
 }
 
 func TestMigrationJournalDatabases(t *testing.T) {

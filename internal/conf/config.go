@@ -82,30 +82,46 @@ func CacheInitTimeout() time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
-func Load(path string) error {
+func configReader(path string) *viper.Viper {
+	reader := viper.New()
 	if path != "" {
-		viper.SetConfigFile(path)
+		reader.SetConfigFile(path)
 	} else {
-		viper.SetConfigName("config")
-		viper.SetConfigType("json")
-		viper.AddConfigPath("data")
+		reader.SetConfigName("config")
+		reader.SetConfigType("json")
+		reader.AddConfigPath("data")
 	}
 
-	viper.AutomaticEnv()
-	viper.SetEnvPrefix(APP_NAME)
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	reader.AutomaticEnv()
+	reader.SetEnvPrefix(APP_NAME)
+	reader.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	setDefaults(reader)
+	return reader
+}
 
-	setDefaults()
+// ReadDatabaseConfig resolves the same file, defaults and environment as start,
+// without creating a config file, logging to stdout or changing AppConfig.
+func ReadDatabaseConfig(path string) (Database, error) {
+	reader := configReader(path)
+	if err := reader.ReadInConfig(); err != nil {
+		if _, missing := err.(viper.ConfigFileNotFoundError); path != "" || !missing {
+			return Database{}, err
+		}
+	}
+	return Database{Type: reader.GetString("database.type"), Path: reader.GetString("database.path")}, nil
+}
 
-	if err := viper.ReadInConfig(); err == nil {
-		log.Infof("Using config file: %s", viper.ConfigFileUsed())
+func Load(path string) error {
+	reader := configReader(path)
+	if err := reader.ReadInConfig(); err == nil {
+		log.Infof("Using config file: %s", reader.ConfigFileUsed())
 	} else {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			log.Infof("Config file not found, creating default config")
 			if err := os.MkdirAll("data", 0755); err != nil {
 				log.Errorf("Failed to create data directory: %v", err)
 			}
-			if err := viper.SafeWriteConfigAs("data/config.json"); err != nil {
+			if err := reader.SafeWriteConfigAs("data/config.json"); err != nil {
 				log.Errorf("Failed to create default config: %v", err)
 			}
 		} else {
@@ -113,25 +129,25 @@ func Load(path string) error {
 		}
 	}
 
-	if err := viper.Unmarshal(&AppConfig); err != nil {
+	if err := reader.Unmarshal(&AppConfig); err != nil {
 		return fmt.Errorf("unable to decode config into struct: %w", err)
 	}
 	return nil
 }
 
-func setDefaults() {
-	viper.SetDefault("server.host", "0.0.0.0")
-	viper.SetDefault("server.port", 8080)
-	viper.SetDefault("server.max_request_body_mb", DefaultMaxRequestBodyMB)
-	viper.SetDefault("server.trusted_proxies", []string{})
-	viper.SetDefault("database.type", "sqlite")
-	viper.SetDefault("database.path", "data/data.db")
-	viper.SetDefault("log.level", "info")
-	viper.SetDefault("log.format", "console")
-	viper.SetDefault("log.caller", false)
-	viper.SetDefault("log.stacktrace_level", "error")
-	viper.SetDefault("log.access.enabled", false)
-	viper.SetDefault("log.access.slow_threshold_ms", 3000)
-	viper.SetDefault("log.relay.summary", true)
-	viper.SetDefault("startup.cache_init_timeout_seconds", 120)
+func setDefaults(reader *viper.Viper) {
+	reader.SetDefault("server.host", "0.0.0.0")
+	reader.SetDefault("server.port", 8080)
+	reader.SetDefault("server.max_request_body_mb", DefaultMaxRequestBodyMB)
+	reader.SetDefault("server.trusted_proxies", []string{})
+	reader.SetDefault("database.type", "sqlite")
+	reader.SetDefault("database.path", "data/data.db")
+	reader.SetDefault("log.level", "info")
+	reader.SetDefault("log.format", "console")
+	reader.SetDefault("log.caller", false)
+	reader.SetDefault("log.stacktrace_level", "error")
+	reader.SetDefault("log.access.enabled", false)
+	reader.SetDefault("log.access.slow_threshold_ms", 3000)
+	reader.SetDefault("log.relay.summary", true)
+	reader.SetDefault("startup.cache_init_timeout_seconds", 120)
 }
