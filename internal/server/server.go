@@ -10,9 +10,10 @@ import (
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
+	"github.com/suprelory/octopus-plus/internal/checkin"
 	"github.com/suprelory/octopus-plus/internal/conf"
 	"github.com/suprelory/octopus-plus/internal/relay/bodycache"
-	_ "github.com/suprelory/octopus-plus/internal/server/handlers"
+	"github.com/suprelory/octopus-plus/internal/server/handlers"
 	"github.com/suprelory/octopus-plus/internal/server/middleware"
 	"github.com/suprelory/octopus-plus/internal/server/resp"
 	"github.com/suprelory/octopus-plus/internal/server/router"
@@ -38,25 +39,24 @@ const (
 // 有意不设置 ReadTimeout / WriteTimeout：SSE 流式响应与 WebSocket 长连接
 // 会被这两个超时直接截断。
 
-func Start() error {
+// NewHandler constructs the same route graph used by Start without opening a
+// listener. This allows full runtime integration tests against an isolated DB.
+func NewHandler(services *checkin.Services) (*gin.Engine, error) {
 	if conf.IsDebug() {
 		gin.SetMode(gin.DebugMode)
 	} else {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// 启动时清理 Images 请求体临时文件（失败仅告警，不阻断启动）
-	tmpDir := bodycache.TmpDirFromEnv()
-	olderThan := bodycache.TmpCleanupOlderThanFromEnv()
-	if err := bodycache.CleanupOldTmpFiles(tmpDir, bodycache.TmpFilePrefix, olderThan); err != nil {
-		log.Warnf("cleanup images tmp files failed: dir=%s prefix=%s olderThan=%s err=%v", tmpDir, bodycache.TmpFilePrefix, olderThan, err)
-	}
-
 	r := gin.New()
+	if services == nil {
+		return nil, errors.New("server requires check-in services")
+	}
+	r.Use(middleware.RuntimeWork(services))
 	// Client IP resolution is handled by the runtime setting middleware. Keep
 	// Gin's own proxy parser disabled so a stale static config cannot bypass it.
 	if err := r.SetTrustedProxies(nil); err != nil {
-		return fmt.Errorf("disable Gin trusted proxy parser: %w", err)
+		return nil, fmt.Errorf("disable Gin trusted proxy parser: %w", err)
 	}
 	if err := middleware.ReloadTrustedProxies(); err != nil {
 		// Fail closed on a malformed value imported from an older/manual backup:
@@ -64,7 +64,7 @@ func Start() error {
 		// administrator corrects the setting.
 		log.Warnf("trusted proxy setting is invalid; forwarded headers will be ignored: %v", err)
 		if resetErr := middleware.ConfigureTrustedProxies(""); resetErr != nil {
-			return fmt.Errorf("reset trusted proxy resolver: %w", resetErr)
+			return nil, fmt.Errorf("reset trusted proxy resolver: %w", resetErr)
 		}
 	}
 	if middleware.TrustedProxyCount() == 0 {
@@ -92,14 +92,29 @@ func Start() error {
 	r.Use(middleware.MaxBodySize())
 	r.Use(middleware.StaticEmbed("/", static.StaticFS))
 
+	if err := router.RegisterAll(r); err != nil {
+		return nil, fmt.Errorf("register routes: %w", err)
+	}
+	if err := handlers.RegisterCheckinRoutes(r, services); err != nil {
+		return nil, err
+	}
+	return r, nil
+}
+
+func Start(services *checkin.Services) error {
+	tmpDir := bodycache.TmpDirFromEnv()
+	olderThan := bodycache.TmpCleanupOlderThanFromEnv()
+	if err := bodycache.CleanupOldTmpFiles(tmpDir, bodycache.TmpFilePrefix, olderThan); err != nil {
+		log.Warnf("cleanup images tmp files failed: dir=%s prefix=%s olderThan=%s err=%v", tmpDir, bodycache.TmpFilePrefix, olderThan, err)
+	}
+	r, err := NewHandler(services)
+	if err != nil {
+		return err
+	}
 	addr := fmt.Sprintf("%s:%d", conf.AppConfig.Server.Host, conf.AppConfig.Server.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", addr, err)
-	}
-	if err := router.RegisterAll(r); err != nil {
-		_ = listener.Close()
-		return fmt.Errorf("register routes: %w", err)
 	}
 
 	httpSrv = http.Server{

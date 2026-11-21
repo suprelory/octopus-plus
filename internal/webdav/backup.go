@@ -28,11 +28,15 @@ type BackupInfo struct {
 }
 
 func RunBackup(ctx context.Context) error {
-	return RunBackupVersion(ctx, 1)
+	version := 2
+	if db.LegacyRuntime() {
+		version = 1
+	}
+	return RunBackupVersion(ctx, version)
 }
 
 func RunBackupVersion(ctx context.Context, version int) error {
-	if version != 1 && version != 2 {
+	if version != 1 && version != 2 || version == 1 && !db.LegacyRuntime() {
 		return backup.ErrFormat
 	}
 	cfg, err := LoadConfig()
@@ -108,11 +112,15 @@ func ListBackups(ctx context.Context) ([]BackupInfo, error) {
 }
 
 func RestoreFromBackup(ctx context.Context, filename string) (*model.DBImportResult, error) {
-	return RestoreFromBackupVersion(ctx, filename, 1)
+	version := 2
+	if db.LegacyRuntime() {
+		version = 1
+	}
+	return RestoreFromBackupVersion(ctx, filename, version)
 }
 
 func RestoreFromBackupVersion(ctx context.Context, filename string, version int) (*model.DBImportResult, error) {
-	if version != 1 && version != 2 {
+	if version != 1 && version != 2 || version == 1 && !db.LegacyRuntime() {
 		return nil, backup.ErrFormat
 	}
 	if !isBackupFile(filename) {

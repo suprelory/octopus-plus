@@ -22,7 +22,7 @@ func SyncModelsTask() {
 	defer func() {
 		log.Debugf("sync models task finished, sync time: %s", time.Since(startTime))
 	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(taskContext(), 30*time.Minute)
 	defer cancel()
 	channels, err := op.ChannelList(ctx)
 	if err != nil {

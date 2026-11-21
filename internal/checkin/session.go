@@ -54,15 +54,21 @@ type Sessions struct {
 	flight   singleflight.Group
 	mu       sync.Mutex
 	failures map[int]sessionFailure
+	workers  *workLifecycle
 }
 
 func NewSessions(store SessionStore, auth Authenticator) *Sessions {
-	return &Sessions{store: store, auth: auth, policy: defaultSessionPolicy, failures: make(map[int]sessionFailure)}
+	return &Sessions{store: store, auth: auth, policy: defaultSessionPolicy, failures: make(map[int]sessionFailure), workers: newWorkLifecycle()}
 }
 
 // Ensure loads the current independent credential, refreshing only when due.
 // For AgentRouter, it can use an existing session but can never perform login.
 func (s *Sessions) Ensure(ctx context.Context, id int) (Session, error) {
+	ctx, release, err := s.workers.begin(ctx)
+	if err != nil {
+		return Session{}, err
+	}
+	defer release()
 	if err := ctx.Err(); err != nil {
 		return Session{}, err
 	}
@@ -77,6 +83,11 @@ func (s *Sessions) Ensure(ctx context.Context, id int) (Session, error) {
 // caller may retry one status/balance read with it, never a check-in submission.
 // Rejecting the same old snapshot concurrently still rotates only one session.
 func (s *Sessions) RecoverRead(ctx context.Context, rejected Session) (Session, error) {
+	ctx, release, err := s.workers.begin(ctx)
+	if err != nil {
+		return Session{}, err
+	}
+	defer release()
 	return s.resolve(ctx, rejected.Credential, true)
 }
 
@@ -90,7 +101,12 @@ func (s *Sessions) resolve(ctx context.Context, original model.CheckinCredential
 		}
 		completed := s.flight.DoChan(strconv.Itoa(original.ID), func() (any, error) {
 			// A cancelled waiter must not cancel another account's shared exchange.
-			workCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), s.policy.workTimeout)
+			workCtx, release, err := s.workers.begin(context.WithoutCancel(ctx))
+			if err != nil {
+				return nil, err
+			}
+			defer release()
+			workCtx, cancel := context.WithTimeout(workCtx, s.policy.workTimeout)
 			defer cancel()
 			return s.loadOrExchange(workCtx, original, force)
 		})

@@ -193,8 +193,10 @@ func persistStatsSnapshots(
 		}
 	}
 
-	if err := statsSiteModelHourlySaveDB(ctx); err != nil {
-		return err
+	if db.LegacyRuntime() {
+		if err := statsSiteModelHourlySaveDB(ctx); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -404,7 +406,9 @@ func StatsRecordRequest(ctx context.Context, apiKeyID, channelID int, metrics mo
 		}
 		statsChannelUpdate(channelID, channelMetrics)
 	}
-	statsSiteModelHourlyRecordAttempts(attempts, actualModel)
+	if db.LegacyRuntime() {
+		statsSiteModelHourlyRecordAttempts(attempts, actualModel)
+	}
 	return statsDailyUpdate(ctx, metrics)
 }
 

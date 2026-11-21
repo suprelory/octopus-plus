@@ -44,18 +44,19 @@ type Engine struct {
 	running       map[int]bool
 	balances      *Balances
 	notifications *Notifications
+	workers       *workLifecycle
 }
 
 func NewEngine(store WorkflowStore, sessions SessionProvider, proxies ProxyResolver) *Engine {
-	e := &Engine{store: store, sessions: sessions, proxies: proxies, now: time.Now, running: make(map[int]bool)}
+	e := &Engine{store: store, sessions: sessions, proxies: proxies, now: time.Now, running: make(map[int]bool), workers: newWorkLifecycle()}
 	if store, ok := store.(BalanceStore); ok {
 		e.balances = NewBalances(store, sessions, proxies)
 	}
 	return e
 }
 
-// Configure before sharing the engine with workers. Delivery is opt-in until
-// production cutover; tests can inject local delivery without global settings.
+// Configure before sharing the engine with workers. NewServices wires delivery;
+// tests can inject local delivery without global settings.
 func (e *Engine) WithNotifications(notifications *Notifications) *Engine {
 	e.notifications = notifications
 	return e
@@ -79,6 +80,11 @@ type checkinRun struct {
 }
 
 func (e *Engine) run(ctx context.Context, id int, request op.CheckinInvocation) (*model.CheckinResult, error) {
+	ctx, release, err := e.workers.begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

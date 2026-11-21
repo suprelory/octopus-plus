@@ -122,7 +122,11 @@ func ProxyConfigurationDelete(id int, ctx context.Context) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&item, id).Error; err != nil {
 			return fmt.Errorf("load proxy configuration: %w", err)
 		}
-		for _, table := range []any{&model.Site{}, &model.SiteAccount{}, &model.Channel{}} {
+		tables := []any{&model.Channel{}}
+		if db.LegacyRuntime() {
+			tables = append(tables, &model.Site{}, &model.SiteAccount{})
+		}
+		for _, table := range tables {
 			var count int64
 			if err := tx.Model(table).Where("proxy_mode = ? AND proxy_config_id = ?", model.ProxyUsageModePool, id).Count(&count).Error; err != nil {
 				return err
@@ -153,48 +157,49 @@ func ProxyConfigurationReferences(id int, ctx context.Context) ([]model.ProxyCon
 
 	refs := make([]model.ProxyConfigurationReference, 0)
 
-	var sites []model.Site
-	if err := db.GetDB().WithContext(ctx).
-		Where("proxy_mode = ? AND proxy_config_id = ?", model.ProxyUsageModePool, id).
-		Order("id ASC").Find(&sites).Error; err != nil {
-		return nil, err
-	}
-	for _, site := range sites {
-		refs = append(refs, model.ProxyConfigurationReference{
-			Type:         model.ProxyConfigurationReferenceTypeSite,
-			SiteID:       site.ID,
-			SiteName:     site.Name,
-			SiteArchived: site.Archived,
-		})
-	}
+	if db.LegacyRuntime() {
+		var sites []model.Site
+		if err := db.GetDB().WithContext(ctx).
+			Where("proxy_mode = ? AND proxy_config_id = ?", model.ProxyUsageModePool, id).
+			Order("id ASC").Find(&sites).Error; err != nil {
+			return nil, err
+		}
+		for _, site := range sites {
+			refs = append(refs, model.ProxyConfigurationReference{
+				Type:         model.ProxyConfigurationReferenceTypeSite,
+				SiteID:       site.ID,
+				SiteName:     site.Name,
+				SiteArchived: site.Archived,
+			})
+		}
 
-	type accountRefRow struct {
-		ID       int
-		Name     string
-		SiteID   int
-		SiteName string
-		Archived bool
+		type accountRefRow struct {
+			ID       int
+			Name     string
+			SiteID   int
+			SiteName string
+			Archived bool
+		}
+		var accountRows []accountRefRow
+		if err := db.GetDB().WithContext(ctx).
+			Table("site_accounts").
+			Select("site_accounts.id, site_accounts.name, site_accounts.site_id, sites.name as site_name, sites.archived").
+			Joins("LEFT JOIN sites ON sites.id = site_accounts.site_id").
+			Where("site_accounts.proxy_mode = ? AND site_accounts.proxy_config_id = ?", model.ProxyUsageModePool, id).
+			Order("site_accounts.id ASC").Scan(&accountRows).Error; err != nil {
+			return nil, err
+		}
+		for _, row := range accountRows {
+			refs = append(refs, model.ProxyConfigurationReference{
+				Type:            model.ProxyConfigurationReferenceTypeSiteAccount,
+				SiteID:          row.SiteID,
+				SiteName:        row.SiteName,
+				SiteArchived:    row.Archived,
+				SiteAccountID:   row.ID,
+				SiteAccountName: row.Name,
+			})
+		}
 	}
-	var accountRows []accountRefRow
-	if err := db.GetDB().WithContext(ctx).
-		Table("site_accounts").
-		Select("site_accounts.id, site_accounts.name, site_accounts.site_id, sites.name as site_name, sites.archived").
-		Joins("LEFT JOIN sites ON sites.id = site_accounts.site_id").
-		Where("site_accounts.proxy_mode = ? AND site_accounts.proxy_config_id = ?", model.ProxyUsageModePool, id).
-		Order("site_accounts.id ASC").Scan(&accountRows).Error; err != nil {
-		return nil, err
-	}
-	for _, row := range accountRows {
-		refs = append(refs, model.ProxyConfigurationReference{
-			Type:            model.ProxyConfigurationReferenceTypeSiteAccount,
-			SiteID:          row.SiteID,
-			SiteName:        row.SiteName,
-			SiteArchived:    row.Archived,
-			SiteAccountID:   row.ID,
-			SiteAccountName: row.Name,
-		})
-	}
-
 	var channels []model.Channel
 	if err := db.GetDB().WithContext(ctx).
 		Where("proxy_mode = ? AND proxy_config_id = ?", model.ProxyUsageModePool, id).
@@ -239,13 +244,17 @@ func ProxyConfigurationReferences(id int, ctx context.Context) ([]model.ProxyCon
 
 func ProxyConfigurationReferenceCounts(ctx context.Context) (map[int]int, error) {
 	counts := make(map[int]int)
-	if err := countProxyReferences(ctx, model.Site{}, counts); err != nil {
-		return nil, err
-	}
-	if err := countProxyReferences(ctx, model.SiteAccount{}, counts); err != nil {
-		return nil, err
-	}
-	if err := countManualChannelProxyReferences(ctx, counts); err != nil {
+	if db.LegacyRuntime() {
+		if err := countProxyReferences(ctx, model.Site{}, counts); err != nil {
+			return nil, err
+		}
+		if err := countProxyReferences(ctx, model.SiteAccount{}, counts); err != nil {
+			return nil, err
+		}
+		if err := countManualChannelProxyReferences(ctx, counts); err != nil {
+			return nil, err
+		}
+	} else if err := countProxyReferences(ctx, model.Channel{}, counts); err != nil {
 		return nil, err
 	}
 	checkinRefs, err := checkinProxyReferences(db.GetDB().WithContext(ctx))

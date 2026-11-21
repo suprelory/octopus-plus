@@ -48,7 +48,7 @@ func TestBackupV2WebDAVRestore(t *testing.T) {
 		}
 	}
 	for attempt := 0; attempt < 2; attempt++ {
-		result, err := RestoreFromBackupVersion(t.Context(), "octopus-backup-fixture.json", 2)
+		result, err := RestoreFromBackup(t.Context(), "octopus-backup-fixture.json")
 		if err != nil {
 			t.Fatal(err)
 		}

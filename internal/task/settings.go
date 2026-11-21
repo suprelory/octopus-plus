@@ -23,8 +23,11 @@ func intervalTasks() []intervalTask {
 	return []intervalTask{
 		{model.SettingKeyModelInfoUpdateInterval, string(model.SettingKeyModelInfoUpdateInterval), time.Hour, true, updateModelPrices},
 		{model.SettingKeySyncLLMInterval, string(model.SettingKeySyncLLMInterval), time.Hour, true, SyncModelsTask},
-		{model.SettingKeySiteSyncInterval, string(model.SettingKeySiteSyncInterval), time.Hour, true, SiteSyncTask},
-		{model.SettingKeyStatsSaveInterval, TaskStatsSave, time.Minute, false, op.StatsSaveDBTask},
+		{model.SettingKeyStatsSaveInterval, TaskStatsSave, time.Minute, false, func() {
+			if err := op.StatsSaveDB(taskContext()); err != nil {
+				log.Warnf("save statistics failed: %v", err)
+			}
+		}},
 		{model.SettingKeyWebDAVBackupInterval, string(model.SettingKeyWebDAVBackupInterval), time.Hour, false, WebDAVBackupTask},
 	}
 }
@@ -58,7 +61,7 @@ func initIntervalTasks() func() {
 }
 
 func updateModelPrices() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(taskContext(), 5*time.Minute)
 	defer cancel()
 	if err := price.UpdateLLMPrice(ctx); err != nil {
 		log.Warnf("failed to update price info: %v", err)

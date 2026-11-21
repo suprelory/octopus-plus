@@ -13,6 +13,6 @@ export default defineConfig({
         url: baseURL,
         reuseExistingServer: false,
         timeout: 180_000,
-        env: { NEXT_PUBLIC_API_BASE_URL: baseURL, NEXT_PUBLIC_V2_UI: '1', NEXT_TELEMETRY_DISABLED: '1' },
+        env: { NEXT_PUBLIC_API_BASE_URL: baseURL, NEXT_PUBLIC_V2_UI: '', NEXT_TELEMETRY_DISABLED: '1' },
     },
 });

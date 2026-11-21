@@ -22,6 +22,9 @@ const (
 )
 
 func DBImportIncremental(ctx context.Context, dump *model.DBDump) (*model.DBImportResult, error) {
+	if !db.LegacyRuntime() {
+		return nil, fmt.Errorf("legacy import is unavailable in the v2 runtime")
+	}
 	if dump == nil {
 		return nil, fmt.Errorf("empty dump")
 	}

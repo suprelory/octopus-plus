@@ -25,8 +25,8 @@ type NotificationConfig struct {
 	Threshold                              float64
 }
 
-// Explicitly selected by runtime wiring at cutover. Construction and tests do
-// not access global settings or send to configured production destinations.
+// LoadNotificationConfig reads application settings when the production service
+// scans for notifications. Tests use injected configuration or isolated settings.
 func LoadNotificationConfig() NotificationConfig {
 	enabled, _ := op.SettingGetBool(model.SettingKeyCheckinNotifyEnabled)
 	success, _ := op.SettingGetBool(model.SettingKeyCheckinNotifySuccessEnabled)
@@ -58,10 +58,11 @@ type Notifications struct {
 	running bool
 	wake    bool
 	done    chan struct{}
+	workers *workLifecycle
 }
 
 func NewNotifications(store *op.CheckinStore, config func() NotificationConfig) *Notifications {
-	return &Notifications{store: store, config: config, client: notify.NewHTTPClient(), deliver: notify.Deliver}
+	return &Notifications{store: store, config: config, client: notify.NewHTTPClient(), deliver: notify.Deliver, workers: newWorkLifecycle()}
 }
 
 // Coalesce completion bursts into one worker. A periodic RunDue also recovers
@@ -73,22 +74,28 @@ func (n *Notifications) Wake() {
 		n.mu.Unlock()
 		return
 	}
+	work, release, err := n.workers.begin(context.Background())
+	if err != nil {
+		n.mu.Unlock()
+		return
+	}
 	n.running = true
 	n.done = make(chan struct{})
 	n.mu.Unlock()
 	go func() {
+		defer release()
 		for {
 			n.mu.Lock()
 			n.wake = false
 			n.mu.Unlock()
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			ctx, cancel := context.WithTimeout(work, 5*time.Minute)
 			err := n.RunDue(ctx)
 			cancel()
 			if err != nil {
 				log.Warnf("check-in notifications will resume on the next scan")
 			}
 			n.mu.Lock()
-			if !n.wake {
+			if !n.wake || work.Err() != nil {
 				n.running = false
 				close(n.done)
 				n.mu.Unlock()
@@ -146,6 +153,11 @@ func notificationTargets(config NotificationConfig) map[string]notify.Target {
 }
 
 func (n *Notifications) RunDue(ctx context.Context) error {
+	ctx, release, err := n.workers.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
 	completions, err := n.store.DueCompletions(ctx)
 	if err != nil {
 		return err

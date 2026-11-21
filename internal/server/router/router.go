@@ -13,6 +13,7 @@ type GroupRouter struct {
 	Path        string
 	Routes      []*Route
 	Middlewares []gin.HandlerFunc
+	Legacy      bool
 }
 
 // Global registry for route groups
@@ -26,6 +27,14 @@ func NewGroupRouter(path string) *GroupRouter {
 	}
 	registeredRouters = append(registeredRouters, router)
 	return router
+}
+
+// Legacy registration remains available to the retained modules, but is never
+// mounted by production RegisterAll. Migration code does not expose HTTP routes.
+func NewLegacyGroupRouter(path string) *GroupRouter {
+	group := NewGroupRouter(path)
+	group.Legacy = true
+	return group
 }
 
 // Use adds middlewares to the group.
@@ -46,6 +55,7 @@ type Route struct {
 	Method      string
 	Handlers    []gin.HandlerFunc
 	Middlewares []gin.HandlerFunc
+	Legacy      bool
 }
 
 // NewRoute creates a new Route instance with the given path and method.
@@ -55,6 +65,12 @@ func NewRoute(path string, method string) *Route {
 		Method:   method,
 		Handlers: make([]gin.HandlerFunc, 0),
 	}
+}
+
+func NewLegacyRoute(path string, method string) *Route {
+	route := NewRoute(path, method)
+	route.Legacy = true
+	return route
 }
 
 // Handle adds handler functions to the route.
@@ -80,6 +96,9 @@ func (r *Route) Validate() error {
 // RegisterAll registers all globally registered route groups to the Gin engine
 func RegisterAll(engine *gin.Engine) error {
 	for _, router := range registeredRouters {
+		if router.Legacy {
+			continue
+		}
 		// Validate all routes in the group first
 		for _, route := range router.Routes {
 			if err := route.Validate(); err != nil {
@@ -92,6 +111,9 @@ func RegisterAll(engine *gin.Engine) error {
 
 		// Register all routes in the group
 		for _, route := range router.Routes {
+			if route.Legacy {
+				continue
+			}
 			handlers := make([]gin.HandlerFunc, 0, len(route.Middlewares)+len(route.Handlers))
 			handlers = append(handlers, route.Middlewares...)
 			handlers = append(handlers, route.Handlers...)
@@ -99,7 +121,6 @@ func RegisterAll(engine *gin.Engine) error {
 			registerRoute(group, route.Method, route.Path, handlers)
 		}
 	}
-	registeredRouters = nil
 	return nil
 }
 

@@ -13,7 +13,7 @@ import (
 
 func TestTaskIntervalsApplyOnSettingWritesAndRestore(t *testing.T) {
 	resetTaskScheduler(t)
-	if err := db.InitDB("sqlite", filepath.Join(t.TempDir(), "settings.db"), false); err != nil {
+	if err := db.InitLegacyDB("sqlite", filepath.Join(t.TempDir(), "settings.db"), false); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })

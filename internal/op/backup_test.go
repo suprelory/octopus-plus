@@ -20,7 +20,7 @@ func setupBackupTestDB(t *testing.T) context.Context {
 	}
 
 	dbPath := filepath.Join(t.TempDir(), "octopus-backup-test.db")
-	if err := dbpkg.InitDB("sqlite", dbPath, false); err != nil {
+	if err := dbpkg.InitLegacyDB("sqlite", dbPath, false); err != nil {
 		t.Fatalf("InitDB failed: %v", err)
 	}
 	t.Cleanup(func() {
@@ -267,7 +267,7 @@ func TestDBExportThenImportRoundtrip(t *testing.T) {
 	// Close and re-create a fresh DB
 	_ = dbpkg.Close()
 	freshDBPath := filepath.Join(t.TempDir(), "octopus-fresh.db")
-	if err := dbpkg.InitDB("sqlite", freshDBPath, false); err != nil {
+	if err := dbpkg.InitLegacyDB("sqlite", freshDBPath, false); err != nil {
 		t.Fatalf("InitDB for fresh DB failed: %v", err)
 	}
 	// Occupy the source ID so every imported reference must be remapped.

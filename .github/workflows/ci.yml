@@ -141,11 +141,11 @@ jobs:
       - name: Typecheck
         run: pnpm exec tsc --noEmit
 
-      - name: Browser regression tests
+      - name: Legacy compatibility browser tests
         id: browser_tests
         run: pnpm test:e2e
 
-      - name: V2 workspace browser tests
+      - name: Default v2 workspace browser tests
         id: v2_browser_tests
         run: pnpm test:e2e:v2
 
@@ -160,8 +160,8 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-      - name: Build frontend
+      - name: Build default v2 frontend
         run: pnpm build
 
-      - name: Build v2 frontend
-        run: NEXT_PUBLIC_V2_UI=1 pnpm build
+      - name: Build legacy compatibility frontend
+        run: NEXT_PUBLIC_V2_UI=0 pnpm build

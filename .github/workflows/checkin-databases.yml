@@ -54,3 +54,5 @@ jobs:
         run: go test -race ./internal/migration/v2 -run '^Test(MigrationJournalDatabases|DatabaseMigration|CaptureDatabaseInput)' -count=1 -v
       - name: Verify v2 backup restore and concurrent import
         run: go test -race ./internal/backup -count=1 -v
+      - name: Verify v2 runtime startup and migration gates
+        run: go test -race ./internal/migration/v2 -run '^TestRuntime' -count=1 -v

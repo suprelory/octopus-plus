@@ -8,11 +8,15 @@ import (
 	"time"
 
 	"github.com/dlclark/regexp2"
+	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/utils/log"
 )
 
 func ProjectedChannelGlobalAutoGroupMode() model.AutoGroupType {
+	if !db.LegacyRuntime() {
+		return model.AutoGroupTypeNone
+	}
 	value, err := SettingGetString(model.SettingKeyProjectedChannelAutoGroupEnabled)
 	if err != nil {
 		return model.AutoGroupTypeNone

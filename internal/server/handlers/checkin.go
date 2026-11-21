@@ -11,7 +11,7 @@ import (
 
 type checkinAPI struct{ services *checkin.Services }
 
-// RegisterCheckinRoutes is explicit until P5 runtime cutover. It requires a
+// RegisterCheckinRoutes is called by the production server and requires a
 // prepared independent database and one long-lived Services instance. There is
 // no init registration, schema migration, legacy fallback or task activation.
 func RegisterCheckinRoutes(engine *gin.Engine, services *checkin.Services) error {
@@ -19,7 +19,17 @@ func RegisterCheckinRoutes(engine *gin.Engine, services *checkin.Services) error
 		return errors.New("check-in API requires initialized independent services")
 	}
 	a := &checkinAPI{services: services}
-	group := engine.Group("/api/v1/checkin", middleware.Auth())
+	group := engine.Group("/api/v1/checkin", middleware.Auth(), func(c *gin.Context) {
+		ctx, release, err := services.Begin(c.Request.Context())
+		if err != nil {
+			checkinError(c, err)
+			c.Abort()
+			return
+		}
+		defer release()
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	})
 	for _, route := range []struct {
 		method, path string
 		handle       gin.HandlerFunc

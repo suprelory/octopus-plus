@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/suprelory/octopus-plus/internal/helper"
@@ -15,7 +14,6 @@ import (
 	"github.com/suprelory/octopus-plus/internal/server/resp"
 	"github.com/suprelory/octopus-plus/internal/server/router"
 	"github.com/suprelory/octopus-plus/internal/task"
-	"github.com/suprelory/octopus-plus/internal/utils/safe"
 )
 
 func init() {
@@ -123,9 +121,7 @@ func createChannel(c *gin.Context) {
 	stats := op.StatsChannelGet(channel.ID)
 	channel.Stats = &stats
 	createdChannel := channel
-	safe.Go("channel-create-postprocess", func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
+	middleware.RunBackground(c, "channel-create-postprocess", func(ctx context.Context) {
 		modelStr := createdChannel.Model + "," + createdChannel.CustomModel
 		modelArray := strings.Split(modelStr, ",")
 		helper.LLMPriceAddToDB(modelArray, ctx)
@@ -150,9 +146,7 @@ func updateChannel(c *gin.Context) {
 	stats := op.StatsChannelGet(channel.ID)
 	channel.Stats = &stats
 	updatedChannel := *channel
-	safe.Go("channel-update-postprocess", func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
+	middleware.RunBackground(c, "channel-update-postprocess", func(ctx context.Context) {
 		modelStr := updatedChannel.Model + "," + updatedChannel.CustomModel
 		modelArray := strings.Split(modelStr, ",")
 		helper.LLMPriceAddToDB(modelArray, ctx)

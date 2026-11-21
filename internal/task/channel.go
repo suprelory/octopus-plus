@@ -15,7 +15,7 @@ func ChannelBaseUrlDelayTask() {
 	defer func() {
 		log.Debugf("channel base url delay task finished, update time: %s", time.Since(startTime))
 	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(taskContext(), 30*time.Minute)
 	defer cancel()
 	channels, err := op.ChannelList(ctx)
 	if err != nil {

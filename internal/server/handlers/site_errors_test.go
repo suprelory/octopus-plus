@@ -52,7 +52,7 @@ func setupSiteHandlerTestDB(t *testing.T) context.Context {
 	if db.GetDB() != nil {
 		_ = db.Close()
 	}
-	if err := db.InitDB("sqlite", filepath.Join(t.TempDir(), "site-handler.db"), false); err != nil {
+	if err := db.InitLegacyDB("sqlite", filepath.Join(t.TempDir(), "site-handler.db"), false); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })

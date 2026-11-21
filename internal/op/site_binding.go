@@ -10,6 +10,9 @@ import (
 )
 
 func SiteChannelBindingGetByChannelID(channelID int, ctx context.Context) (*model.SiteChannelBinding, error) {
+	if !db.LegacyRuntime() {
+		return nil, gorm.ErrRecordNotFound
+	}
 	var binding model.SiteChannelBinding
 	if err := db.GetDB().WithContext(ctx).Where("channel_id = ?", channelID).First(&binding).Error; err != nil {
 		return nil, err
@@ -19,7 +22,7 @@ func SiteChannelBindingGetByChannelID(channelID int, ctx context.Context) (*mode
 
 func SiteChannelBindingMapByChannelIDs(channelIDs []int, ctx context.Context) (map[int]model.SiteChannelBinding, error) {
 	result := make(map[int]model.SiteChannelBinding)
-	if len(channelIDs) == 0 {
+	if !db.LegacyRuntime() || len(channelIDs) == 0 {
 		return result, nil
 	}
 

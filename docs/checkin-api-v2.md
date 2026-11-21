@@ -1,37 +1,40 @@
-# 独立签到 API 与 v2 前端（P4.1–P4.3）
+# 独立签到 API 与 v2 运行时
 
-开发分支为 `v2`，接口前缀为 `/api/v1/checkin`。独立签到页面及全局 v2 界面已按本契约实现；生产启动入口在 P5 完成迁移与备份后切换。
+开发分支为 `v2`，接口前缀为 `/api/v1/checkin`。P5.4 已将生产启动、定时任务、备份及前端默认入口切换到独立运行时；旧数据库须先按 [v2 路线](../V2_ROADMAP.md#数据库升级) 完成离线迁移。
 
 ## 装配与鉴权
 
-调用方先准备独立签到 schema，再构造一个长期复用的 `checkin.NewServices(store, notificationConfig)`，最后调用 `handlers.RegisterCheckinRoutes(engine, services)`。服务装配共享会话、执行器、余额、批次和通知实例；路由注册不迁移数据、不注册定时任务。`notificationConfig == nil` 表示关闭通知，生产配置需切换时显式注入 `checkin.LoadNotificationConfig`。
+`start` 先通过数据库迁移门禁、准备普通渠道与独立签到 schema，再构造一个长期复用的 `checkin.NewServices(store, checkin.LoadNotificationConfig)`，交给 HTTP 服务与调度器。API、调度、批次、余额与通知共享同一会话和执行器。签到扫描每 10 分钟执行一次，通知每分钟唤醒一次，两者启动时也执行；账号实际执行时间仍由站点时区、窗口及持久化调度决定。
 
-所有接口使用现有管理员 Bearer JWT 鉴权，转发 API Key 不可调用。签到业务只依赖注入的 `CheckinStore`；管理员认证和共享代理/系统设置仍属于应用基础设施。停止产生执行/重试请求后，可调用 `Notifications.Wait(ctx)` 等待当前异步通知任务结束，再关闭存储；直接调用 `RunDue` 的任务由调用方等待。
+嵌入测试可以显式准备 schema、构造服务并调用 `handlers.RegisterCheckinRoutes(engine, services)`；`notificationConfig == nil` 表示关闭通知。构造服务和注册路由本身不迁移数据或启动任务。所有接口使用现有管理员 Bearer JWT 鉴权，转发 API Key 不可调用。签到业务只依赖注入的 `CheckinStore`；管理员认证和共享代理/系统设置仍属于应用基础设施。
+
+退出时先停止调度与 HTTP 服务，再调用 `Services.Close(ctx)` 关闭工作准入、取消服务上下文并等待在途执行、后台批次、会话保存与通知结束，最后保存缓存并关闭数据库。调度器和服务各有 20 秒等待预算；超时进程以失败状态退出，不继续关闭仍可能被使用的存储。批次保留中断状态，已提交工作流仅恢复确认，未知通知投递不自动重发。`Notifications.Wait(ctx)` 只等待当前后台通知扫描，不能代替整个服务的关闭流程。
 
 ## 前端开发入口（P4.2 / P4.3）
 
 独立页面位于 `web/src/components/modules/checkin/`，专用类型与 hooks 位于 `web/src/api/endpoints/checkin-types.ts` 和 `checkin.ts`。站点与账号、凭据、历史与收益、批次、通知分别提供管理入口。创建账号可选择兼容的已有凭据，或同时创建凭据；余额可关闭、使用主凭据或独立配置。自定义 HTTP、状态查询、奖励提取和本地规则预览在站点编辑器中配置。
 
-生产切换前使用临时构建开关。在项目的 `web` 目录执行：
+默认启用 v2 界面。在项目的 `web` 目录执行：
 
 ```powershell
-$env:NEXT_PUBLIC_V2_UI = '1'
 pnpm dev
 ```
 
-构建静态文件时同样先设置该环境变量，再运行 `pnpm build`；开关在构建时决定页面实现，部署后修改环境变量需要重新构建。不设置开关时沿用旧页面。API 位于不同地址时设置现有的 `NEXT_PUBLIC_API_BASE_URL`。P4.3 将原 `NEXT_PUBLIC_CHECKIN_V2` 替换为全局开关 `NEXT_PUBLIC_V2_UI`，旧变量不再生效。
+构建静态文件运行 `pnpm build`。API 位于不同地址时设置现有的 `NEXT_PUBLIC_API_BASE_URL`。`NEXT_PUBLIC_V2_UI=0` 仅保留给旧界面兼容回归，不能恢复已经退出生产的旧后端路由；部署时应删除这一覆盖值。其他值或不设置均使用 v2。该变量在构建时生效，修改后需要重新构建；原 `NEXT_PUBLIC_CHECKIN_V2` 已不再生效，P6 将删除兼容分支。
 
-该开关只切换前端，不注册后端路由、不创建独立表、不迁移旧数据、不启动独立调度。联调后端必须按上文显式准备 schema 和注册独立服务；当前默认生产启动入口尚未完成 P5 切换。独立页面只请求 `/api/v1/checkin` 业务接口，查询失败会保留错误并提供刷新，不自动请求旧订阅 API。代理池和管理员登录继续复用公共基础设施。
+后端使用正常的 `go run . start --config <开发配置>` 联调；全新数据库自动准备独立表，旧数据库不自动迁移。独立页面只请求 `/api/v1/checkin` 业务接口，查询失败会保留错误并提供刷新，不自动请求旧订阅 API。代理池和管理员登录继续复用公共基础设施。
 
 全局 v2 界面具有以下行为：
 
 - 导航移除订阅站，渠道页移除投影页签；浏览器保存的旧订阅导航恢复到主页，旧渠道页签恢复到普通渠道。
 - 渠道统一展示，分组成员按渠道/协议标识，自动分组按协议组织且只提交渠道设置。日志统一筛选渠道，保留请求内容、错误和重试诊断，移除订阅模型禁用操作；不请求 `/api/v1/site`、`/api/v1/site-channel` 或日志的 `site-action-targets`。
 - 未迁移的托管渠道显示迁移提示，仍禁止编辑、删除与启停；存在此类渠道时自动分组禁止保存，防止丢失原投影全局覆盖值。转换后仍使用原渠道与 Key ID，不通过界面改写托管状态。
-- 代理池识别 `checkin_site`、`checkin_account`、`checkin_credential`、`checkin_balance`，跳转到对应编辑器；余额引用聚焦余额配置，归档站点可正确定位，失效引用提示刷新。旧引用仍计入删除保护，但不将旧 ID 当作新签到 ID。
+- 代理池识别普通渠道及 `checkin_site`、`checkin_account`、`checkin_credential`、`checkin_balance`，跳转到对应编辑器；余额引用聚焦余额配置，归档站点可正确定位，失效引用提示刷新。生产引用计数与删除保护只查询普通渠道和独立签到数据。
 - 设置中的订阅同步、旧全量签到和旧调度配置退出 v2 界面。普通渠道模型同步和价格更新继续使用原有功能；签到按站点配置时区和执行窗口，全量签到经确认后调用独立批次接口并轮询进度。
 
-上述验证范围为前端交互与接口请求。共享渠道/分组后端仍可能读取旧业务数据；运行时装配和迁移在 P5 完成，旧模块、接口、表依赖及临时前端分支在 P6 清理。
+生产路由不再注册旧订阅、投影渠道及旧签到接口，也不注册订阅同步任务。渠道、分组、代理、转发和统计可在没有订阅业务表的数据库上运行。旧源码、测试兼容初始化入口和临时前端分支留待 P6 删除。
+
+本地备份接口及定时 WebDAV 默认使用 version 2。version 1 JSON/ZIP 文件通过共用转换器导入，不能以 `version=1` 参数重新启用旧导入服务；恢复后继续使用独立任务与通知服务。
 
 页面保留以下接口约束：
 
@@ -50,7 +53,7 @@ pnpm test:e2e
 pnpm test:e2e:v2
 ```
 
-两组浏览器测试分别启动默认页面和全局 v2 页面，顺序运行；它们与构建共享 `.next`，不要并行启动。`test:e2e:v2` 包含独立签到和全局界面测试，替代原 `test:e2e:checkin`。浏览器用例使用 API mock 校验请求契约、凭据版本、显式确认/重试、长 ID、旧导航恢复、渠道保护、代理引用跳转和布局；后端行为由 P4.1 HTTP 集成测试覆盖，生产迁移与装配联调仍在 P5 验收。CI 已加入两组浏览器测试以及默认/v2 两种构建。
+`test:e2e` 显式启用旧界面兼容回归，`test:e2e:v2` 验证默认 v2 界面，包含独立签到、全局工作区及 ZIP 备份交互。两组与构建共享 `.next`，需顺序运行。浏览器用例使用 API mock 校验请求契约、凭据版本、显式确认/重试、长 ID、旧导航恢复、渠道保护、代理引用跳转和布局。生产后端另由下述集成测试覆盖。CI 同时运行两组浏览器测试及默认 v2 / 显式旧界面构建。
 
 ## 通用约定
 
@@ -173,6 +176,7 @@ pnpm test:e2e:v2
 | 413 / 415 | `checkin.request_too_large` / `checkin.content_type` | 调整请求体大小/媒体类型 |
 | 502 | `checkin.balance_unavailable`、`checkin.request_failed` | 上游响应不可用 |
 | 503 | `checkin.session_backoff`、`checkin.session_unavailable`、`checkin.session_save_failed` | 稍后重新读取会话状态 |
+| 503 | `checkin.unavailable` | 服务正在退出；恢复后先查询状态 |
 | 408 / 504 | `checkin.canceled` / `checkin.timeout` | 请求取消/超时，先读取执行状态 |
 | 500 | `checkin.internal_error` | 安全通用错误，不返回原始 SQL、URL 或秘密 |
 
@@ -182,4 +186,6 @@ pnpm test:e2e:v2
 
 `internal/server/handlers/checkin_api_test.go` 和 `checkin_async_api_test.go` 使用真实管理员 JWT 与独立 SQLite 数据库，验证业务库无需订阅/渠道表。上游及通知请求仅访问测试本机 HTTP 服务。覆盖 CRUD、秘密保护、版本/引用冲突、执行重放/确认、批次复用与并发、余额失败隔离、历史统计、长 ID 分页、通知显式重试和本地规则。
 
-`internal/op/checkin_errors_test.go` 验证 SQLite 唯一约束及 MySQL/PostgreSQL 驱动错误分类；真实数据库约束用例也加入 `TestIndependentCheckinDatabases`，由既有专用数据库 CI 执行。本轮本地验收未启动 MySQL/PostgreSQL 实例。
+`internal/server/runtime_test.go` 通过生产路由、真实 JWT 和本机上游验证普通渠道转发、签到、代理保护、默认 ZIP 备份/恢复、重启后不重复提交及旧路由退出。`internal/task/runtime_test.go` 验证独立扫描、通知和默认 WebDAV 备份，`internal/checkin/lifecycle_test.go` 验证退出时等待 Token 保存并保留已提交状态。
+
+`internal/migration/v2/runtime_test.go` 在 SQLite、MySQL、PostgreSQL 上验证未迁移/未完成迁移拒绝启动、并发首次启动、迁移切换及删除旧表后重启；P5.4 已在三种数据库实际执行。`internal/op/checkin_errors_test.go` 和 `TestIndependentCheckinDatabases` 覆盖错误分类及真实约束/并发行为。外部数据库测试需专用 DSN，并只创建/删除随机名称的测试数据库，命令与验证结果见路线文件。

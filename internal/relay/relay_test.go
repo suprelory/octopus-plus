@@ -2083,7 +2083,7 @@ func setupRelayTestDB(t *testing.T) context.Context {
 	resetWSUpstreamPool()
 
 	dbPath := filepath.Join(t.TempDir(), "octopus-relay-test.db")
-	if err := dbpkg.InitDB("sqlite", dbPath, false); err != nil {
+	if err := dbpkg.InitLegacyDB("sqlite", dbPath, false); err != nil {
 		t.Fatalf("InitDB failed: %v", err)
 	}
 	if err := op.InitCache(); err != nil {

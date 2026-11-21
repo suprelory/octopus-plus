@@ -53,13 +53,22 @@ func OpenMigrationConnection(dbType, dsn string, preview bool) (*gorm.DB, error)
 	return conn, nil
 }
 
-func InitDB(dbType, dsn string, debug bool) error {
-	var err error
-	db, err = openConnection(dbType, dsn, debug)
+// InitLegacyDB is retained for legacy compatibility fixtures until P6. The
+// application start command uses InitDB and cannot select this initializer.
+func InitLegacyDB(dbType, dsn string, debug bool) error {
+	conn, err := openConnection(dbType, dsn, debug)
 	if err != nil {
 		return err
 	}
-	return initializeSchema(db)
+	if err := initializeSchema(conn); err != nil {
+		if pool, poolErr := conn.DB(); poolErr == nil {
+			_ = pool.Close()
+		}
+		return err
+	}
+	db = conn
+	legacyRuntime.Store(true)
+	return nil
 }
 
 func openConnection(dbType, dsn string, debug bool) (*gorm.DB, error) {

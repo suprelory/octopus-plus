@@ -13,16 +13,17 @@ import (
 	"gorm.io/gorm"
 )
 
-// Jobs is driven explicitly until runtime cutover. Scheduled scans and manual
-// batches use the same long-lived engine as individual check-in requests.
+// Jobs drives scheduled scans and manual batches through the same long-lived
+// engine as individual check-in requests.
 type Jobs struct {
 	store    *op.CheckinStore
 	engine   *Engine
 	interval time.Duration
+	workers  *workLifecycle
 }
 
 func NewJobs(store *op.CheckinStore, engine *Engine) *Jobs {
-	return &Jobs{store: store, engine: engine, interval: 500 * time.Millisecond}
+	return &Jobs{store: store, engine: engine, interval: 500 * time.Millisecond, workers: newWorkLifecycle()}
 }
 
 func skipCheckin(err error) bool {
@@ -32,6 +33,11 @@ func skipCheckin(err error) bool {
 
 // RunDue handles one scan; failures for one account do not starve other sites.
 func (j *Jobs) RunDue(ctx context.Context) error {
+	ctx, release, err := j.workers.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
 	if j.engine.notifications != nil {
 		j.engine.notifications.Wake()
 	}
@@ -83,13 +89,24 @@ func (j *Jobs) RunDue(ctx context.Context) error {
 // StartBatch detaches execution from the initiating request. Only the caller
 // that creates the job starts a worker; its progress is accessible via GetBatch.
 func (j *Jobs) StartBatch(ctx context.Context, selection model.CheckinBatchSelection) (*model.CheckinBatchJob, error) {
+	ctx, finish, err := j.workers.begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer finish()
+	work, release, err := j.workers.begin(context.WithoutCancel(ctx))
+	if err != nil {
+		return nil, err
+	}
 	job, created, err := j.store.ReserveBatch(ctx, selection)
 	if err != nil || !created {
+		release()
 		return job, err
 	}
 	id := job.ID
 	safe.Go(fmt.Sprintf("checkin-batch-%d", id), func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
+		defer release()
+		ctx, cancel := context.WithTimeout(work, time.Hour)
 		defer cancel()
 		if err := j.RunBatch(ctx, id); err != nil {
 			log.Warnf("check-in batch %d stopped: %v", id, err)
@@ -99,6 +116,11 @@ func (j *Jobs) StartBatch(ctx context.Context, selection model.CheckinBatchSelec
 }
 
 func (j *Jobs) RunBatch(ctx context.Context, id int64) error {
+	ctx, release, err := j.workers.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
 	job, err := j.store.ClaimBatch(ctx, id)
 	if err != nil {
 		return err
@@ -131,6 +153,8 @@ func (j *Jobs) RunBatch(ctx context.Context, id int64) error {
 	job.CurrentSiteID, job.CurrentSiteName, job.CurrentAccountID, job.CurrentAccountName = 0, "", 0, ""
 	job.FinishedAt, job.DurationMs = &now, max(int64(0), now.Sub(job.StartedAt).Milliseconds())
 	switch {
+	case j.workers.ctx.Err() != nil:
+		job.Status, job.ErrorMessage = model.SiteCheckinBatchJobStatusInterrupted, "Server stopped before the batch finished"
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		job.Status, job.Canceled = model.SiteCheckinBatchJobStatusCanceled, true
 		job.CancelReason = err.Error()

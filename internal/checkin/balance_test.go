@@ -330,7 +330,7 @@ func TestBalanceOptionalFailureDoesNotCancelSubmission(t *testing.T) {
 	engine, _, _, _, account := httpWorkflow(t, func(w http.ResponseWriter, r *http.Request) { submits.Add(1); fmt.Fprint(w, `{"success":true}`) }, false)
 	// The optional balance service may time out its child context. The check-in
 	// owns a separate budget and must still submit and commit its result.
-	engine.balances = &Balances{store: failedBalanceStore{BalanceStore: engine.balances.store}, sessions: engine.sessions}
+	engine.balances = NewBalances(failedBalanceStore{BalanceStore: engine.balances.store}, engine.sessions, nil)
 	result, err := engine.Execute(context.Background(), account.ID, model.CheckinTriggerManual)
 	if err != nil || result.Status != model.SiteExecutionStatusSuccess || submits.Load() != 1 {
 		t.Fatalf("balance failure changed checkin: %+v %v", result, err)

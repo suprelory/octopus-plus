@@ -25,6 +25,7 @@ type Balances struct {
 	store    BalanceStore
 	sessions SessionProvider
 	proxies  ProxyResolver
+	workers  *workLifecycle
 }
 
 type BalanceObservation struct {
@@ -33,7 +34,7 @@ type BalanceObservation struct {
 }
 
 func NewBalances(store BalanceStore, sessions SessionProvider, proxies ProxyResolver) *Balances {
-	return &Balances{store: store, sessions: sessions, proxies: proxies}
+	return &Balances{store: store, sessions: sessions, proxies: proxies, workers: newWorkLifecycle()}
 }
 
 var ErrBalanceResponse = errors.New("upstream balance is unavailable or invalid")
@@ -52,6 +53,11 @@ func balanceClient(proxies ProxyResolver, s *op.CheckinBalanceSnapshot, credenti
 // Query has its own deadline and never turns AgentRouter balance reads into a
 // login/check-in. Optional income failures leave the previous TodayIncome intact.
 func (b *Balances) Query(ctx context.Context, id int, includeIncome bool) (*BalanceObservation, error) {
+	ctx, release, err := b.workers.begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	snapshot, err := b.store.BeginBalance(ctx, id)

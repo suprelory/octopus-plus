@@ -194,10 +194,15 @@ func importDB(c *gin.Context) {
 	resp.Success(c, result)
 }
 
-// The v2 UI opts into the new service until P5.4 switches production defaults.
+// Production always restores through the independent service. A v1 file is an
+// input format, not permission to reactivate the retired subscription importer.
 func backupVersion(c *gin.Context) (int, bool) {
-	version := c.DefaultQuery("version", "1")
-	if version == "1" {
+	defaultVersion := "2"
+	if db.LegacyRuntime() {
+		defaultVersion = "1"
+	}
+	version := c.DefaultQuery("version", defaultVersion)
+	if version == "1" && db.LegacyRuntime() {
 		return 1, true
 	}
 	if version == "2" {

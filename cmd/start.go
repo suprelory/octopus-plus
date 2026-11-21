@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/suprelory/octopus-plus/internal/backup"
+	"github.com/suprelory/octopus-plus/internal/checkin"
 	"github.com/suprelory/octopus-plus/internal/conf"
 	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/op"
@@ -49,6 +51,11 @@ var startCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		shutdown.Register(db.Close)
+		if err := backup.NewService(db.GetDB()).PrepareSchema(context.Background()); err != nil {
+			log.Errorf("backup schema init error: %v", err)
+			shutdown.Shutdown()
+			os.Exit(1)
+		}
 
 		if err := op.InitCache(); err != nil {
 			log.Errorf("cache init error: %v", err)
@@ -70,7 +77,19 @@ var startCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if err := server.Start(); err != nil {
+		services := checkin.NewServices(op.NewCheckinStore(db.GetDB()), checkin.LoadNotificationConfig)
+		shutdown.Register(func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			if err := services.Close(ctx); err != nil {
+				// Do not close the DB under an in-flight persistence operation.
+				// Forced process exit leaves its transaction/lease recoverable.
+				log.Errorf("check-in shutdown timed out: %v", err)
+				os.Exit(1)
+			}
+			return nil
+		})
+		if err := server.Start(services); err != nil {
 			log.Errorf("server start error: %v", err)
 			shutdown.Shutdown()
 			os.Exit(1)
@@ -85,7 +104,16 @@ var startCmd = &cobra.Command{
 			op.RelayLogWriterRun(relayLogWriterCtx)
 		})
 
-		task.Init()
+		task.Init(services)
+		shutdown.Register(func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			if err := task.Stop(ctx); err != nil {
+				log.Errorf("task shutdown timed out: %v", err)
+				os.Exit(1)
+			}
+			return nil
+		})
 		safe.Go("task-runner", task.RUN)
 
 		// relay-log-ensure-indexes 是一个有限任务，但 CREATE INDEX 期间会持有

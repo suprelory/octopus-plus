@@ -8,8 +8,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// PrepareCheckinSchema is an explicit migration building block. Runtime startup
-// will call it at cutover, after preflight and backup support have been completed.
+// PrepareCheckinSchema is used by the offline migrator and by runtime startup
+// after its readiness check.
 // It does not create or read subscription tables or copy legacy credentials.
 func PrepareCheckinSchema(conn *gorm.DB) error {
 	if conn == nil {

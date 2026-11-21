@@ -1,6 +1,7 @@
 package task
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -23,9 +24,14 @@ type taskEntry struct {
 }
 
 var (
-	tasks        = make(map[string]*taskEntry)
-	tasksMu      sync.RWMutex
-	tasksStarted bool
+	tasks              = make(map[string]*taskEntry)
+	tasksMu            sync.RWMutex
+	tasksStarted       bool
+	tasksStopping      bool
+	runtimeContext     = context.Background()
+	stopRuntime        context.CancelFunc
+	stopDone           chan struct{}
+	unregisterSettings func()
 )
 
 // Register 注册一个定时任务
@@ -44,6 +50,9 @@ func Configure(name string, interval time.Duration, runOnStart bool, fn func()) 
 	}
 	tasksMu.Lock()
 	defer tasksMu.Unlock()
+	if tasksStopping {
+		return fmt.Errorf("task scheduler is stopping")
+	}
 
 	if entry, exists := tasks[name]; exists {
 		entry.fn, entry.runOnStart = fn, runOnStart
@@ -74,6 +83,9 @@ func Update(name string, interval time.Duration) error {
 	}
 	tasksMu.Lock()
 	defer tasksMu.Unlock()
+	if tasksStopping {
+		return fmt.Errorf("task scheduler is stopping")
+	}
 	entry, exists := tasks[name]
 	if !exists {
 		return fmt.Errorf("task %s not found", name)
@@ -98,14 +110,58 @@ func updateTaskLocked(entry *taskEntry, interval time.Duration) {
 // RUN 启动所有注册的任务
 func RUN() {
 	startTasks()
-	// 阻塞主协程
-	select {}
+}
+
+func taskContext() context.Context {
+	tasksMu.RLock()
+	defer tasksMu.RUnlock()
+	return runtimeContext
+}
+
+// Stop closes admission before waiting, so Configure cannot start another
+// worker while shutdown is draining existing work.
+func Stop(ctx context.Context) error {
+	tasksMu.Lock()
+	if !tasksStopping {
+		tasksStopping = true
+		if stopRuntime != nil {
+			stopRuntime()
+		}
+		previous := make([]*taskEntry, 0, len(tasks))
+		for _, entry := range tasks {
+			close(entry.stopCh)
+			previous = append(previous, entry)
+		}
+		stopDone = make(chan struct{})
+		done := stopDone
+		unregister := unregisterSettings
+		go func() {
+			if unregister != nil {
+				unregister()
+			}
+			for _, entry := range previous {
+				if entry.loopDone != nil {
+					<-entry.loopDone
+				}
+				entry.workers.Wait()
+			}
+			close(done)
+		}()
+	}
+	done := stopDone
+	tasksMu.Unlock()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func startTasks() {
 	tasksMu.Lock()
 	defer tasksMu.Unlock()
-	if tasksStarted {
+	if tasksStarted || tasksStopping {
 		return
 	}
 	tasksStarted = true

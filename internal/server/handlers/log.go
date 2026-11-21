@@ -24,7 +24,7 @@ func init() {
 				Handle(listLog),
 		).
 		AddRoute(
-			router.NewRoute("/site-action-targets", http.MethodGet).
+			router.NewLegacyRoute("/site-action-targets", http.MethodGet).
 				Handle(getLogSiteActionTargets),
 		).
 		AddRoute(

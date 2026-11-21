@@ -15,7 +15,7 @@ func setupSiteChannelSuspendTestDB(t *testing.T) context.Context {
 		_ = dbpkg.Close()
 	}
 	dbPath := filepath.Join(t.TempDir(), "octopus-site-channel-suspend-test.db")
-	if err := dbpkg.InitDB("sqlite", dbPath, false); err != nil {
+	if err := dbpkg.InitLegacyDB("sqlite", dbPath, false); err != nil {
 		t.Fatalf("InitDB failed: %v", err)
 	}
 	t.Cleanup(func() { _ = dbpkg.Close() })

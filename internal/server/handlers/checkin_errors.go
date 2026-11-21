@@ -19,6 +19,7 @@ func checkinError(c *gin.Context, err error) {
 		status        int
 		code, message string
 	}{
+		{checkin.ErrServicesStopped, 503, "checkin.unavailable", "check-in services are stopping"},
 		{gorm.ErrRecordNotFound, 404, "checkin.not_found", "check-in resource or referenced configuration was not found"},
 		{op.ErrCheckinConfiguration, 400, "checkin.invalid_configuration", "check-in configuration is invalid or incompatible with its references"},
 		{model.ErrCheckinBatchSelection, 400, "checkin.invalid_batch_selection", "select all sites or a nonempty valid site selection"},

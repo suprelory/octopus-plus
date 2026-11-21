@@ -13,14 +13,17 @@ responses; they require no running Go server or provider credentials.
 pnpm install --frozen-lockfile
 pnpm exec playwright install chromium
 pnpm test:e2e
+pnpm test:e2e:v2
 ```
 
-The test runner starts its own development server on `127.0.0.1:4173`. Keep that
-port free; this server compiles the Next.js app as tests visit it. The suite runs
-Chromium with two workers and no retries, as configured in
-[playwright.config.ts](../playwright.config.ts).
+The legacy compatibility runner explicitly sets `NEXT_PUBLIC_V2_UI=0` and starts
+its server on `127.0.0.1:4173`. The default v2 suite uses `127.0.0.1:4174` and
+includes independent check-in and workspace tests. Run the suites and production
+build sequentially because they share `.next`. Both use Chromium with two workers
+and no retries, as configured in [playwright.config.ts](../playwright.config.ts)
+and [playwright.v2.config.ts](../playwright.v2.config.ts).
 
-Coverage includes:
+Legacy coverage retained until P6 includes:
 
 - Site/account editing, deletion, status filters and Sub2API credential conflicts.
 - Channel draft isolation, parameter validation, pending saves and settings retry.
@@ -29,6 +32,12 @@ Coverage includes:
 - Notification channels, templates and check-in result settings.
 - Authentication renewal, API key accessibility, routing previews and dashboards.
 - Request contents, response status, trace tools and workspace navigation.
+
+The default v2 suite covers independent sites/accounts/credentials, secret and
+version handling, confirmation without resubmission, batch polling, notification
+retry confirmation, string IDs, three languages and responsive layouts. Workspace
+tests cover old navigation recovery, ordinary channels/groups, retired API
+isolation, proxy reference navigation, settings and ZIP backup upload/export.
 
 Unexpected API requests and browser errors fail the tests. Screenshots and traces
 are retained under `test-results/` on failure; inspect a trace with

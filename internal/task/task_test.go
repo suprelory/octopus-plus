@@ -12,10 +12,17 @@ func resetTaskScheduler(t *testing.T) {
 		tasksMu.Lock()
 		previous := tasks
 		for _, entry := range tasks {
-			close(entry.stopCh)
+			select {
+			case <-entry.stopCh:
+			default:
+				close(entry.stopCh)
+			}
 		}
 		tasks = make(map[string]*taskEntry)
 		tasksStarted = false
+		tasksStopping = false
+		stopDone = nil
+		unregisterSettings = nil
 		tasksMu.Unlock()
 		for _, entry := range previous {
 			if entry.loopDone != nil {

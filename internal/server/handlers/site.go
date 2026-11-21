@@ -28,7 +28,7 @@ func refreshAccountCheckinScheduleBestEffort(ctx context.Context, accountID int)
 }
 
 func init() {
-	router.NewGroupRouter("/api/v1/site").
+	router.NewLegacyGroupRouter("/api/v1/site").
 		Use(middleware.Auth()).
 		AddRoute(router.NewRoute("/list", http.MethodGet).Handle(listSite)).
 		AddRoute(router.NewRoute("/archived", http.MethodGet).Handle(listArchivedSites)).
@@ -48,7 +48,7 @@ func init() {
 		AddRoute(router.NewRoute("/last-checkin-time", http.MethodGet).Handle(getSiteLastCheckinTime)).
 		AddRoute(router.NewRoute("/:id/available-models", http.MethodGet).Handle(getSiteAvailableModels))
 
-	router.NewGroupRouter("/api/v1/site").
+	router.NewLegacyGroupRouter("/api/v1/site").
 		Use(middleware.Auth()).
 		Use(middleware.RequireJSON()).
 		AddRoute(router.NewRoute("/create", http.MethodPost).Handle(createSite)).
@@ -65,7 +65,7 @@ func init() {
 		AddRoute(router.NewRoute("/account/manual-sync/preview/:id", http.MethodPost).Handle(previewManualSiteAccountSync)).
 		AddRoute(router.NewRoute("/account/manual-sync/:id", http.MethodPost).Handle(applyManualSiteAccountSync))
 
-	router.NewGroupRouter("/api/v1/site").
+	router.NewLegacyGroupRouter("/api/v1/site").
 		Use(middleware.Auth()).
 		AddRoute(router.NewRoute("/delete/:id", http.MethodDelete).Handle(deleteSite)).
 		AddRoute(router.NewRoute("/archive/:id", http.MethodPost).Handle(archiveSite)).

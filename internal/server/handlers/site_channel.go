@@ -17,14 +17,14 @@ import (
 )
 
 func init() {
-	router.NewGroupRouter("/api/v1/site-channel").
+	router.NewLegacyGroupRouter("/api/v1/site-channel").
 		Use(middleware.Auth()).
 		AddRoute(router.NewRoute("/list", http.MethodGet).Handle(listSiteChannel)).
 		AddRoute(router.NewRoute("/:siteId", http.MethodGet).Handle(getSiteChannel)).
 		AddRoute(router.NewRoute("/:siteId/account/:accountId", http.MethodGet).Handle(getSiteChannelAccount)).
 		AddRoute(router.NewRoute("/:siteId/account/:accountId/model-history", http.MethodGet).Handle(getSiteChannelModelHistory))
 
-	router.NewGroupRouter("/api/v1/site-channel").
+	router.NewLegacyGroupRouter("/api/v1/site-channel").
 		Use(middleware.Auth()).
 		Use(middleware.RequireJSON()).
 		AddRoute(router.NewRoute("/:siteId/account/:accountId/keys", http.MethodPost).Handle(createSiteChannelKey)).

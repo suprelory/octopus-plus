@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/suprelory/octopus-plus/internal/db"
 	"github.com/suprelory/octopus-plus/internal/model"
 	"github.com/suprelory/octopus-plus/internal/op"
 	sitesvc "github.com/suprelory/octopus-plus/internal/site"
@@ -31,6 +32,9 @@ func detectRouteMismatchTarget(inboundType inbound.InboundType, err error) (mode
 }
 
 func maybeLearnManagedRoute(ctx context.Context, channelID int, modelName string, inboundType inbound.InboundType, err error) {
+	if !db.LegacyRuntime() {
+		return
+	}
 	targetRouteType, ok := detectRouteMismatchTarget(inboundType, err)
 	if !ok || strings.TrimSpace(modelName) == "" {
 		return

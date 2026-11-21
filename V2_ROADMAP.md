@@ -12,8 +12,8 @@
 | P1 行为基线与迁移预检 | 已完成 | 已实现离线 JSON/ZIP 配置预检、转换清单、异常分类和样本回归 |
 | P2 新签到数据与会话 | 已完成 | 独立 CRUD、凭据与代理保护、会话登录/刷新编排完成；MySQL/PostgreSQL 实际并发验证通过 |
 | P3 独立签到执行 | 已完成 | HTTP/内置平台、会话、调度/批次、余额收益、持久化通知及三种数据库服务验收通过 |
-| P4 新 API 与前端 | 已完成 | 独立 API、签到页面与全局 v2 界面完成；默认/v2 前端回归及构建通过，生产切换待 P5 |
-| P5 数据迁移与备份 | 进行中 | P5.1 转换器/迁移日志、P5.2 离线旧库迁移执行器与 P5.3 备份导入完成；下一步 P5.4 生产装配切换 |
+| P4 新 API 与前端 | 已完成 | 独立 API、签到页面与全局 v2 界面完成；生产默认已由 P5.4 切换 |
+| P5 数据迁移与备份 | 已完成 | P5.1 转换器/迁移日志、P5.2 离线迁移、P5.3 备份导入及 P5.4 生产运行时切换完成 |
 | P6 删除旧模块与发布验收 | 未开始 | 移除订阅/投影运行时、更新文档、完成完整回归 |
 
 开发按阶段推进。正式切换前必须同时完成迁移、接口和运行时适配，不在新旧服务之间双写。P1 的离线工具不执行数据库迁移。
@@ -95,7 +95,7 @@ AgentRouter 登录本身触发签到，不能在普通凭据测试或余额查�
 
 代理池删除和引用计数要覆盖新签到站点、账号、认证及余额配置；禁用或缺失的池节点不能静默回退直连。
 
-引用按配置用途计数：站点默认代理、账号覆盖、凭据认证、账号自定义余额各计一次；账号继承站点或余额继承凭据不重复计数。归档/停用不会解除引用。过渡期共享代理服务在新表存在时合并这些引用，新表尚未创建时可继续使用；元数据查询失败会返回错误，不能当作无引用处理。正式切换在 P6 移除旧实体查询。
+引用按配置用途计数：站点默认代理、账号覆盖、凭据认证、账号自定义余额各计一次；账号继承站点或余额继承凭据不重复计数。归档/停用不会解除引用。P5.4 生产引用统计与删除保护只查询普通渠道和独立签到实体；元数据查询失败会返回错误，不能当作无引用处理。旧实体查询仅由显式旧测试初始化入口启用，P6 删除这些兼容分支。
 
 ## 余额与收益
 
@@ -166,7 +166,7 @@ AgentRouter 的登录本身就是签到。数据库确认提交预占后才发�
 | internal/op/checkin_*.go | CRUD、版本/租约、工作流提交、日志和统计 |
 | internal/checkin | 执行、批次、调度、状态、收益、通知和平台适配 |
 | internal/server/handlers/checkin_*.go | 管理员 API、参数和响应 |
-| internal/task/checkin.go | 调度入口 |
+| internal/task/init.go | 独立签到与通知调度入口 |
 | internal/migration/v2 | 旧数据预检、映射和转换；允许访问旧 DTO |
 
 业务服务可以依赖新数据访问函数和基础设施，数据层不能反向依赖签到编排。保留使用到的登录、Cookie 会话、验证码、余额等能力，从 `internal/sitesync` 提取后再删除订阅专属代码。`projected_channel_auto_group.go` 中的普通渠道通用函数先移动，再删除投影分支。
@@ -195,13 +195,13 @@ P4.1 接口契约与请求示例见 [docs/checkin-api-v2.md](docs/checkin-api-v2
 
 前端移除订阅站导航和投影页签。签到页面管理全部站点、凭据、余额配置、记录和收益。渠道统一编辑；分组按渠道/协议展示；日志移除订阅模型禁用操作；代理引用更新到新实体。移除订阅同步和投影全局设置，保留普通模型同步和签到调度。
 
-P4.2 已实现独立签到页面，专用类型/hooks 位于 `web/src/api/endpoints/checkin*.ts`，页面位于 `web/src/components/modules/checkin/`。P4.3 将临时构建开关扩展为 `NEXT_PUBLIC_V2_UI=1`，同时切换导航、渠道、分组、日志、代理引用和设置；原 `NEXT_PUBLIC_CHECKIN_V2` 已移除。默认入口仍沿用旧页面，生产路由/任务切换和开关移除与 P5/P6 协调。新签到页面业务请求仅使用独立 API，不依赖旧订阅 DTO，也不在失败时回退旧接口。该前端开关不创建新表或迁移数据，联调后端仍需显式装配 P4.1 服务。开发命令与验收边界见接口文档的「前端开发入口」。
+P4.2 已实现独立签到页面，专用类型/hooks 位于 `web/src/api/endpoints/checkin*.ts`，页面位于 `web/src/components/modules/checkin/`。P5.4 默认启用全局 v2 界面和独立后端；原 `NEXT_PUBLIC_CHECKIN_V2` 已移除。`NEXT_PUBLIC_V2_UI=0` 仅保留给旧界面兼容回归，不能恢复旧后端接口，P6 将删除开关。新签到页面业务请求仅使用独立 API，不依赖旧订阅 DTO，也不在失败时回退旧接口。前端变量不执行数据迁移，旧数据库仍须先离线迁移；开发命令与验收边界见接口文档的「前端开发入口」。
 
 P4.3 对浏览器保存的旧订阅导航和投影页签进行归一化。普通渠道保留编辑能力与原 ID；未迁移的托管渠道统一显示并提示迁移，仍禁止启停、编辑和删除，也不再提供旧来源跳转。有未迁移渠道时，自动分组禁止保存，避免修改仍受投影全局模式覆盖的配置。实际解除托管标记、展开全局覆盖和保留渠道/Key/分组关联属于 P5。
 
-v2 分组按渠道/协议展示，日志保留错误、请求内容和重试诊断，不查询旧站点模型操作目标。代理引用支持签到站点、账号执行、凭据认证及余额查询四种用途，引用键和跳转严格区分新旧实体 ID；保留旧引用计数和删除保护，失效引用只提示刷新。设置页使用独立批次接口执行全量签到并轮询字符串 ID，调度入口指向签到站点配置；不挂载旧订阅同步及签到任务组件。此阶段只验收前端请求路径独立，共享后端旧依赖待 P5/P6 切换清理。
+v2 分组按渠道/协议展示，日志保留错误、请求内容和重试诊断，不查询旧站点模型操作目标。代理引用支持签到站点、账号执行、凭据认证及余额查询四种用途，引用键和跳转严格区分实体 ID；失效引用只提示刷新。设置页使用独立批次接口执行全量签到并轮询字符串 ID，调度入口指向签到站点配置；不挂载旧订阅同步及签到任务组件。P5.4 已验证普通渠道、分组、代理、转发和统计在无订阅业务表的运行时工作；旧源码与兼容测试留待 P6 清理。
 
-正式切换删除订阅和 `/api/v1/site-channel` 接口。旧数据兼容集中在转换代码，不增加永久旧接口转发或旧表回读。
+生产不再注册 `/api/v1/site`、`/api/v1/site-channel` 及旧签到接口，日志的订阅模型操作入口也已退出。旧数据兼容集中在转换代码，不增加永久旧接口转发或旧表回读。
 
 ## 投影渠道转换
 
@@ -221,7 +221,7 @@ v2 分组按渠道/协议展示，日志保留错误、请求内容和重试诊�
 
 P5.2 以固定来源和快照指纹驱动 `sites → credentials → accounts → channels → history → verify` 阶段。预检检查必需旧表/字段、已存在的新实体 ID/名称、历史 ID 占用与输入漂移；应用过程在每个共享表写入阶段前重验源状态。SQLite、PostgreSQL 和 MySQL 的初次 schema 准备分别串行化；MySQL DDL 使用数据库级命名锁，阶段 DML 仍由迁移日志事务控制。旧快照只对已知 v1 迁移增加的字段提供默认值，缺失核心表/字段会阻断，不将损坏数据当作空数据。
 
-`migrate v2-database` 在预览中用一致性只读事务捕获全量配置、统计、签到历史、批次和旧 Token 刷新租约；私有检查点用于后续 apply/retry。应用按阶段保留渠道、Key、分组、统计和历史，移除投影绑定/全局覆盖，恢复时不覆盖已完成阶段的人工编辑。需要重建的工作流日志按数据库时间列精度落盘；MySQL 会话时区和小数秒行为纳入集成测试。生产启动路径及服务调度尚未切换。
+`migrate v2-database` 在预览中用一致性只读事务捕获全量配置、统计、签到历史、批次和旧 Token 刷新租约；私有检查点用于后续 apply/retry。应用按阶段保留渠道、Key、分组、统计和历史，移除投影绑定/全局覆盖，恢复时不覆盖已完成阶段的人工编辑。需要重建的工作流日志按数据库时间列精度落盘；MySQL 会话时区和小数秒行为纳入集成测试。P5.4 的生产启动只接受全新库或满足独立运行时门禁的数据库，不会替操作人员执行迁移。
 
 数据库迁移操作顺序：停止旧应用及其他数据库写入；为此刻的数据库创建并单独验证完整可恢复备份；以同一数据库配置和新检查点路径执行预览，审阅脱敏 JSON；最后应用。备份文件必须与数据库、检查点是不同文件。命令只检查备份文件存在、非空且不与这两者重合，不创建或验证备份内容，操作人员须在应用前确认其可恢复。
 
@@ -234,7 +234,9 @@ go run . migrate v2-database --config data/config.json --snapshot D:\Backups\oct
 
 缺失关联凭据时保留账号和历史并暂停自动执行，提示补充配置；不使用残留旧秘密作为自动回退。已提交任务缺少凭据时保留提交标记。余额失效不阻断独立 Cookie 签到。异常渠道引用进入报告，不自动删改。
 
-首次切换可暂存旧表归档，后续独立清理。新运行时不再读写旧表。回退使用迁移前备份；不能将保留旧表误认为支持旧二进制直接运行。
+首次切换可暂存旧表归档，后续独立清理。新业务运行时不再读写订阅表；启动只检查迁移完成证据，首次切换核对投影绑定已清空，备份可以读取遗留站点统计作独立归档。回退使用迁移前备份；不能将保留旧表误认为支持旧二进制直接运行。
+
+`internal/db/runtime.go` 在建表前检查 `legacy-database` 的全部六个已完成迁移阶段（含 verify），安装后以 `application_schema.version=2` 标记运行时版本；安装标记不能掩盖未完成迁移。已安装/已迁移数据库缺少签到身份、历史、批次或通知状态表时拒绝启动，不用空表掩盖数据丢失。MySQL 使用固定连接命名锁，PostgreSQL 使用事务咨询锁，SQLite 使用写事务协调并发建表。新库不创建订阅、投影绑定或站点模型统计表，重启不会直接中断另一实例仍持有租约的批次。
 
 ## 备份
 
@@ -246,7 +248,7 @@ P5.3 已由 `internal/backup` 实现 version 2 JSON/ZIP 导入导出，使用普
 
 ZIP 在私有临时文件中读取，不解压路径；验证清单、重复条目、截断 JSON/NDJSON，导出完整生成后才向客户端发送。中转日志和请求/尝试正文逐行处理，签到历史及其余表仍在内存中处理，不能视为整个备份的内存占用有固定上限。
 
-本地上传和 WebDAV 恢复共用读取器，v2 前端通过 `version=2` 选择新服务；接口默认值、定时 WebDAV 和生产启动的切换留到 P5.4。新导入链不调用 `SeparateLegacySiteCheckins`；当前旧运行时兼容入口仍保留，待生产切换与 P6 一并退出。第三方订阅导入随订阅模块退出；已有数据通过数据库/备份迁移承接。
+本地上传和 WebDAV 恢复共用读取器，P5.4 已将接口默认值和定时 WebDAV 切换为 version 2。version 1 文件仍通过共用转换器导入，生产拒绝以 `version=1` 参数选择旧服务。新导入链不调用 `SeparateLegacySiteCheckins`；旧服务只在显式兼容测试入口中保留，待 P6 删除。第三方订阅导入已随订阅路由退出；已有数据通过数据库/备份迁移承接。
 
 ## 阶段任务与验收
 
@@ -254,8 +256,8 @@ ZIP 在私有临时文件中读取，不解压路径；验证清单、重复条�
 - [x] P1：可执行离线备份预检；统计渠道、签到、共享凭据、余额、代理、待确认任务；报告异常及缺失数据；样本回归通过。
 - [x] P2：独立签到模型及事务 CRUD；凭据引用/删除、两个版本、共享刷新、Token 保存冲突处理通过测试，MySQL/PostgreSQL 实际并发验证通过。
 - [x] P3：提取平台适配及执行，覆盖 AgentRouter 登录副作用、Cookie/Bearer、待确认恢复、收益/通知和调度。
-- [x] P4：新 API 与界面完成；签到配置不要求订阅站；渠道、分组、日志、代理引用统一。独立服务显式注册，全局前端由临时构建开关启用；生产切换属于 P5。
-- [ ] P5：P5.1 共用转换/迁移日志、P5.2 离线旧库迁移执行器与 P5.3 备份导入完成；待 P5.4 生产运行路径切换。
+- [x] P4：新 API 与界面完成；签到配置不要求订阅站；渠道、分组、日志、代理引用统一，P5.4 已完成生产默认切换。
+- [x] P5：P5.1 共用转换/迁移日志、P5.2 离线旧库迁移执行器、P5.3 备份导入与 P5.4 生产运行路径切换完成。
 - [ ] P6：删除旧业务；新库不创建订阅表，移除旧表仍能转发/签到；文档、Go/前端/端到端回归通过。
 
 必须验证：渠道与分组 ID/配置不丢失；停用渠道不被启用；共享 Refresh Token 只轮转一次；人工更新不被旧刷新覆盖；跨地址签到的认证/代理正确；迁移/重启/401/超时不重复提交；奖励只记一次；原无效指纹不会被迁移重新授权；异常引用有明确处理结果。
@@ -287,15 +289,17 @@ go run . migrate v2-preflight --input D:\Backups\octopus-backup.zip > v2-preflig
 | proxy_unavailable / proxy_reference_missing | 不允许静默回退直连，需保留不可用状态或修复引用 |
 | invalid_binding_source / binding_channel_missing | 渠道绑定不完整，不能通过业务删除接口清理 |
 
-P2 的 `PrepareCheckinSchema`、`CheckinStore` 和 `internal/checkin.Sessions` 是显式调用的开发基础；P4.1 已接入独立 API，P5.3 已提供完整备份服务，应用启动切换待 P5.4。开发测试使用独立 SQLite 数据库，不创建订阅表；共享代理兼容测试另用现有测试初始化入口验证新旧引用共存。线上运行时仍使用现有路径。`CheckinCredentialInput` 仅用于明确提交秘密；普通响应使用 `CheckinCredentialSummary`，备份 DTO `CheckinCredentialBackup` 显式导出秘密且不携带刷新租约，由 P5.3 的 v2 备份导入/导出使用。
+`PrepareCheckinSchema`、`CheckinStore` 和 `internal/checkin.Sessions` 已由 P5.4 生产入口统一装配，开发也可用正常 `start` 连接独立数据库。测试使用隔离 SQLite 或随机命名的服务器数据库，不访问生产配置；旧兼容测试通过 `InitLegacyDB` 显式构造旧表，生产 CLI 无此选择。`CheckinCredentialInput` 仅用于明确提交秘密；普通响应使用 `CheckinCredentialSummary`，备份 DTO `CheckinCredentialBackup` 显式导出秘密且不携带刷新租约，由 v2 备份导入/导出使用。
 
-P3 的 `NewEngine(store, sessions, proxies)`、`Execute(ctx, accountID, trigger)` 和 `Confirm(ctx, accountID)` 使用注入的独立存储与长期复用的会话服务。`Execute` 支持自定义 HTTP 和上述六个内置平台，`Confirm` 支持配置了状态查询的 HTTP 任务和 AgentRouter 登录任务。`trigger` 用于入口条件和历史来源。`CheckinLog` 映射已有 `site_checkin_logs`。显式运行 `PrepareCheckinSchema` 可为旧开发库补充工作流版本列及凭据的 `session_cookies` 列。应用入口切换安排在 P3–P5 完成后。
+`NewEngine(store, sessions, proxies)`、`Execute(ctx, accountID, trigger)` 和 `Confirm(ctx, accountID)` 使用注入的独立存储与长期复用的会话服务。`Execute` 支持自定义 HTTP 和上述六个内置平台，`Confirm` 支持配置了状态查询的 HTTP 任务和 AgentRouter 登录任务。`trigger` 用于入口条件和历史来源。`CheckinLog` 映射已有 `site_checkin_logs`。`PrepareCheckinSchema` 可为旧开发库补充工作流版本列及凭据的 `session_cookies` 列，生产先通过迁移门禁再调用。
 
-`NewJobs(store, engine)` 提供 `RunDue(ctx)`、`StartBatch(ctx, selection)` 和 `RunBatch(ctx, id)`。存储提供 `GetBatch` 和 `ListBatches`。`CheckinBatchJob` 复用 `site_checkin_batch_jobs` 历史表，`PrepareCheckinSchema` 增加 `checkin_batch_leases` 并幂等初始化协调行。重复准备 schema 保留已有租约和历史。批次 API 在 P4.1 完成显式注册；生产启动与定时任务注册在 P5 切换。
+`NewJobs(store, engine)` 提供 `RunDue(ctx)`、`StartBatch(ctx, selection)` 和 `RunBatch(ctx, id)`。存储提供 `GetBatch` 和 `ListBatches`。`CheckinBatchJob` 复用 `site_checkin_batch_jobs` 历史表，`PrepareCheckinSchema` 增加 `checkin_batch_leases` 并幂等初始化协调行。重复准备 schema 保留已有租约和历史。P5.4 将同一 Jobs 实例交给批次 API 与 10 分钟扫描任务，启动时也扫描一次。
 
-余额与通知子项新增账号的余额查询/配置版本和更新时间、凭据的余额观察序号及四张通知运行表，均由 `PrepareCheckinSchema` 显式幂等升级。生产初始化仍未切换。P5.3 备份/恢复已保留通知投递状态及冷却时间，已发送但未知结果的记录不会恢复成可自动重发的队列；余额推断基线只存于本次执行内存，恢复后不重建旧基线。
+账号的余额查询/配置版本和更新时间、凭据的余额观察序号及四张通知运行表由 `PrepareCheckinSchema` 显式幂等升级，已接入生产初始化。备份/恢复保留通知投递状态及冷却时间，已发送但未知结果的记录不会恢复成可自动重发的队列；余额推断基线只存于本次执行内存，恢复后不重建旧基线。
 
-P4.1 的 `internal/checkin.NewServices(store, config)` 统一复用会话、执行、余额、批次和通知服务；`handlers.RegisterCheckinRoutes(engine, services)` 显式注册 30 个管理员接口。构造和注册均不读取订阅业务数据、不自动建表/迁移、不启动旧新双任务；默认关闭通知，P5 切换时再注入生产通知配置。当前生产 `server.Start`、启动迁移和任务入口保持既有路径；新 API 通过独立 HTTP 集成测试验证。`Notifications.Wait(ctx)` 可在停止产生任务后等待当前后台通知扫描结束。
+`internal/checkin.NewServices(store, config)` 统一复用会话、执行、余额、批次和通知服务；`handlers.RegisterCheckinRoutes(engine, services)` 显式注册 30 个管理员接口。构造和注册均不读取订阅业务数据、不自动建表/迁移、不启动旧新双任务；传 nil 配置关闭通知，生产显式注入 `LoadNotificationConfig`。`server.Start(services)` 与 `task.Init(services)` 共享同一实例，通知启动时及每分钟恢复扫描；`server.NewHandler` 可构造同样的生产路由供隔离集成测试使用。
+
+退出依序停止任务、HTTP 和服务，再保存缓存/日志并关闭数据库。`Services.Close(ctx)` 拒绝新工作、取消执行，并等待 HTTP、渠道后处理、后台批次、会话交换及通知中的保存操作结束；调用方取消仍不撤销其他账号共享的会话保存。调度器和独立服务各等待最多 20 秒，超时显式退出进程，避免继续关闭正在使用的数据库；反向代理/容器的总退出宽限还须覆盖 HTTP 和既有日志清理时间。`Notifications.Wait` 仅等待通知扫描，不能替代服务关闭。
 
 数据库集成测试入口：设置 `CHECKIN_TEST_MYSQL_DSN` 或 `CHECKIN_TEST_POSTGRES_DSN` 后运行 `go test -race ./internal/op -run '^TestIndependentCheckinDatabases$' -count=1 -v`。DSN 应指向可创建数据库的专用测试服务器；每次创建随机名称的测试数据库并仅删除该数据库，不改动已有业务库。未设置 DSN 时明确跳过对应测试。`.github/workflows/checkin-databases.yml` 为 v2 提供 MySQL 8.4 / PostgreSQL 17 服务，覆盖多连接租约竞争、已发送租约过期、设置编辑与刷新保存、旧版本冲突、凭据创建引用与删除竞争；P3 新增工作流提交预占与确认的 CAS 竞争。独立存储在 MySQL/PostgreSQL 上显式使用 READ COMMITTED，避免引用检查读取到加锁前的旧快照。
 
@@ -354,9 +358,11 @@ P5 子阶段与剩余顺序：
 - [x] P5.1 本地验收：转换样本、SQLite 事务/并发/取消/重入、独立存储工作流恢复及凭据修复回归通过；完整 Go 测试、迁移包竞态检测、vet、jsoniter 构建及格式/diff 检查通过。MySQL/PostgreSQL 迁移日志用例已接入 CI，本轮未配置外部测试 DSN，实际执行验证待 P5.2；不将 SQLite 通过视为三种数据库验收。
 - [x] P5.2 数据库迁移执行器：`cmd/migrate_database.go` 提供只读预览、私有完整快照、停写/备份前置校验和 apply/resume；显式准备新 schema 与迁移日志，分阶段迁移签到/凭据/余额、原位转换渠道、解除绑定并保留统计/历史。检查旧表/字段、来源漂移、新旧 ID/名称冲突；核验迁移结果并推进 SQLite/MySQL/PostgreSQL ID 序列。CLI 测试覆盖只读预览、禁止旧启动时中断批次、备份/检查点别名拒绝和重复 apply；老 schema 测试覆盖安全默认字段与必需列损坏阻断。
 - [x] P5.2 数据库验收：`go test ./... -count=1`；SQLite/MySQL 8.4.4/PostgreSQL 17.5 实际迁移、断点恢复、目标冲突、并发首次 apply 及时区/小数秒测试通过。`go test -race ./internal/migration/v2 ./cmd ./internal/conf ./internal/db -count=1`、`go vet ./...`、`go build -tags=jsoniter ./...`、gofmt 与 `git diff --check` 通过。迁移 CI 已接入 MySQL 8.4 / PostgreSQL 17 的 race 用例，远端 GitHub Actions 尚未确认；备份内容由命令外部创建并验证其可恢复。
-- [x] P5.3 备份与导入：`internal/backup` 提供 version 2 JSON/ZIP 往返、version 1 完整历史读取与共用转换器导入；业务数据、来源 ID 映射与备份指纹记录事务提交，相同备份重试不覆盖人工修改，冲突回滚。保留共享凭据、验证证据、工作流、历史长 ID、余额配置、通知状态和冷却；活动批次中断，不恢复刷新锁及不确定投递为自动重试。旧站点统计独立归档，丢失渠道归属的普通统计报告后跳过，避免覆盖无关目标。HTTP/WebDAV 接入统一读取器，v2 前端选择 `version=2`，支持 ZIP 上传与恢复；生产默认及定时备份切换待 P5.4。
+- [x] P5.3 备份与导入：`internal/backup` 提供 version 2 JSON/ZIP 往返、version 1 完整历史读取与共用转换器导入；业务数据、来源 ID 映射与备份指纹记录事务提交，相同备份重试不覆盖人工修改，冲突回滚。保留共享凭据、验证证据、工作流、历史长 ID、余额配置、通知状态和冷却；活动批次中断，不恢复刷新锁及不确定投递为自动重试。旧站点统计独立归档，丢失渠道归属的普通统计报告后跳过，避免覆盖无关目标。HTTP/WebDAV 接入统一读取器，v2 前端选择 `version=2`，支持 ZIP 上传与恢复；生产默认及定时备份由后续 P5.4 切换。
 - [x] P5.3 验收：version 1/2 JSON/ZIP、配置备份的必需工作流历史、共享/同名凭据、缺失凭据、余额与代理映射、禁用配置、长 ID、损坏归档、整笔回滚、重复/并发导入、保留人工修改、通知冷却/未知送达、历史清理恢复和 1005 条中转日志流式读取回归通过。SQLite、MySQL 8.4.4、PostgreSQL 17.5 实际执行备份往返与并发首次导入通过；HTTP 与 WebDAV 本地测试服务恢复通过。`go test ./... -count=1`、相关包完整竞态测试及最后统计归属修正后的定向竞态测试、`go vet ./...`、`go build -tags=jsoniter ./...`、gofmt 和 `git diff --check` 通过；前端 TypeScript、lint 与新增 ZIP 上传/导出浏览器回归通过。数据库 CI 已加入备份竞态用例，本轮未提交或触发远端验证。
-- [ ] P5.4 生产装配切换：迁移和备份验收后接入长期复用的独立服务、API、调度、批次和通知，停止旧写入，切换前端默认入口；验证新运行路径无需旧业务表。旧模块及临时分支的完整删除仍在 P6。
+- [x] P5.4 生产装配切换：`internal/db/runtime.go` 实现新库初始化、旧库迁移完成门禁和缺失关键状态表保护；`cmd/start.go` 装配共享 Services，接入 API、调度、批次、余额及生产通知配置。旧订阅/投影/签到路由与订阅同步任务退出，普通渠道/分组/代理/转发/统计不查询订阅业务表；备份、WebDAV 和前端默认 v2。增加服务/调度关闭准入、取消与等待，后台 Token 保存完成后再关闭数据库。旧模块及临时分支的完整删除仍在 P6。
+- [x] P5.4 运行验收：新库生产路由完成普通渠道转发、签到、代理删除保护、默认 ZIP 导出/恢复、关闭重启后不重复提交；本机调度验证通知和默认 version 2 WebDAV 备份，旧设置不能重新启用订阅同步。SQLite/MySQL 8.4.4/PostgreSQL 17.5 实际执行并发首次启动、迁移未完成阻断、迁移切换与移除旧表后重启；缺少持久状态表拒绝启动，退出等待会话保存并保留提交标记。
+- [x] P5.4 质量验证：完整 Go 测试、运行时相关包及普通渠道/转发的竞态检测、vet、jsoniter 构建与生产路由测试、gofmt 和 diff 检查通过。前端 63 项单元测试、类型检查、lint、28 项默认 v2 浏览器回归和默认生产构建通过。数据库 CI 已加入 `TestRuntime`，前端 CI 明确区分默认 v2 与旧界面兼容测试/构建；本轮尚未提交或运行远端 CI。
 
 P5.1 调用边界与转换约定：
 
@@ -367,9 +373,9 @@ P5.1 调用边界与转换约定：
 - 缺失主凭据的迁移账号保留 `credential_id=0`、启停状态、历史和已提交标记，关闭自动签到并清空下次执行时间；普通 CRUD 仍要求有效凭据，可通过补充凭据修复。旧刷新租约不迁移为新锁，即使已经过期也保留会话交换结果不确定的标记，交由后续凭据修复。
 - 转换前验证旧工作流指纹，只有有效证据和身份语义保持时才绑定新指纹；无效任务保持不可执行，补充凭据也不会重新授权原提交。缺失日志时以原长 ID 重建记录，不虚构奖励或完成通知；活动批次标记中断并保留进度，已有历史快照和有效零奖励保持不变。
 - 渠道转换输出保留原 ID、Key、GroupItem、分组预设、启停/同步状态和普通统计，只展开投影全局 AutoGroup 并清除临时托管元数据。输出待解除的绑定 ID；数据库解除绑定在 P5.2 执行。旧站点模型统计单独保留，不叠加到普通渠道累计值。
-- `PrepareJournalSchema` 只创建 `v2_migration_runs/stages/mappings`，DDL 在业务事务外执行。`Journal.Open` 固定来源与输入指纹，`Apply` 依序处理 sites → credentials → accounts → channels → history → verify；回调只能使用给定事务，不能执行 DDL、网络请求或外部副作用。失败记录只存稳定错误码；`Mappings` 读取已提交映射。P5.2 已提供离线 `migrate v2-database` 命令和执行器，但尚未接入生产启动装配；阶段完成状态不等同于已迁移生产库。
+- `PrepareJournalSchema` 只创建 `v2_migration_runs/stages/mappings`，DDL 在业务事务外执行。`Journal.Open` 固定来源与输入指纹，`Apply` 依序处理 sites → credentials → accounts → channels → history → verify；回调只能使用给定事务，不能执行 DDL、网络请求或外部副作用。失败记录只存稳定错误码；`Mappings` 读取已提交映射。离线 `migrate v2-database` 负责实际转换，生产启动只检查完成证据，不自动调用迁移；代码阶段完成不表示已迁移实际生产库。
 
-下一阶段为 P5.4：切换生产启动与 schema 准备，装配长期复用的独立签到服务、API、调度、批次和通知；停用旧同步/签到写入入口，将备份接口、定时 WebDAV 和前端默认切换到 v2。验收新建库与已完成 P5.2 迁移的旧库、仅有新业务表时的启动/转发/签到、重启恢复及备份往返；完整删除旧模块、旧表创建和临时兼容分支仍留在 P6。
+下一阶段为 P6：删除已退出运行时的订阅/投影/旧签到模块、旧路由注册和 `InitLegacyDB` / `LegacyRuntime` 兼容分支；将仍被普通渠道和迁移使用的公共函数、旧 DTO 明确归位，再移除旧界面、构建开关及专属测试。保留 version 1 备份与数据库转换能力；更新 CHECKIN/LOGGING 等旧专题文档，完成无旧表运行、迁移恢复及完整发布回归。旧归档表的清理须独立设计，不在日常启动中自动删除。
 
 ## 开发记录
 
@@ -394,3 +400,5 @@ P5.1 调用边界与转换约定：
 - 2026-11-20：完成 P5.1 共用旧数据转换器与持久迁移日志，补充转换样本、SQLite 事务/并发恢复和真实 `CheckinStore` 工作流回归；覆盖来源共享、缺失凭据、过期刷新租约、旧 HTTP 模板语义、渠道/分组关联、历史长 ID、重复提交与奖励去重。通过 `go test ./...`、`go test -race ./internal/migration/v2 -count=1`、`go vet ./...`、`go build -tags=jsoniter ./...` 和格式/diff 检查。迁移日志的 MySQL/PostgreSQL 用例已接入数据库 CI，本轮无测试 DSN，未宣称外部数据库验证完成。P5 保持进行中，下一步 P5.2；生产启动、备份格式及运行时尚未切换。
 - 2026-11-21：完成 P5.2 离线数据库迁移执行器与 CLI。通过完整 Go 测试、迁移/CLI/配置/数据库包竞态测试、`go vet ./...`、`go build -tags=jsoniter ./...`、gofmt 和 diff 检查；本地 SQLite、MySQL 8.4.4、PostgreSQL 17.5 迁移及恢复测试通过。CI 工作流已包含 MySQL 8.4 / PostgreSQL 17 race 用例，远端结果尚未确认。应用前仍要求操作人员停止所有写入并自行创建、验证完整可恢复备份；本命令不验证备份内容，也未切换生产启动路径。下一步为 P5.3 备份导入。
 - 2026-11-21：完成 P5.3 独立备份服务、本地 JSON/ZIP 上传与 WebDAV 恢复，复用旧数据转换器，加入导入指纹/映射和事务回滚、工作流与通知恢复、统计归属保护及数据库 CI。最终通过 `go test ./... -count=1`、`go vet ./...`、`go build -tags=jsoniter ./...`、gofmt 与 diff 检查；相关包完整竞态命令为 `go test -race ./internal/backup ./internal/op ./internal/server/handlers ./internal/webdav -count=1`，最后统计归属修正后补跑 `go test -race ./internal/backup ./internal/op -run 'TestBackup|TestDBImport|TestDBExport|TestConfiguration|TestRestore|TestRetention' -count=1`。上述竞态验证配置了隔离测试 DSN，MySQL 8.4.4 与 PostgreSQL 17.5 的备份数据库子测试实际执行通过。前端 `pnpm exec tsc --noEmit`、`pnpm lint` 与 `pnpm exec playwright test --config=playwright.v2.config.ts v2-workspace.spec.ts --grep 'backup uploads'` 通过。本轮新建 PostgreSQL 测试实例已停止，临时目录删除被执行策略拒绝后保留；既有测试服务未停止。生产入口、默认备份版本和定时 WebDAV 尚未切换，下一步 P5.4。
+- 2026-11-21：完成 P5.4 生产运行时切换。新启动入口检查离线迁移完成证据与关键状态表，默认装配共享独立签到服务、API、调度、批次、余额和通知；普通渠道/分组/代理/转发/统计退出订阅查询，默认备份、WebDAV 与前端使用 v2。增加任务和服务关闭准入、取消、在途保存等待及超时退出保护，更新 API/README/前端说明和 CI。P5 标记完成，下一阶段为 P6 旧模块与临时兼容分支删除。
+- 2026-11-21：P5.4 验证通过 `go test ./... -count=1 -timeout=180s`、`go test -race ./internal/checkin ./internal/db ./internal/task ./internal/server/... ./internal/webdav ./internal/migration/v2 -count=1 -timeout=180s`、普通渠道/转发竞态测试、`go vet ./...`、`go build -tags=jsoniter ./...` 和 jsoniter 生产路由测试。补充门禁/关闭修正后通过 `go test -race ./internal/db ./internal/checkin ./internal/task ./internal/migration/v2 -run 'TestRuntime|TestServices|TestJobs|TestBatch' -count=1 -v -timeout=180s`，最后关闭响应契约修正后 `go test -race ./internal/server ./internal/server/middleware -count=1 -timeout=120s`、vet 和构建再次通过。数据层完整竞态初次因现有日志清理用例批量准备 SQLite 数据超过 180 秒而超时，改用 `go test -race ./internal/op -count=1 -timeout=10m` 后完整通过（约 241 秒）；转发包竞态通过。上述外部数据库测试使用隔离 DSN，MySQL 8.4.4 / PostgreSQL 17.5 实际执行。前端 `pnpm test`（63 项）、TypeScript、lint、`pnpm test:e2e:v2`（28 项）和默认 `pnpm build` 通过，gofmt 与 diff 检查通过。本轮只复用隔离测试服务和本机 HTTP 替身，重新启动的 PostgreSQL 实例已停止并保留测试目录，既有服务未停止；未操作生产配置/数据库，未提交或推送。

@@ -2,19 +2,21 @@
 
 Octopus 是一个面向多模型服务的 LLM API 聚合、协议转换和负载均衡服务。它提供统一的管理面板、API Key、渠道与分组管理、故障切换、熔断、统计和运行日志，并把不同上游的请求与响应转换为客户端熟悉的协议。
 
+当前 `v2` 分支默认使用普通渠道与独立签到运行时。旧数据库升级前须停止旧应用及其他写入、创建并验证完整备份，再执行离线 `migrate v2-database`；未完成迁移时 `start` 会拒绝启动。操作步骤与开发进度见 [v2 开发路线](V2_ROADMAP.md#数据库升级)，独立签到用法见 [API 与运行时说明](docs/checkin-api-v2.md)。
+
 ## 功能概览
 
 - 提供 OpenAI Chat Completions、Responses、Embeddings 和 Anthropic Messages 客户端接口，上游支持 OpenAI、Anthropic 和 Gemini 协议。
 - 支持 Responses WebSocket、Responses Compact，以及 OpenAI 兼容的图片生成、编辑和变体接口。
 - 按分组配置渠道与模型映射，支持轮询、故障切换、加权策略和多上游密钥选择；提供路由预览、会话亲和、熔断、健康评分与统一重试预算，详见[中继路由](RELAY_ROUTING.md)。
 - 提供 Web 管理面板，管理账号、API Key、渠道、分组预设、模型价格、代理池和运行设置。
-- 支持 NewAPI、AnyRouter、OneAPI、OneHub、DoneHub、Sub2API 等订阅站的账号、Key、模型和余额同步，生成托管渠道，并支持 ALL-API-Hub / metapi 导入。
+- 渠道统一按普通渠道管理；旧投影渠道通过离线迁移保留渠道、Key 与分组关联，订阅同步和重新投影已退出生产运行时。
 - API Key 支持 RPM 与费用限额；费用预留、输出上限要求和支持范围见 [API Key 限额](API_KEY_LIMITS.md)。
-- 独立“签到”页面支持平台签到、自定义 HTTP / Cookie 签到、状态接口确认、待确认恢复、批量任务和收益统计；Sub2API 可复用订阅账号 Access Token，并在配置 Refresh Token 后自动续期。
-- 签到结果可通过 Webhook、Bark、Server酱、Telegram 和 SMTP 邮件通知，支持模板、Markdown、冷却和低余额提醒；可选启用 Turnstile 求解，详见[签到能力、收益与通知](CHECKIN.md)。
+- 独立“签到”页面管理站点、账号与凭据，支持平台签到、自定义 HTTP / Cookie 签到、状态确认、待确认恢复、批量任务、余额与收益统计；Sub2API 凭据支持 Access / Refresh Token 自动续期。
+- 签到结果可通过 Webhook、Bark、Server酱、Telegram 和 SMTP 邮件通知，支持模板、Markdown、冷却和低余额提醒；通知状态持久化，结果未知时由用户显式重试，详见[独立签到说明](docs/checkin-api-v2.md)。
 - 支持 SSE、WebSocket、工具调用、推理内容和多模态请求的协议适配。
 - 提供请求正文捕获、搜索、逐次尝试记录和时间线诊断，详见[请求记录](REQUEST_LOGGING.md)。
-- 支持 SQLite、MySQL 和 PostgreSQL，以及 JSON 数据导入 / 导出、ZIP 导出和 WebDAV 定时备份与恢复。
+- 支持 SQLite、MySQL 和 PostgreSQL，以及 version 2 JSON / ZIP 导入导出和 WebDAV 定时备份与恢复；旧 version 1 备份通过转换器导入。
 - 发布包使用 SHA-256 校验和与 Ed25519 签名保护自更新流程。
 
 ## 客户端接口
@@ -99,7 +101,7 @@ docker compose logs -f octopus
 docker compose ps
 ```
 
-升级镜像前备份挂载的数据目录，然后执行：
+同一数据库版本内升级镜像前备份挂载的数据目录，然后执行；从旧版切换 v2 必须先完成上文离线迁移，不能直接用此流程替代：
 
 ```sh
 docker compose pull
@@ -225,9 +227,9 @@ OCTOPUS_DATABASE_PATH=data/data.db
 OCTOPUS_LOG_LEVEL=info
 ```
 
-管理操作、认证、转发拒绝、站点同步和备份清理的日志事件与级别见[诊断日志](LOGGING.md)。
+管理操作、认证、转发拒绝和备份清理的日志事件与级别见[诊断日志](LOGGING.md)；其中订阅同步相关内容仅适用于旧版，待 P6 清理。
 
-数据库类型支持 `sqlite`、`mysql` 和 `postgres`（也接受 `postgresql`）。SQLite 是默认选项；使用 MySQL 或 PostgreSQL 时，把 `OCTOPUS_DATABASE_PATH` 设置为对应驱动所需的 DSN，并确保数据库已创建且应用用户拥有读写、建表和迁移权限。启动时会创建缺失表并执行已有数据所需的定向兼容迁移，升级前请备份数据库。
+数据库类型支持 `sqlite`、`mysql` 和 `postgres`（也接受 `postgresql`）。SQLite 是默认选项；使用 MySQL 或 PostgreSQL 时，把 `OCTOPUS_DATABASE_PATH` 设置为对应驱动所需的 DSN，并确保数据库已创建且应用用户拥有读写、建表和迁移权限。新库启动只创建普通渠道与独立签到所需表；旧库必须先完成离线迁移，启动不会自动转换订阅数据。已安装数据库丢失凭据、签到历史或通知状态等关键表时拒绝启动，应从验证过的备份恢复。
 
 ### 可信代理
 
@@ -243,7 +245,7 @@ proxy_set_header X-Forwarded-Proto $scheme;
 
 只信任实际反向代理的地址。不要在应用端口仍可被公网直连时盲目信任整个地址空间，否则客户端可能伪造转发头。
 
-JSON 导入和 WebDAV 恢复都会重新应用可信代理配置。恢复值无效时，应用会停止信任转发头并报告恢复后的运行态应用失败；已导入的数据保留，需要在设置中修正无效值。
+JSON / ZIP 导入和 WebDAV 恢复都会重新应用可信代理配置。恢复值无效时，应用会停止信任转发头并报告恢复后的运行态应用失败；已导入的数据保留，需要在设置中修正无效值。
 
 ### 跨域访问
 
@@ -267,7 +269,9 @@ JSON 导入和 WebDAV 恢复都会重新应用可信代理配置。恢复值无�
 
 ### 定时保存与运行设置
 
-模型价格、模型同步、站点同步和 WebDAV 备份的间隔单位为小时，`stats_save_interval` 的单位为分钟。这些间隔必须是非负整数，`0` 表示暂停，重新设置正数即可启用；修改和备份恢复后立即应用，无需重启。停用时已经开始的任务会执行完毕，同一任务不会因重新启用而重叠执行。
+模型价格、普通渠道模型同步和 WebDAV 备份的间隔单位为小时，`stats_save_interval` 的单位为分钟。这些间隔必须是非负整数，`0` 表示暂停，重新设置正数即可启用；修改和备份恢复后立即应用，无需重启。停用时已经开始的任务会执行完毕，同一任务不会因重新启用而重叠执行。
+
+签到每 10 分钟扫描到期账号，通知每分钟扫描持久化任务，启动时也执行一次；具体签到时间由站点时区、窗口及账号自动签到设置决定。订阅同步和投影全局设置不再生效，备份恢复不会重新注册旧任务。退出时取消后台工作，并等待结果和会话保存后关闭数据库。
 
 统计保存任务同时持久化渠道密钥的累计费用、状态码和最近使用时间。配置编辑与仅配置恢复会保留存活密钥尚未落库的运行态。
 
@@ -276,13 +280,16 @@ JSON 导入和 WebDAV 恢复都会重新应用可信代理配置。恢复值无�
 ```text
 cmd/                  CLI 与启动流程
 internal/conf/        Viper 配置与构建信息
-internal/db/          GORM 初始化、缺失表创建和定向兼容迁移
+internal/db/          GORM 初始化、迁移门禁与独立运行时 schema
 internal/model/       数据模型
 internal/op/          业务逻辑与缓存
 internal/relay/       API 代理、负载均衡、熔断和流处理
 internal/transformer/ Polywire 宿主集成与能力统计
 internal/server/      路由、处理器、中间件和认证
-internal/sitesync/    订阅站同步、托管渠道、签到和 Sub2API 会话管理
+internal/checkin/     独立签到、会话、调度、批次、余额与持久化通知
+internal/backup/      version 2 JSON/ZIP 备份与旧备份转换导入
+internal/migration/   离线预检、旧数据库转换与迁移日志
+internal/sitesync/    已停用的旧订阅/签到实现，待 P6 删除
 internal/notify/      Webhook、Bark、Server酱、Telegram 和邮件通知
 internal/turnstile/   签到 Turnstile 求解平台集成
 internal/task/        后台定时任务
@@ -297,7 +304,7 @@ static/out/           前端生产静态文件
 
 ## 测试与质量检查
 
-[CI 工作流](.github/workflows/ci.yml) 在向 `dev` / `master` 推送或创建 PR 时运行后端与前端检查，发布流程也会复用这些检查。后端包含格式、vet、测试、竞态检查、独立 Polywire 消费者验证和构建；前端包含 lint、辅助逻辑测试、类型检查、Playwright 回归和生产构建。资源受限的环境可使用远程 CI 完成这些验证。
+[CI 工作流](.github/workflows/ci.yml) 在向 `dev` / `master` / `v2` 推送或创建 PR 时运行后端与前端检查，发布流程也会复用这些检查。后端包含格式、vet、测试、竞态检查、独立 Polywire 消费者验证和构建；前端包含 lint、辅助逻辑测试、类型检查、Playwright 回归和生产构建。资源受限的环境可使用远程 CI 完成这些验证。
 
 以下命令用于允许构建的开发或 CI 环境。运行宿主与 Polywire 的测试前，先准备静态资源目录。根目录的 `./...` 不会遍历嵌套 Go 模块，需要分别执行：
 
@@ -324,10 +331,11 @@ pnpm test
 pnpm exec tsc --noEmit
 pnpm exec playwright install chromium
 pnpm test:e2e
+pnpm test:e2e:v2
 pnpm build
 ```
 
-Playwright 会自动启动 `127.0.0.1:4173` 的 Next.js 开发服务器，使用模拟认证和拦截的 API 响应，无需运行 Go 后端。CI 使用内置 Chromium 的 Playwright 镜像；测试覆盖范围与失败诊断见 [web/tests/README.md](web/tests/README.md)。
+Playwright 旧界面兼容测试使用 `127.0.0.1:4173`，默认 v2 测试使用 `127.0.0.1:4174`，两组顺序执行。测试使用模拟认证和拦截的 API 响应，无需运行 Go 后端。CI 使用内置 Chromium 的 Playwright 镜像；测试覆盖范围与失败诊断见 [web/tests/README.md](web/tests/README.md)。
 
 在项目根目录运行价格生成器与发布校验的 Python 测试：
 
@@ -374,7 +382,9 @@ export OCTOPUS_RELEASE_SIGNING_KEY='<secret>'
 | --- | --- |
 | [API Key 限额](API_KEY_LIMITS.md) | RPM、费用预留、输出上限与接口限制 |
 | [登录续期](AUTHENTICATION.md) | 管理员 JWT、自动续期与失效规则 |
-| [签到能力、收益与通知](CHECKIN.md) | 签到配置、状态确认、Sub2API 会话、奖励、通知和 Turnstile |
+| [独立签到 API 与运行时](docs/checkin-api-v2.md) | 站点、账号、凭据、状态确认、批次、余额、通知与默认界面 |
+| [v2 开发路线](V2_ROADMAP.md) | 数据库升级、备份恢复、阶段进度与验收 |
+| [旧版签到能力、收益与通知](CHECKIN.md) | 旧版说明，订阅关联与配置入口待 P6 清理 |
 | [中继路由](RELAY_ROUTING.md) | 路由策略、重试预算、故障范围、亲和与路由预览 |
 | [请求记录](REQUEST_LOGGING.md) | 正文捕获、保留、搜索、时间线与诊断 |
 | [诊断日志](LOGGING.md) | 服务日志事件、级别与脱敏 |

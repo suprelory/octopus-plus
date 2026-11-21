@@ -81,6 +81,9 @@ func GroupAutoGroupConfigUpdate(req *model.GroupAutoGroupConfigUpdateRequest, ct
 		return nil, newGroupAutoGroupBadRequestError("auto group config request is nil")
 	}
 
+	if !db.LegacyRuntime() && req.ProjectedGlobalAutoGroup != nil {
+		return nil, newGroupAutoGroupBadRequestError("projected channels are no longer supported")
+	}
 	if req.ProjectedGlobalAutoGroup != nil {
 		if !req.ProjectedGlobalAutoGroup.Valid() {
 			return nil, newGroupAutoGroupBadRequestError("invalid projected global auto group type")
