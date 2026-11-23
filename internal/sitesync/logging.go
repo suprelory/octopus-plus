@@ -37,22 +37,28 @@ func (d *syncLogContext) safeError(err error) error {
 }
 
 func (d *syncLogContext) safeText(value string) string {
+	return log.SafeText(d.safeStatusText(value))
+}
+
+// Status messages retain API permission names and endpoint paths. The log
+// sanitizer additionally removes credential-shaped fields and quoted text.
+func (d *syncLogContext) safeStatusText(value string) string {
 	if d.account != nil {
 		for _, token := range d.account.Tokens {
-			if token.Token != "" {
-				value = strings.ReplaceAll(value, token.Token, "[REDACTED]")
+			if secret := model.NormalizeComparableSiteTokenValue(token.Token); secret != "" {
+				value = strings.ReplaceAll(value, secret, "[REDACTED]")
 			}
 		}
 		if d.snapshot != nil {
 			for _, token := range d.snapshot.tokens {
-				if token.Token != "" {
-					value = strings.ReplaceAll(value, token.Token, "[REDACTED]")
+				if secret := model.NormalizeComparableSiteTokenValue(token.Token); secret != "" {
+					value = strings.ReplaceAll(value, secret, "[REDACTED]")
 				}
 			}
 		}
 		value = sanitizeCheckinText(value, d.account, snapshotAccessToken(d.snapshot), d.site)
 	}
-	return log.SafeText(sanitizeSiteStatusText(value))
+	return sanitizeSiteStatusText(value)
 }
 
 func logSyncResult(accountID int, trigger string, result *model.SiteSyncResult, err error, started time.Time, diagnostic *syncLogContext) {

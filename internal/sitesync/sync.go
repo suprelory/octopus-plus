@@ -138,7 +138,7 @@ func syncManagementPlatform(ctx context.Context, siteRecord *model.Site, account
 		return nil, err
 	}
 
-	tokens, err := fetchManagementTokens(ctx, siteRecord, account, accessToken)
+	tokens, keyErrors, err := fetchManagementTokens(ctx, siteRecord, account, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func syncManagementPlatform(ctx context.Context, siteRecord *model.Site, account
 		siteModelSourceSync,
 		func(token model.SiteToken, allowGlobalFallback bool) (siteModelFetchResult, error) {
 			if siteRecord.Platform == model.SitePlatformNewAPI {
-				return fetchManagementModels(ctx, siteRecord, account, accessToken, token, sessionFallbackFetcher)
+				return fetchManagementModels(ctx, siteRecord, account, token, keyErrors[token.GroupKey], sessionFallbackFetcher)
 			}
 			models, err := fetchModelsForSiteToken(ctx, siteRecord, account, token)
 			return newSiteModelFetchResult(models, err), err

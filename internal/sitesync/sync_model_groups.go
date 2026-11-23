@@ -53,6 +53,9 @@ func shouldPreferGroupModelToken(candidate model.SiteToken, current model.SiteTo
 	if candidate.Enabled != current.Enabled {
 		return candidate.Enabled
 	}
+	if model.IsReadySiteToken(candidate) != model.IsReadySiteToken(current) {
+		return model.IsReadySiteToken(candidate)
+	}
 	return candidate.IsDefault && !current.IsDefault
 }
 
@@ -84,7 +87,11 @@ func syncSiteModelsByGroup(
 		}
 		if err != nil {
 			groupResult.Status = siteGroupSyncStatusFailed
-			groupResult.Message = sanitizeSiteStatusMessage(err)
+			diagnostic := syncLogContext{
+				site: siteRecord, account: account,
+				snapshot: &syncSnapshot{accessToken: accessToken, tokens: []model.SiteToken{token}},
+			}
+			groupResult.Message = diagnostic.safeStatusText(err.Error())
 			results = append(results, groupResult)
 			continue
 		}

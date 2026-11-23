@@ -2,7 +2,10 @@ package sitesync
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/suprelory/octopus-plus/internal/helper"
@@ -49,16 +52,17 @@ func withFallbackSiteToken(tokens []model.SiteToken, apiKey string) []model.Site
 	return append(tokens, defaultSiteToken(apiKey, "fallback"))
 }
 
-func fetchManagementTokens(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string) ([]model.SiteToken, error) {
+func fetchManagementTokens(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string) ([]model.SiteToken, map[string]error, error) {
 	payload, err := requestJSONWithManagedAccessToken(ctx, siteRecord, "GET", buildSiteURL(siteRecord.BaseURL, "/api/token/?p=0&size=100"), nil, accessToken, account)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := validateSiteBusinessResponse(payload); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	items := parseTokenItems(payload)
 	tokens := make([]model.SiteToken, 0, len(items))
+	keyErrors := make(map[string]error)
 	for index, item := range items {
 		tokenValue := strings.TrimSpace(jsonString(item["key"]))
 		if tokenValue == "" {
@@ -66,9 +70,58 @@ func fetchManagementTokens(ctx context.Context, siteRecord *model.Site, account 
 		}
 		groupKey := model.NormalizeSiteGroupKey(firstNonEmptyString(jsonString(item["group"]), jsonString(item["token_group"]), jsonString(item["group_name"])))
 		groupName := model.NormalizeSiteGroupName(groupKey, firstNonEmptyString(jsonString(item["group_name"]), jsonString(item["group"]), jsonString(item["token_group"])))
-		tokens = append(tokens, model.SiteToken{Name: firstNonEmptyString(strings.TrimSpace(jsonString(item["name"])), fmt.Sprintf("token-%d", index+1)), Token: tokenValue, GroupKey: groupKey, GroupName: groupName, Enabled: parseEnabledFlag(item["status"]), Source: "sync", IsDefault: index == 0})
+		token := model.SiteToken{Name: firstNonEmptyString(strings.TrimSpace(jsonString(item["name"])), fmt.Sprintf("token-%d", index+1)), Token: tokenValue, GroupKey: groupKey, GroupName: groupName, Enabled: parseEnabledFlag(item["status"]), Source: "sync", IsDefault: index == 0}
+		if siteRecord.Platform == model.SitePlatformNewAPI && model.IsMaskedSiteTokenValue(token.Token) {
+			fullKey, keyErr := resolveManagementTokenValue(ctx, siteRecord, account, accessToken, token, anyRouterParseInt(item["id"]))
+			if keyErr != nil {
+				keyErrors[groupKey] = errors.Join(keyErrors[groupKey], keyErr)
+			} else {
+				token.Token = fullKey
+			}
+		}
+		token.ValueStatus = model.NormalizeSiteTokenValueStatus(token.ValueStatus, token.Token)
+		tokens = append(tokens, token)
 	}
-	return tokens, nil
+	return tokens, keyErrors, nil
+}
+
+// Match only one distinct saved key. Mask collisions must never pick an
+// arbitrary credential, and upstream token IDs are not local SiteToken IDs.
+func resolveManagementTokenValue(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string, token model.SiteToken, upstreamID int) (string, error) {
+	var savedKey string
+	if account != nil {
+		for _, existing := range account.Tokens {
+			if model.NormalizeSiteGroupKey(existing.GroupKey) != token.GroupKey || normalizeSiteTokenName(existing.Name) != normalizeSiteTokenName(token.Name) ||
+				!model.IsReadySiteToken(existing) || !model.SiteMaskedTokenMatches(existing.Token, token.Token) {
+				continue
+			}
+			if savedKey != "" && !sameComparableSiteTokenValue(savedKey, existing.Token) {
+				savedKey = ""
+				break
+			}
+			savedKey = strings.TrimSpace(existing.Token)
+		}
+	}
+	if savedKey != "" {
+		return savedKey, nil
+	}
+	if upstreamID <= 0 {
+		return "", errors.New("Key 为脱敏值且缺少上游令牌 ID，请手动补全完整 Key")
+	}
+	endpoint := fmt.Sprintf("/api/token/%d/key", upstreamID)
+	payload, err := requestJSONWithManagedAccessToken(ctx, siteRecord, http.MethodPost, buildSiteURL(siteRecord.BaseURL, endpoint), nil, accessToken, account)
+	if err == nil {
+		err = validateSiteBusinessResponse(payload)
+	}
+	if err != nil {
+		return "", fmt.Errorf("读取完整 Key 失败（POST %s；需要 api_key:reveal 权限或手动补全 Key）：%w", endpoint, err)
+	}
+	fullKey, _ := nestedValue(payload, "data", "key").(string)
+	fullKey = strings.TrimSpace(fullKey)
+	if fullKey == "" || model.IsMaskedSiteTokenValue(fullKey) {
+		return "", fmt.Errorf("POST %s 未返回完整 Key，请手动补全 Key", endpoint)
+	}
+	return fullKey, nil
 }
 
 func fetchManagementGroups(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, accessToken string) ([]model.SiteUserGroup, error) {
@@ -110,6 +163,9 @@ func fetchManagementGroups(ctx context.Context, siteRecord *model.Site, account 
 }
 
 func fetchModelsForSiteToken(ctx context.Context, siteRecord *model.Site, account *model.SiteAccount, token model.SiteToken) ([]string, error) {
+	if model.IsMaskedSiteTokenValue(token.Token) {
+		return nil, errors.New("Key 为脱敏值，无法请求模型接口，请先补全完整 Key")
+	}
 	if siteRecord != nil && siteRecord.Platform == model.SitePlatformSub2API {
 		return fetchSub2APIModelsForSiteToken(ctx, siteRecord, account, token)
 	}
@@ -120,37 +176,31 @@ func fetchModelsForSiteToken(ctx context.Context, siteRecord *model.Site, accoun
 	tokenValue := model.NormalizeSiteSyncTokenValueForPlatform(siteRecord.Platform, token.Token)
 
 	proxyMode, proxyConfigID := resolveSiteAccountProxy(siteRecord, account)
-	var (
-		firstErr error
-		models   []string
-	)
+	var requestErrors []error
 
 	for _, baseURL := range buildModelFetchBaseURLs(siteRecord) {
 		channel := model.Channel{Type: platformOutboundType(siteRecord), BaseUrls: []model.BaseUrl{{URL: baseURL, Delay: 0}}, Keys: []model.ChannelKey{{Enabled: true, ChannelKey: tokenValue}}, ProxyMode: proxyMode, ProxyConfigID: proxyConfigID, CustomHeader: siteRecord.CustomHeader}
 		fetched, err := helper.FetchModels(ctx, channel)
-		if err == nil && len(fetched) > 0 {
+		// A successful New API listing, including an empty list, takes
+		// precedence over errors from compatibility endpoints.
+		if err == nil && (len(fetched) > 0 || siteRecord.Platform == model.SitePlatformNewAPI) {
 			return normalizeModelNames(fetched), nil
 		}
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
-		if len(fetched) > 0 {
-			models = fetched
+		if err != nil {
+			endpointPath := "/models"
+			if endpoint, parseErr := url.Parse(baseURL + "/models"); parseErr == nil {
+				endpointPath = endpoint.EscapedPath()
+			}
+			requestErrors = append(requestErrors, fmt.Errorf("GET %s：%w", endpointPath, err))
 		}
 	}
 	if siteRecord.Platform != model.SitePlatformOneHub && siteRecord.Platform != model.SitePlatformDoneHub {
-		if firstErr != nil {
-			return nil, firstErr
-		}
-		return normalizeModelNames(models), nil
+		return nil, errors.Join(requestErrors...)
 	}
 
 	payload, fallbackErr := requestJSON(ctx, siteRecord, "GET", buildSiteURL(siteRecord.BaseURL, "/api/available_model"), nil, map[string]string{"Authorization": "Bearer " + tokenValue}, account)
 	if fallbackErr != nil {
-		if firstErr != nil {
-			return nil, firstErr
-		}
-		return nil, fallbackErr
+		return nil, errors.Join(append(requestErrors, fmt.Errorf("GET /api/available_model：%w", fallbackErr))...)
 	}
 
 	modelSet := make(map[string]struct{})
@@ -163,10 +213,7 @@ func fetchModelsForSiteToken(ctx context.Context, siteRecord *model.Site, accoun
 		}
 	}
 	if len(modelSet) == 0 {
-		if firstErr != nil {
-			return nil, firstErr
-		}
-		return normalizeModelNames(models), nil
+		return nil, errors.Join(requestErrors...)
 	}
 	names := make([]string, 0, len(modelSet))
 	for name := range modelSet {
@@ -179,11 +226,14 @@ func fetchManagementModels(
 	ctx context.Context,
 	siteRecord *model.Site,
 	account *model.SiteAccount,
-	accessToken string,
 	token model.SiteToken,
+	keyErr error,
 	sessionFallbackFetcher func(token model.SiteToken) (siteModelFetchResult, error),
 ) (siteModelFetchResult, error) {
 	models, err := fetchModelsForSiteToken(ctx, siteRecord, account, token)
+	if model.IsMaskedSiteTokenValue(token.Token) && keyErr != nil {
+		err = keyErr
+	}
 	if len(models) > 0 {
 		return siteModelFetchResult{names: models, source: siteModelSourceSync, authoritative: true, message: fmt.Sprintf("同步到 %d 个模型", len(models))}, nil
 	}
@@ -202,17 +252,17 @@ func fetchManagementModels(
 		}
 		return fallbackResult, nil
 	}
-	if err != nil {
-		if strings.TrimSpace(fallbackResult.message) == "" {
-			fallbackResult.message = "本次未能确认该分组模型，已保留历史模型"
-		}
-		return fallbackResult, fmt.Errorf("%s；模型接口请求失败：%w", fallbackResult.message, err)
-	}
 	if fallbackErr != nil {
-		return fallbackResult, fallbackErr
+		fallbackErr = fmt.Errorf("GET /api/user/models 失败：%w", fallbackErr)
+	}
+	if err != nil {
+		err = fmt.Errorf("模型接口请求失败：%w", err)
 	}
 	if strings.TrimSpace(fallbackResult.message) == "" {
 		fallbackResult.message = "本次未能确认该分组模型，已保留历史模型"
+	}
+	if combinedErr := errors.Join(fallbackErr, err); combinedErr != nil {
+		return fallbackResult, fmt.Errorf("%s；%w", fallbackResult.message, combinedErr)
 	}
 	return fallbackResult, nil
 }
@@ -243,6 +293,9 @@ func buildModelFetchBaseURLs(siteRecord *model.Site) []string {
 
 	candidates := []string{baseURL}
 	if sitePlatformUsesV1ModelEndpoint(siteRecord) && !strings.HasSuffix(strings.ToLower(baseURL), "/v1") {
+		if siteRecord.Platform == model.SitePlatformNewAPI {
+			return []string{baseURL + "/v1", baseURL}
+		}
 		candidates = append(candidates, baseURL+"/v1")
 	}
 	return candidates
