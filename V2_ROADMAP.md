@@ -14,7 +14,7 @@
 | P3 独立签到执行 | 已完成 | HTTP/内置平台、会话、调度/批次、余额收益、持久化通知及三种数据库服务验收通过 |
 | P4 新 API 与前端 | 已完成 | 独立 API、签到页面与全局 v2 界面完成；生产默认已由 P5.4 切换 |
 | P5 数据迁移与备份 | 已完成 | P5.1 转换器/迁移日志、P5.2 离线迁移、P5.3 备份导入及 P5.4 生产运行时切换完成 |
-| P6 删除旧模块与发布验收 | 进行中（P6.1–P6.3 已完成，下一步 P6.4） | 移除订阅/投影运行时、更新文档、完成完整回归 |
+| P6 删除旧模块与发布验收 | 已完成（本地验收） | 订阅/投影运行时已移除，文档、新库/迁移/备份及完整回归验收通过 |
 
 开发按阶段推进。正式切换前必须同时完成迁移、接口和运行时适配，不在新旧服务之间双写。P1 的离线工具不执行数据库迁移。
 
@@ -258,7 +258,7 @@ ZIP 在私有临时文件中读取，不解压路径；验证清单、重复条�
 - [x] P3：提取平台适配及执行，覆盖 AgentRouter 登录副作用、Cookie/Bearer、待确认恢复、收益/通知和调度。
 - [x] P4：新 API 与界面完成；签到配置不要求订阅站；渠道、分组、日志、代理引用统一，P5.4 已完成生产默认切换。
 - [x] P5：P5.1 共用转换/迁移日志、P5.2 离线旧库迁移执行器、P5.3 备份导入与 P5.4 生产运行路径切换完成。
-- [ ] P6：删除旧业务；新库不创建订阅表，移除旧表仍能转发/签到；文档、Go/前端/端到端回归通过。
+- [x] P6：删除旧业务；新库不创建订阅表，移除旧表仍能转发/签到；文档、Go/前端/端到端回归通过。本地发布验收完成，远端 CI 与实际发布另行执行。
 
 必须验证：渠道与分组 ID/配置不丢失；停用渠道不被启用；共享 Refresh Token 只轮转一次；人工更新不被旧刷新覆盖；跨地址签到的认证/代理正确；迁移/重启/401/超时不重复提交；奖励只记一次；原无效指纹不会被迁移重新授权；异常引用有明确处理结果。
 
@@ -384,7 +384,16 @@ P6 分阶段按可验证的边界推进：
   - **P6.2.1 备份入口统一**。HTTP、手动和定时 WebDAV 导出 v2。恢复入口按文件版本读取 v1 JSON/ZIP 并转换，保留原文件指纹去重。导出与恢复均跳过订阅同步间隔和投影全局设置。
   - **P6.2.2 运行时代码清理**。删除 `internal/site`、`internal/sitesync`、旧管理路由、订阅任务、投影渠道写入、转发路由学习以及 `InitLegacyDB`、`LegacyRuntime`。转发只累计普通统计，旧站点模型统计通过归档恢复。签到使用独立站点、账号与凭据。保留旧备份和数据库转换所需的记录、原表名、序列化顺序及工作流指纹。
 - **P6.3 前端和文档清理（已完成）**。移除 `NEXT_PUBLIC_V2_UI`、订阅站页面、投影渠道页签和旧 API 客户端。浏览器恢复旧导航时进入主页，未迁移的托管渠道保留只读与自动分组写入保护。前端开发与 CI 共用 `pnpm test:e2e`。站点凭据、批次范围、状态确认与备份选项见[独立签到使用指南](CHECKIN.md)。
-- **P6.4 发布验收（下一步）**。在不含订阅表的新库执行渠道、转发、代理和签到回归，验证 v1 转换、备份恢复与迁移断点重试，并完成数据库、竞态、静态检查及前端验收。
+- **P6.4 发布验收（已完成，本地验收）**。不含订阅表的新库、v1 转换、普通渠道转发、代理保护、独立签到、备份恢复、迁移断点重试和并发启动验证通过；前后端完整回归通过。
+
+P6.4 验收记录（2026-11-25）：
+
+- 新增 `internal/server/runtime_conversion_test.go`，以真实生产路由、管理员 JWT、隔离 SQLite 和本机 HTTP 上游验证非空 v1 JSON 导入、重复导入及关闭重启。覆盖渠道/Key 启停、分组关联与权重、投影自动分组展开、转发凭据/Header、独立 Cookie 身份、已提交任务只确认、长日志 ID 和奖励去重。备份导入按既有契约重映射渠道/分组 ID；离线迁移的原 ID 保留由迁移用例验证。既有运行时测试继续覆盖新库操作、代理删除保护和 v2 ZIP 恢复。
+- SQLite、MySQL 8.4.4、PostgreSQL 18.3 实际完成迁移、断点恢复及运行时门禁测试；两种服务器数据库实际执行 `TestIndependentCheckinDatabases`、`TestBackupDatabases`、`TestDatabaseMigration`、`TestMigrationJournalDatabases`、`TestRuntimeMigrationGate` 和 `TestRuntimeConcurrentFreshStartup`，对应子测试均通过。数据库 CI 仍配置 MySQL 8.4 / PostgreSQL 17，本轮本地 PostgreSQL 18.3 的结果不代替远端 PostgreSQL 17 验收。
+- 后端通过 `go test ./... -count=1 -timeout=10m`、`go vet ./...`、`go build -tags=jsoniter ./...`；数据层竞态命令为 `go test -race ./cmd ./internal/backup ./internal/db ./internal/migration/... ./internal/model ./internal/op -count=1 -timeout=10m`，运行时竞态命令为 `go test -race ./internal/checkin/... ./internal/relay/... ./internal/server/... ./internal/task ./internal/webdav -count=1 -timeout=10m`。新增生产路由测试通过定向普通测试、运行时竞态及 jsoniter 测试；补充 `go test -tags=jsoniter ./internal/backup ./internal/migration/v2 ./internal/model ./internal/server/... -count=1 -timeout=10m` 通过。数据层竞态和 jsoniter 验证配置了专用 MySQL/PostgreSQL 测试 DSN。
+- Polywire 独立模块的 vet、完整测试、构建及 `. ./compat ./streamio` 竞态测试通过，外部临时模块引用本地 Polywire 的转换示例执行成功；Python 12 项测试、gofmt 和 `git diff --check` 通过。
+- 前端使用项目指定的 pnpm 12.18.0，通过 50 项单元测试、74 项浏览器测试、TypeScript、lint 和生产静态构建。浏览器验收发现展开 API 密钥面板时延迟自动聚焦会覆盖已选中的“编辑”按钮；`morphing-dialog.tsx` 现在保留面板内已有焦点。新增确定性时序用例在修复前失败，修复后 7 项焦点定向用例及全部浏览器测试通过；浏览器业务请求使用模拟 API，后端生产装配由上述 HTTP 集成测试验证。现有 Baseline 浏览器数据过期和 Node 模块类型提示不影响通过结果。
+- 本轮使用隔离数据库和本机 HTTP 测试服务，未操作生产数据库、发布版本或触发远端 CI。新建 MySQL/PostgreSQL 实例已正常关闭；自动审批检查以 `blocked by policy` 拒绝递归清理，临时数据库目录保留。本轮生成的 Python 缓存文件已单独清理。后续正式发布仍需确认提交对应的 CI 结果，并按迁移文档完成目标环境备份、停写及迁移后验收。
 
 ## 开发记录
 
@@ -415,3 +424,4 @@ P6 分阶段按可验证的边界推进：
 - 2026-11-22，完成 P6.2。删除旧增量导入器、订阅运行时与专属测试。备份快照一致性、ZIP 下载前释放数据库连接、分组预设、事务回滚、历史统计、调度配置和通知等用例迁至 v2 路径。新增回归覆盖带旧托管字段的渠道创建后仍可作为普通渠道使用，以及 v1/v2 备份只恢复有效设置。CI 竞态命令纳入备份、数据库和模型包。
 - 2026-11-22，P6.2 验证通过 `go test ./... -count=1 -timeout=10m`、`go vet ./...`、`go build -tags=jsoniter ./...`、gofmt 和差异检查。受影响包通过 `go test -race ./cmd ./internal/backup ./internal/checkin/... ./internal/db ./internal/migration/... ./internal/model ./internal/op ./internal/relay/... ./internal/server/... ./internal/task ./internal/webdav -count=1 -timeout=10m`。最后的模型及渠道修正补跑了模型、迁移和备份包竞态，以及普通分组、渠道列表、实际转发和备份恢复的运行时竞态用例。`go test -tags=jsoniter ./internal/backup ./internal/migration/v2 ./internal/model ./internal/server/handlers -count=1 -timeout=10m` 通过。本轮使用隔离 SQLite 和本机 HTTP/WebDAV 测试服务，MySQL、PostgreSQL 集成用例因缺少测试 DSN 跳过。
 - 2026-11-25，完成 P6.3。移除独立签到运行时已停用的 Turnstile 设置面板，修正通知冷却提示。浏览器测试覆盖旧导航恢复、普通渠道、分组、独立签到、代理引用和 ZIP 备份，并检查意外访问旧接口。本地通过 `pnpm test`（50 项）、`pnpm test:e2e`（73 项，使用模拟 API）、`pnpm exec tsc --noEmit`、`pnpm lint`、`pnpm build` 和 `git diff --check`。
+- 2026-11-25，完成 P6.4 本地发布验收，P6 标记完成。新增 v1 备份转换后重启、转发与待确认任务恢复的生产路由回归；修复浏览器验收发现的延迟自动聚焦竞争。三种数据库、后端完整测试/竞态、jsoniter、Polywire 独立使用、前端 50 项单元测试与 74 项浏览器测试、静态检查和生产构建通过，详见上述 P6.4 验收记录。实际发布及目标生产库迁移留待后续执行。

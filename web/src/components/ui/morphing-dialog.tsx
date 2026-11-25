@@ -299,6 +299,8 @@ function MorphingDialogContent({
         if (focusableElements && focusableElements.length > 0) {
           firstFocusableElementRef.current = focusableElements[0] as HTMLElement;
           lastFocusableElementRef.current = focusableElements[focusableElements.length - 1] as HTMLElement;
+          // Preserve focus chosen inside the panel before this deferred scan.
+          if (root.contains(document.activeElement)) return;
           // An upper dialog may have opened before this deferred focus scan.
           if (PORTAL_IGNORED_SLOTS.some(slot => document.querySelector(`[data-slot="${slot}"]`))) return;
           (focusableElements[0] as HTMLElement).focus();

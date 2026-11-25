@@ -78,6 +78,40 @@ test('statistics and export overlays trap focus and restore their openers', asyn
     expect(state.pageErrors).toEqual([]);
 });
 
+test('expanding the key panel preserves focus selected before its first frame', async ({ page }) => {
+    const state = await mockApp(page, 'setting', {
+        apiKeys: [{ id: 1, name: 'Development', api_key: 'test-only', enabled: true }],
+    });
+    await page.goto('/');
+    await page.getByRole('button', { name: '访问密钥', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
+    // Select the editor as soon as the panel mounts, before its deferred focus
+    // scan. This reproduces fast keyboard navigation without relying on timing.
+    await page.evaluate(() => {
+        const observer = new MutationObserver(() => {
+            const edit = document.querySelector<HTMLElement>('[data-slot="morphing-dialog-content"] button[title="Edit"]');
+            if (!edit) return;
+            observer.disconnect();
+            edit.focus();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    });
+    await page.getByRole('button').filter({ has: page.locator('svg.lucide-maximize2') }).click();
+    await page.evaluate(() => new Promise<void>(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+    const panel = page.locator('[data-slot="morphing-dialog-content"]');
+    const edit = panel.getByRole('button', { name: 'Edit', exact: true });
+    await expect(edit).toBeFocused();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: 'API 密钥 · Development', exact: true });
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(edit).toBeFocused();
+    expect(state.pageErrors).toEqual([]);
+});
+
 test('an editor inside the expanded key panel closes only its own layer', async ({ page }) => {
     const state = await mockApp(page, 'setting', {
         apiKeys: [{ id: 1, name: 'Development', api_key: 'test-only', enabled: true, expire_at: Date.parse('2030-01-01T00:00:00Z') / 1000 }],
