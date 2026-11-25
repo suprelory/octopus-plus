@@ -1,8 +1,7 @@
 import { lazyWithPreload } from './lazy-with-preload';
-import { V2_UI } from '@/lib/v2-ui';
 import { lazy, ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Home, Radio, Sparkles, FolderTree, Settings, Logs, Globe2, CalendarCheck2 } from 'lucide-react';
+import { Home, Radio, Sparkles, FolderTree, Settings, Logs, CalendarCheck2 } from 'lucide-react';
 
 export type LazyComponent = ReturnType<typeof lazy> & {
     preload: () => Promise<{ default: ComponentType<Record<string, never>> }>
@@ -16,10 +15,7 @@ export interface RouteConfig {
 }
 
 const Home_Module = lazyWithPreload(() => import('@/components/modules/home').then(m => ({ default: m.Home })));
-const Site_Module = lazyWithPreload(() => import('@/components/modules/site').then(m => ({ default: m.Site })));
-const Checkin_Module = V2_UI
-    ? lazyWithPreload(() => import('@/components/modules/checkin').then(m => ({ default: m.Checkin })))
-    : lazyWithPreload(() => import('@/components/modules/checkin/legacy').then(m => ({ default: m.LegacyCheckin })));
+const Checkin_Module = lazyWithPreload(() => import('@/components/modules/checkin').then(m => ({ default: m.Checkin })));
 const Channel_Module = lazyWithPreload(() => import('@/components/modules/channel').then(m => ({ default: m.Channel })));
 const Model_Module = lazyWithPreload(() => import('@/components/modules/model').then(m => ({ default: m.Model })));
 const Group_Module = lazyWithPreload(() => import('@/components/modules/group').then(m => ({ default: m.Group })));
@@ -28,7 +24,6 @@ const Setting_Module = lazyWithPreload(() => import('@/components/modules/settin
 
 export const ROUTES: RouteConfig[] = [
     { id: 'home', label: 'Home', icon: Home, component: Home_Module },
-    ...(!V2_UI ? [{ id: 'site', label: 'Site', icon: Globe2, component: Site_Module }] : []),
     { id: 'checkin', label: 'Check-in', icon: CalendarCheck2, component: Checkin_Module },
     { id: 'channel', label: 'Channel', icon: Radio, component: Channel_Module },
     { id: 'group', label: 'Group', icon: FolderTree, component: Group_Module },

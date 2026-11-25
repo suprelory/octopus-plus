@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { emptyStats, makeChannel, makeSiteChannelCard, mockApp } from './fixtures';
+import { emptyStats, makeChannel, mockApp } from './fixtures';
 
 const channels = [
     makeChannel(1, 'OpenAI Primary'),
@@ -62,15 +62,8 @@ for (const { width, theme } of [{ width: 1440, theme: 'light' }, { width: 390, t
     test(`${width}px ${theme} channel cards preserve details, search and layout changes`, async ({ page }, testInfo) => {
         await page.setViewportSize({ width, height: 1000 });
         await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
-        const state = await mockApp(page, 'channel', {
-            channels,
-            siteChannels: ['Northstar AI', 'Cloud Gateway', 'Model Studio'].map((name, index) => ({ ...makeSiteChannelCard(), site_id: index + 1, site_name: name, enabled: index !== 2 })),
-        });
+        const state = await mockApp(page, 'channel', { channels });
         await page.goto('/');
-        await expect(page.getByRole('button', { name: '查看 Northstar AI', exact: true })).toBeVisible();
-        await expectNoPageOverflow(page);
-        await capture(page, testInfo.outputPath('site-channels.png'));
-        await page.getByRole('button', { name: /^普通渠道/ }).click();
         const card = page.getByRole('button', { name: '查看 OpenAI Primary', exact: true });
         await expect(card).toBeVisible();
         await expect(card).toContainText('2 个模型');
@@ -104,7 +97,6 @@ test('a keyboard toggle updates the channel without opening its detail dialog', 
         return { data: null };
     } });
     await page.goto('/');
-    await page.getByRole('button', { name: /^普通渠道/ }).click();
     const toggle = page.getByRole('switch', { name: '启用 OpenAI Primary' });
     await toggle.focus();
     await page.keyboard.press('Space');
@@ -115,13 +107,13 @@ test('a keyboard toggle updates the channel without opening its detail dialog', 
     expect(state.pageErrors).toEqual([]);
 });
 
-test('empty usage and site channels show useful empty states', async ({ page }) => {
-    const state = await mockApp(page, 'home', { sites: [], siteChannels: [] });
+test('empty usage and channels show useful empty states', async ({ page }) => {
+    const state = await mockApp(page, 'home');
     await page.goto('/');
     await expect(page.getByText('还没有用量数据', { exact: true })).toBeVisible();
     await expect(page.getByText('暂无排行数据', { exact: true })).toBeVisible();
     await page.getByRole('navigation').getByRole('button', { name: '渠道', exact: true }).click();
-    await expect(page.getByText('还没有站点渠道', { exact: true })).toBeVisible();
+    await expect(page.getByText('连接你的第一个渠道', { exact: true })).toBeVisible();
     expect(state.pageErrors).toEqual([]);
     expect(state.unexpectedRequests).toEqual([]);
 });

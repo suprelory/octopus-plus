@@ -309,51 +309,6 @@
         "description": "The server is temporarily unavailable. Your login has been saved; try again when the connection recovers.",
         "retry": "Retry"
     },
-    "siteCheckinCapability": {
-        "mode": "Site check-in capability",
-        "auto": "Platform default (use site verification when available)",
-        "enabled": "Enabled",
-        "disabled": "Disabled",
-        "modeHint": "This setting applies to this site. Disabling check-in stops manual, batch and scheduled check-ins.",
-        "defaultEnabled": "Enabled by platform default. Verify this site's support through its API.",
-        "defaultDisabled": "Disabled by platform default. Enable it for this site or check in manually to verify.",
-        "requiresCustom": "Configure a custom HTTP check-in endpoint first.",
-        "verifyHint": "After saving, choose “Check in and verify” in the account menu. This performs a real check-in and records this site's capability. Changes to the site URL or request configuration require verification again.",
-        "disabledForSite": "Check-in is disabled for this site",
-        "enabledForSite": "Check-in is enabled for this site",
-        "unavailableForSite": "This site's check-in endpoint is unavailable. Check in manually to verify again.",
-        "unknown": "Check-in support has not been verified",
-        "supported": "Check-in support confirmed through the API",
-        "unsupported": "The API confirmed that check-in is unavailable",
-        "checkinNow": "Check in now",
-        "verifyNow": "Check in and verify",
-        "inconclusive": "The request completed, but its response could not confirm check-in support. Check the result and endpoint configuration."
-    },
-    "siteCheckinStats": {
-        "title": "Check-in earnings",
-        "description": "Numeric rewards from check-in history for the selected sites and accounts. Rewards retain upstream units, which may differ between sites.",
-        "refresh": "Refresh check-in earnings",
-        "site": "Earnings site",
-        "account": "Earnings account",
-        "allSites": "All sites",
-        "allAccounts": "All accounts",
-        "today": "Today's rewards",
-        "recent7": "Last 7 days",
-        "recent30": "Last 30 days",
-        "total": "Total rewards",
-        "loading": "Loading check-in earnings…",
-        "loadFailed": "Could not load check-in earnings. Please refresh to retry.",
-        "empty": "No check-in records yet.",
-        "counts": "{total} executions · {success} successful · {failed} failed · {skipped} skipped",
-        "excluded": "{unknown} missing rewards and {invalid} invalid numeric rewards were excluded.",
-        "timezone": "Dates use {timezone}; the last 7 / 30 days include today.",
-        "bySite": "View breakdown by site",
-        "siteName": "Site",
-        "reward": "Total rewards",
-        "success": "Successful",
-        "failed": "Failed",
-        "skipped": "Skipped"
-    },
     "checkinNotifications": {
         "title": "Check-in alerts",
         "description": "Send failures and low balance alerts through shared notification channels, with optional successful and manual check-in results.",
@@ -363,21 +318,10 @@
         "manual": "Include manual check-ins",
         "manualHint": "Include individual, batch and full manual check-ins. Only scheduled results are sent by default. Skipped tasks do not send notifications.",
         "cooldown": "Alert cooldown (seconds)",
-        "cooldownHint": "Each channel tracks the account, event and reason separately. Only successful deliveries start the cooldown. Use 0 to disable it. Restarting the service resets it.",
+        "cooldownHint": "A successful delivery starts a cooldown for that destination, account, event and reason. The cooldown survives restarts. Use 0 to disable it.",
         "threshold": "Low balance threshold (USD)",
         "thresholdHint": "Notify when the refreshed balance after a successful check-in falls below this value. Use 0 to disable low balance alerts.",
         "deliveryHint": "Configure notification channels first. Changes here save automatically. Delivery failures do not affect check-in results."
-    },
-    "turnstileSolver": {
-        "title": "Check-in Turnstile solving",
-        "description": "When a site's check-in endpoint requires Cloudflare Turnstile, get a token from a solving platform and retry the check-in once.",
-        "enabled": "Enable Turnstile solving",
-        "enabledHint": "Master switch. While off, no solving platform is called and Turnstile rejections are recorded as failures as before.",
-        "platformEnabled": "Enable {name}",
-        "platformAPIKey": "{name} API token",
-        "showAPIKey": "Show token",
-        "hideAPIKey": "Hide token",
-        "orderHint": "Applies to built-in NewAPI, OneAPI, OneHub and DoneHub check-ins. With both platforms enabled, Cloudflare Solver is tried first and SolverQ second; platforms without a token are skipped. Each solve is billed under the platform's rules. Cloudflare challenge pages do not trigger solving. Changes here save automatically."
     },
     "notificationChannels": {
         "templateTitle": "Notification template",
@@ -456,102 +400,6 @@
         "loadFailed": "Could not load notification settings. Refresh to retry.",
         "invalidConfig": "The saved notification configuration is invalid. Reconfigure it and save."
     },
-    "siteCheckinBatch": {
-        "title": "Full check-in task",
-        "selectedTitle": "Selected sites check-in task",
-        "processed": "Processed",
-        "success": "Success",
-        "failed": "Failed",
-        "skipped": "Skipped",
-        "current": "Processing: {site} / {account}",
-        "progress": "Progress {value}%",
-        "taskID": "Task {id}",
-        "refresh": "Refresh task status",
-        "viewLogs": "View batch logs",
-        "statuses": {
-            "queued": "Queued",
-            "running": "Running",
-            "completed": "Completed",
-            "completed_with_errors": "Completed with failures",
-            "canceled": "Canceled",
-            "failed": "Task failed",
-            "interrupted": "Interrupted by restart"
-        }
-    },
-    "siteCheckinHistory": {
-        "title": "Check-in history",
-        "description": "Review each check-in result, source and reward. Times use your browser's local time zone.",
-        "site": "Site",
-        "account": "Account",
-        "allSites": "All sites",
-        "allAccounts": "All accounts",
-        "status": "Status",
-        "source": "Source",
-        "allStatuses": "All statuses",
-        "allSources": "All sources",
-        "from": "Start date",
-        "until": "End date",
-        "invalidDates": "End date must not be before start date",
-        "time": "Completed",
-        "detail": "Details",
-        "reward": "Reward",
-        "latency": "Duration",
-        "duration": "{value} ms",
-        "unknownReward": "Not provided",
-        "loading": "Loading check-in history…",
-        "loadFailed": "Could not load check-in history:",
-        "empty": "No check-in records match these filters.",
-        "refresh": "Refresh",
-        "previous": "Previous",
-        "next": "Next",
-        "page": "Page {page}",
-        "close": "Close",
-        "statuses": {
-            "success": "Success",
-            "failed": "Failed",
-            "skipped": "Skipped"
-        },
-        "sources": {
-            "manual": "Manual",
-            "scheduled": "Scheduled",
-            "import": "Import",
-            "auto": "Automatic"
-        },
-        "reasons": {
-            "checked_in": "Checked in",
-            "already_checked_in": "Already checked in today",
-            "already_running": "Already running; skipped",
-            "unsupported_checkin": "Check-in endpoint unavailable on this site",
-            "checkin_disabled": "Check-in disabled for this site",
-            "checkin_default_disabled": "Check-in disabled by platform default",
-            "checkin_not_configured": "Check-in endpoint not configured",
-            "scheduled_later": "Not due yet",
-            "unauthorized": "Invalid credentials or insufficient permissions",
-            "login_failed": "Login failed",
-            "access_token_required": "Access token required",
-            "cloudflare_protection": "Site verification required",
-            "upstream_http_error": "Upstream request failed",
-            "upstream_business_error": "Upstream rejected check-in",
-            "upstream_decode_failed": "Invalid upstream response",
-            "upstream_html_response": "Upstream returned a web page",
-            "network_error": "Network error",
-            "timeout": "Request timed out",
-            "context_canceled": "Canceled",
-            "context_deadline_exceeded": "Execution timed out",
-            "database_error": "Could not save result",
-            "internal_error": "Internal error",
-            "unknown": "Unknown reason",
-            "refresh_missing": "Refresh token required for automatic renewal",
-            "session_invalid": "Login session or refresh token is no longer valid",
-            "session_binding_mismatch": "Session IP or User-Agent does not match",
-            "account_inactive": "Subscription account unavailable",
-            "credentials_changed": "Subscription credentials changed",
-            "session_save_failed": "Could not save login credentials",
-            "refresh_unavailable": "Token refresh temporarily unavailable",
-            "refresh_rejected": "Site rejected token refresh",
-            "checkin_auth_recovered": "Credentials updated; confirm the check-in result"
-        }
-    },
     "workspace": {
         "total": "Total",
         "shown": "Matching",
@@ -567,14 +415,6 @@
             "unit": "USD / 1M tokens",
             "empty": "No model prices yet",
             "emptyHint": "Use the add or sync button above to populate model prices."
-        },
-        "checkin": {
-            "title": "Check-in overview",
-            "description": "Manage daily check-ins, history and earnings with independent URLs and accounts."
-        },
-        "site": {
-            "title": "Site overview",
-            "description": "Manage subscription accounts, synchronization and managed channels."
         },
         "log": {
             "title": "Request history",
@@ -731,7 +571,6 @@
     },
     "navbar": {
         "home": "Home",
-        "site": "Site",
         "checkin": "Check-in",
         "channel": "Channel",
         "group": "Group",
@@ -753,8 +592,6 @@
             "nameDesc": "Name Desc",
             "createdAsc": "Time Asc",
             "createdDesc": "Time Desc",
-            "balanceDesc": "Balance High to Low",
-            "balanceAsc": "Balance Low to High",
             "asc": "Asc",
             "desc": "Desc",
             "logRefresh": {
@@ -790,8 +627,6 @@
                     "title": "Channel",
                     "searchPlaceholder": "Search channels...",
                     "allChannels": "All channels",
-                    "manualGroup": "Manual channels",
-                    "siteFallback": "Site #{id}",
                     "empty": "No channels found"
                 }
             }
@@ -1159,31 +994,6 @@
                 "pending": "Updating...",
                 "success": "Price updated successfully",
                 "failed": "Failed to update price"
-            },
-            "siteSync": {
-                "label": "Site full sync",
-                "button": "Sync Now",
-                "pending": "Syncing...",
-                "success": "Background site sync triggered",
-                "failed": "Failed to trigger site sync"
-            },
-            "siteCheckin": {
-                "label": "Site check-in",
-                "button": "Check In",
-                "pending": "Checking in...",
-                "cadence": "Checks every 10 minutes",
-                "success": "Background site check-in triggered",
-                "failed": "Failed to trigger site check-in",
-                "progress": "Progress {value}%",
-                "statuses": {
-                    "queued": "Queued",
-                    "running": "Running",
-                    "completed": "Completed",
-                    "completed_with_errors": "Completed with failures",
-                    "canceled": "Canceled",
-                    "failed": "Task failed",
-                    "interrupted": "Interrupted by restart"
-                }
             }
         },
         "data": {
@@ -1351,35 +1161,24 @@
         },
         "empty": "No groups yet, click the button above to create one",
         "autoGroup": {
-            "descriptionV2": "Configure automatic model grouping for each channel. Channels are organized by protocol.",
             "migrationRequired": "Some channels still require migration. Complete the v2 data migration before saving automatic grouping.",
-            "searchPlaceholderV2": "Search channel, protocol or model",
             "otherProtocol": "Other protocols",
             "title": "Auto Group Configuration",
-            "description": "Add channels or site groups to the list, and the system will automatically add models to matching model groups by group name or regex.",
+            "description": "Configure automatic model grouping for each channel. Channels are organized by protocol.",
             "loadFailed": "Failed to load auto group configuration: {message}",
-            "searchPlaceholder": "Search...",
+            "searchPlaceholder": "Search channel, protocol or model",
             "runAll": "Run all enabled now",
             "loading": "Loading...",
             "emptyChannels": "No channels",
             "matchMode": "Match mode",
-            "notice": "Turning a channel off or disabling the global setting will not delete existing model group members. Remove them manually in each model group if needed.",
-            "global": {
-                "title": "Global default mode",
-                "description": "When enabled, all site-projected channels use the selected match mode. Per-channel settings below are kept and take effect after the global mode is disabled."
-            },
             "sections": {
                 "channels": "Channels"
             },
             "source": {
-                "siteGroup": "Site group",
                 "disabled": "Disabled",
                 "modelCount": "{count} models",
                 "moreModels": "+{count}",
-                "noModels": "No models",
-                "unknownSite": "Unknown site",
-                "manualGroup": "Manual channels",
-                "followingGlobalTip": "Global is on; this channel is currently grouped by the global mode. The per-channel mode below takes effect after the global mode is disabled."
+                "noModels": "No models"
             },
             "bulk": {
                 "selected": "{count} selected",
@@ -1599,9 +1398,6 @@
             },
             "reasoningChars": "Reasoning",
             "reasoningCharsUnit": " chars",
-            "disableModel": "Disable Model",
-            "disabling": "Disabling",
-            "disabled": "Disabled",
             "ws": "WS",
             "wsContinuation": "Continue",
             "wsReplay": "Replay",
@@ -1651,20 +1447,11 @@
             "disabled": "Disabled",
             "results": "Search results",
             "visible": "{count} shown",
-            "targeted": "Linked managed channel",
-            "targetedHint": "This channel is managed by a site account.",
             "loadFailed": "Unable to load channels: {message}",
             "noResults": "No matching channels",
             "noResultsHint": "Try another name or clear the search to see all channels.",
             "empty": "Add your first channel",
-            "emptyHint": "Use the add button above to connect a model provider.",
-            "siteEmpty": "No site channels yet",
-            "siteEmptyHint": "Add a site account and sync its models to see channels here."
-        },
-        "tabs": {
-            "label": "Channel source",
-            "site": "Site Channels",
-            "manual": "Manual Channels"
+            "emptyHint": "Use the add button above to connect a model provider."
         },
         "card": {
             "openDetails": "View {name}",
@@ -1674,7 +1461,6 @@
             "disabled": "Disabled",
             "models": "{count} models",
             "keys": "Keys {enabled}/{total}",
-            "managed": "Site managed",
             "migrationPending": "Migration pending",
             "successRate": "Success rate",
             "lifetime": "All-time usage",
@@ -1782,55 +1568,6 @@
             "remark": "Remark"
         }
     },
-    "siteChannel": {
-        "card": {
-            "openDetails": "View {name}",
-            "accountCount": "{count} accounts",
-            "modelCount": "{count} models",
-            "enabledKeys": "Enabled keys {enabled}/{total}",
-            "viewDetails": "Details",
-            "statusEnabled": "Enabled",
-            "statusDisabled": "Disabled",
-            "maskedPending": "{n} pending",
-            "noRouteDistribution": "No model distribution",
-            "metrics": {
-                "totalRequests": "Requests",
-                "successRequests": "Success",
-                "failedRequests": "Failed",
-                "totalCost": "Cost",
-                "lastRequestAt": "Last used"
-            }
-        },
-        "advanced": {
-            "title": "Site Channel Advanced Settings",
-            "description": "Configure parameter overrides for projected channels under group {group}. Configure auto grouping from the top-right of the Model Groups page. Configure custom headers in Site Settings.",
-            "channelList": "Projected channels",
-            "empty": "No projected channels in this group",
-            "paramOverride": "Parameter override JSON",
-            "paramOverridePlaceholder": "Leave empty to clear. Accepts a JSON object or operation array, e.g. {\"temperature\":0.7} or [{\"op\":\"remove\",\"path\":\"/temperature\"}]",
-            "cancel": "Cancel",
-            "save": "Save",
-            "saving": "Saving...",
-            "saved": "Advanced settings saved",
-            "invalidParamOverride": "Parameter override must be a valid JSON object or operation array",
-            "saveFailed": "Failed to save advanced settings"
-        }
-    },
-    "siteImport": {
-        "errors": {
-            "invalidJson": "The import content is not valid JSON. Check the file format or pasted content.",
-            "emptyPayload": "The import content is empty. Select a JSON file or paste exported content.",
-            "unrecognizedAllAPIHub": "No All API Hub export data was recognized. Make sure you selected the correct exported JSON.",
-            "unrecognizedMetapi": "No Metapi account export data was recognized. Make sure you selected the correct exported JSON.",
-            "noImportableAllAPIHub": "No importable All API Hub site account data was found.",
-            "noImportableMetapi": "No importable Metapi site account data was found."
-        }
-    },
-    "siteSync": {
-        "errors": {
-            "missingGroupKey": "Group \"{groupKey}\" has no available key. Create a key for this group on the site and sync again."
-        }
-    },
     "errors": {
         "checkin": {
             "not_found": "The resource or referenced configuration was not found.",
@@ -1898,16 +1635,6 @@
             "api_key_cost_exceeded": "The API key has reached the maximum cost limit.",
             "api_key_rate_limited": "The API key has exceeded the rate limit. Please wait and try again."
         },
-        "site_channel": {
-            "account_not_found": "The site account was not found.",
-            "site_not_found": "The site was not found.",
-            "model_not_found": "The site model was not found.",
-            "route_update_failed": "Failed to update model routes. Try again later.",
-            "model_disable_failed": "Failed to update model disabled state. Try again later.",
-            "key_create_failed": "Failed to create the site key. Check the site status or try again later.",
-            "source_key_update_failed": "Failed to update source keys. Check your input and try again.",
-            "project_failed": "Failed to sync site channel projection. Try again later."
-        },
         "channel": {
             "not_found": "The channel was not found.",
             "create_failed": "Failed to create the channel.",
@@ -1937,55 +1664,6 @@
             "upstream_failed": "The upstream request failed.",
             "timeout": "The request timed out.",
             "circuit_breaker_tripped": "The channel circuit breaker is tripped. Try again later."
-        },
-        "site": {
-            "name_exists": "A site named \"{name}\" already exists. Choose a different name.",
-            "archived_name_exists": "An archived site named \"{name}\" already exists. Restore it from View options → Global actions → Archived sites in the top right, or choose a different name.",
-            "sync": {
-                "missing_group_key": "Group \"{groupKey}\" has no available key. Create a key for this group on the site and sync again.",
-                "group_models_unresolved": "Could not resolve models for group \"{groupKey}\". Check the group model configuration or key permissions.",
-                "no_group_result": "Site account sync failed: no group sync result is available.",
-                "all_groups_unresolved": "Site account sync failed: all groups could not confirm models. Historical models were kept.",
-                "unsupported_platform": "Unsupported site platform: {platform}.",
-                "snapshot_nil": "The sync result is empty. Try again later.",
-                "checkin_only": "Check-in sites do not sync groups, keys or models."
-            },
-            "checkin": {
-                "checkin_site_required": "Use an independent check-in site on the Check-in page."
-            },
-            "auth": {
-                "access_token_required": "The site access token is required.",
-                "direct_token_required": "The site direct token is required.",
-                "login_failed": "Site login failed: {reason}",
-                "login_token_missing": "Site login succeeded but no access token was returned. Check site compatibility."
-            },
-            "upstream": {
-                "http_error": "The upstream site request failed (HTTP {statusCode}): {reason}",
-                "business_error": "The site rejected the request: {reason}",
-                "network_error": "Could not connect to the site: {reason}",
-                "timeout": "The site request timed out: {reason}",
-                "decode_failed": "Failed to parse the site response: {reason}",
-                "cloudflare_challenge": "The site triggered Cloudflare protection. Try again later or manually complete verification on the site."
-            },
-            "operation": {
-                "canceled": "The site operation was canceled."
-            },
-            "import": {
-                "invalid_json": "The import content is not valid JSON. Check the file format or pasted content.",
-                "empty_payload": "The import content is empty. Select a JSON file or paste exported content.",
-                "unrecognized_all_api_hub": "No All API Hub export data was recognized. Make sure you selected the correct exported JSON.",
-                "unrecognized_metapi": "No Metapi account export data was recognized. Make sure you selected the correct exported JSON.",
-                "no_importable_all_api_hub": "No importable All API Hub site account data was found.",
-                "no_importable_metapi": "No importable Metapi site account data was found.",
-                "unsupported_payload": "This import content is not supported. Make sure the export format is correct.",
-                "persist_failed": "Failed to save imported data. Try again later."
-            },
-            "sub2api": {
-                "api_key_required": "Sub2API sync requires an API key. Create a key on the site and sync again.",
-                "model_api_key_required": "Sub2API model discovery requires an API key. Create a key on the site and sync again.",
-                "envelope_failed": "Sub2API returned an error. Check the access token, permissions, or site status.",
-                "missing_data": "Sub2API response is missing required data. Check site compatibility or try again later."
-            }
         }
     },
     "proxyPool": {
@@ -2010,7 +1688,7 @@
         },
         "dialog": {
             "title": "Proxy Pool",
-            "description": "Manage reusable proxy configurations. Sites, site accounts, and manual channels can select proxies here.",
+            "description": "Manage shared proxies for channels, check-in sites, accounts, credentials and balance queries.",
             "searchPlaceholder": "Search name, URL, or remark",
             "loading": "Loading...",
             "loadFailed": "Failed to load: {message}",
@@ -2022,21 +1700,12 @@
             "referencesDescription": "{name} is currently used by these places. Click the jump icon to locate the reference.",
             "referencesEmpty": "No references",
             "jumpToReference": "Jump to reference",
-            "managedChannelTitle": "Projected channel: {channel}",
-            "expandReference": "Expand projected channels",
-            "collapseReference": "Collapse projected channels",
-            "derivedReferences": "Projected {count}",
-            "descriptionV2": "Manage shared proxies for channels, check-in sites, accounts, credentials and balance queries.",
             "referenceTypes": {
                 "checkin_site": "Check-in site",
                 "checkin_account": "Check-in account",
                 "checkin_credential": "Authentication credential",
                 "checkin_balance": "Balance query",
-                "site": "Site",
-                "siteAccount": "Account",
-                "managedChannel": "Managed channel",
-                "channel": "Channel",
-                "reference": "Reference"
+                "channel": "Channel"
             },
             "referenceLocations": {
                 "checkinSite": "Site default proxy",
@@ -2044,14 +1713,7 @@
                 "checkinCredential": "Credential authentication proxy",
                 "checkinBalance": "Custom balance proxy",
                 "archivedCheckin": "Archived check-in site",
-                "normalChannel": "Channel",
-                "site": "Site",
-                "archivedSite": "Archived site",
-                "siteNamed": "Site: {name}",
-                "siteAccount": "Site account",
-                "managedChannel": "Site projected channel (inherits site/account proxy; not counted)",
-                "managedChannelUnderSite": "Projected from site {site} / account proxy; not counted separately",
-                "channel": "Manual channel"
+                "channel": "Channel"
             },
             "test": "Test",
             "edit": "Edit",
@@ -2076,9 +1738,6 @@
             "testSuccess": "Proxy reachable: HTTP {statusCode} · {durationMs}ms",
             "testFailed": "Proxy test failed",
             "operationFailed": "Operation failed"
-        },
-        "site": {
-            "inherit": "Inherit site proxy"
         }
     }
 }

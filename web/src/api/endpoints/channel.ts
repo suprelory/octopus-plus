@@ -49,13 +49,6 @@ export type ChannelKey = {
     remark: string;
 };
 
-export type ManagedChannelSource = {
-    site_id: number;
-    site_account_id: number;
-    site_user_group_id?: number | null;
-    group_key: string;
-};
-
 /**
  * 渠道完整数据（与后端 model.Channel 对齐；数组字段在前端保证为 []）
  */
@@ -78,7 +71,6 @@ export type Channel = {
     param_override?: string | null;
     match_regex?: string | null;
     managed: boolean;
-    managed_source?: ManagedChannelSource | null;
     stats: StatsChannel;
 };
 
@@ -167,13 +159,12 @@ export function useChannelList() {
         select: (data) => data.map((item) => ({
             raw: ({
                 ...item,
-                managed: item.managed ?? false,
-                managed_source: item.managed_source ?? null,
                 base_urls: item.base_urls ?? [],
                 custom_header: item.custom_header ?? [],
                 ws_mode: item.ws_mode ?? 'inherit',
                 passthrough_mode: item.passthrough_mode ?? 'auto',
                 keys: item.keys ?? [],
+                managed: item.managed ?? false,
                 proxy_mode: item.proxy_mode ?? 'direct',
                 proxy_config_id: item.proxy_config_id ?? null,
             }) satisfies Channel,

@@ -1,7 +1,5 @@
 'use client';
 
-import { V2_UI } from '@/lib/v2-ui';
-
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { CalendarIcon, Check, ChevronDown, Filter, Search, X } from 'lucide-react';
@@ -13,7 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useChannelList } from '@/api/endpoints/channel';
-import { useSiteChannelList } from '@/api/endpoints/site-channel';
 import { SettingKey, useSettingValue } from '@/api/endpoints/setting';
 import { useToolbarViewOptionsStore } from '@/components/modules/toolbar/view-options-store';
 import { useSearchStore } from '@/components/modules/toolbar/search-store';
@@ -158,59 +155,21 @@ export function LogFilterPopover() {
     const setLogStatus = useToolbarViewOptionsStore((s) => s.setLogStatus);
     const { value: logKeepPeriodValue } = useSettingValue(SettingKey.RelayLogKeepPeriod, '0');
     const { data: channels } = useChannelList();
-    const { data: sites } = useSiteChannelList({ includeHistory: false, enabled: !V2_UI });
 
     const [search, setSearch] = useState('');
-    const [expanded, setExpanded] = useState<Set<string>>(new Set(['__manual__']));
+    const [expanded, setExpanded] = useState<Set<string>>(new Set(['channels']));
 
     const logKeepPeriod = Number.parseInt(logKeepPeriodValue, 10) || 0;
 
     const groups = useMemo<ChannelGroup[]>(() => {
-        if (!channels) return [];
-        if (V2_UI) return [{
-            key: '__manual__',
+        if (!channels?.length) return [];
+        return [{
+            key: 'channels',
             label: t('popover.logFilter.channel.allChannels'),
             channels: channels.map(item => ({ id: item.raw.id, name: item.raw.name }))
                 .sort((a, b) => a.name.localeCompare(b.name)),
         }];
-        const siteNameById = new Map<number, string>();
-        for (const site of sites ?? []) siteNameById.set(site.site_id, site.site_name);
-
-        const siteBuckets = new Map<number, ChannelEntry[]>();
-        const manualBucket: ChannelEntry[] = [];
-
-        for (const item of channels) {
-            const entry: ChannelEntry = { id: item.raw.id, name: item.raw.name };
-            const src = item.raw.managed_source;
-            if (item.raw.managed && src?.site_id) {
-                const list = siteBuckets.get(src.site_id) ?? [];
-                list.push(entry);
-                siteBuckets.set(src.site_id, list);
-            } else {
-                manualBucket.push(entry);
-            }
-        }
-
-        const result: ChannelGroup[] = [];
-        for (const [siteId, list] of siteBuckets) {
-            list.sort((a, b) => a.name.localeCompare(b.name));
-            result.push({
-                key: `site:${siteId}`,
-                label: siteNameById.get(siteId) ?? t('popover.logFilter.channel.siteFallback', { id: siteId }),
-                channels: list,
-            });
-        }
-        result.sort((a, b) => a.label.localeCompare(b.label));
-        if (manualBucket.length > 0) {
-            manualBucket.sort((a, b) => a.name.localeCompare(b.name));
-            result.push({
-                key: '__manual__',
-                label: t('popover.logFilter.channel.manualGroup'),
-                channels: manualBucket,
-            });
-        }
-        return result;
-    }, [channels, sites, t]);
+    }, [channels, t]);
 
     const filteredGroups = useMemo(() => {
         const term = search.trim().toLowerCase();

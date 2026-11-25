@@ -166,14 +166,14 @@ export async function installCheckinAPI(
         mutate?: (request: CheckinMutation) => Response | undefined;
     } = {},
 ) {
-    const legacy = await mockApp(page, options.nav ?? 'checkin', options.app);
+    const app = await mockApp(page, options.nav ?? 'checkin', options.app);
     if (options.locale)
         await page.addInitScript(
             (locale) => localStorage.setItem('octopus-settings', JSON.stringify({ state: { locale }, version: 0 })),
             options.locale,
         );
     const state = {
-        app: legacy,
+        app,
         translationErrors: [] as string[],
         sites: options.sites ?? [checkinSite()],
         accounts: options.accounts ?? [checkinAccount()],
@@ -185,12 +185,12 @@ export async function installCheckinAPI(
         writes: [] as CheckinMutation[],
         legacyRequests: [] as string[],
         batchPolls: 0,
-        pageErrors: legacy.pageErrors,
+        pageErrors: app.pageErrors,
         unexpected: [] as string[],
         filters: [] as CheckinHistoryFilter[],
     };
     page.on('request', (request) => {
-        if (/\/api\/v1\/(site(?:\/|-channel)|site-channel|log\/site-action-targets)/.test(request.url()))
+        if (/\/api\/v1\/(site(?:\/|-channel\/)|log\/site-action-targets)/.test(request.url()))
             state.legacyRequests.push(request.url());
     });
     page.on('console', (message) => {

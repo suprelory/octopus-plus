@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import {
     isLogFailure,
-    makeDisableTargetKey,
     mergeAdjacentAttempts,
     resolveTokenUsageDisplay,
 } from '../src/components/modules/log/log-format.ts';
@@ -31,7 +30,7 @@ function attempt(attemptNum, overrides = {}) {
     };
 }
 
-test('merged retries preserve original target indexes and leave source logs intact', () => {
+test('merged retries retain their order, count and duration without changing source logs', () => {
     const attempts = [
         attempt(1),
         attempt(2, { duration: 250 }),
@@ -41,7 +40,7 @@ test('merged retries preserve original target indexes and leave source logs inta
     const original = structuredClone(attempts);
     const merged = mergeAdjacentAttempts(attempts);
 
-    assert.deepEqual(merged.map(item => item.originalIndex), [0, 2, 3]);
+    assert.deepEqual(merged.map(item => item.attempt_num), [1, 3, 4]);
     assert.deepEqual(merged.map(item => item.repeat), [2, 1, 1]);
     assert.equal(merged[0].totalDuration, 350);
     assert.equal(merged[0].lastAttemptNum, 2);
@@ -85,16 +84,4 @@ test('token totals use normalized billing and cache accounting', () => {
         assert.equal(usage.totalInputTokens, input, name);
         assert.equal(usage.totalTokens, total, name);
     }
-});
-
-test('disable pending state distinguishes accounts and groups using the same model', () => {
-    const target = { site_id: 1, account_id: 11, group_key: 'default', model_name: 'gpt-test' };
-    const keys = [
-        target,
-        { ...target, site_id: 2 },
-        { ...target, account_id: 12 },
-        { ...target, group_key: 'other' },
-        { ...target, model_name: 'other-model' },
-    ].map(makeDisableTargetKey);
-    assert.equal(new Set(keys).size, keys.length);
 });

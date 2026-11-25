@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Clock, Cpu, Gauge, Percent, Globe, Zap, ArrowDownToLine, DollarSign, ArrowRight, Pin, KeyRound, TestTube2, Brain, Type, Sigma } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { getLogDetail, type RelayLog, type RelayLogDetail, type LogSiteActionTarget as ApiLogSiteActionTarget, type LogSiteActionTargets as ApiLogSiteActionTargets } from '@/api/endpoints/log';
+import { getLogDetail, type RelayLog, type RelayLogDetail } from '@/api/endpoints/log';
 import { getModelIcon } from '@/lib/model-icons';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -17,29 +17,20 @@ import {
     MorphingDialogDescription,
 } from '@/components/ui/morphing-dialog';
 import { toast } from '@/components/common/Toast';
-import { useUpdateSiteChannelModelDisabled } from '@/api/endpoints/site-channel';
 import { resolveLogDisplayFields } from './display';
-import { formatEndpointLabel, formatRequestTypeLabel, formatTime, formatDurationCompact, formatTPS, formatCacheHitRate, formatCompactTokenCount, makeDisableTargetKey, resolveTokenUsageDisplay, isLogFailure } from './log-format';
+import { formatEndpointLabel, formatRequestTypeLabel, formatTime, formatDurationCompact, formatTPS, formatCacheHitRate, formatCompactTokenCount, resolveTokenUsageDisplay, isLogFailure } from './log-format';
 import { RetryBadgeWithTooltip, WSModeBadge } from './log-status';
 import { LogContentPanels } from './LogContentPanels';
 import { LogTracePanels } from './LogTracePanels';
 import { LogDiagnosticPanel } from './LogDiagnosticPanel';
-import { LogDisableDialog } from './LogDisableDialog';
 import { LogSummary } from './LogSummary';
 import { useLogFieldVisibility } from './ui-store';
-
-export type LogSiteActionTarget = ApiLogSiteActionTarget;
-export type LogSiteActionTargets = ApiLogSiteActionTargets;
-
-export function LogCard({ log, siteTargets, channelNameById }: { log: RelayLog; siteTargets: LogSiteActionTargets | null; channelNameById?: ReadonlyMap<number, string> }) {
+export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameById?: ReadonlyMap<number, string> }) {
     const t = useTranslations('log.card');
     const tOverview = useTranslations('workspace.log');
     const hasError = isLogFailure(log);
     const hasMultipleAttempts = (log.attempts?.length ?? 0) > 1;
     const [isDiagnosticExpanded, setIsDiagnosticExpanded] = useState(false);
-    const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
-    const [activeDisableTarget, setActiveDisableTarget] = useState<LogSiteActionTarget | null>(null);
-    const [pendingDisableKey, setPendingDisableKey] = useState<string | null>(null);
     const [detailLog, setDetailLog] = useState<RelayLogDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
     const [detailRequestID, setDetailRequestID] = useState(0);
@@ -77,7 +68,6 @@ export function LogCard({ log, siteTargets, channelNameById }: { log: RelayLog; 
     );
     const requestAPIKeyName = displayFields.requestAPIKeyName;
     const clientIP = displayFields.clientIP;
-    const disableMutation = useUpdateSiteChannelModelDisabled();
 
     const requestContent = detailLog?.request_content;
     const responseContent = detailLog?.response_content;
@@ -102,188 +92,122 @@ export function LogCard({ log, siteTargets, channelNameById }: { log: RelayLog; 
         };
     }, [detailLog, detailRequestID, log.id]);
 
-    const openDisableDialog = (target: LogSiteActionTarget) => {
-        if (!target.can_disable_model || target.model_disabled) return;
-        setActiveDisableTarget(target);
-        setConfirmDisableOpen(true);
-    };
-
-    const handleConfirmDisableOpenChange = (open: boolean) => {
-        if (!open && disableMutation.isPending) return;
-        setConfirmDisableOpen(open);
-        if (!open) {
-            setActiveDisableTarget(null);
-        }
-    };
-
-    const confirmDisableModel = () => {
-        if (!activeDisableTarget || !activeDisableTarget.can_disable_model || activeDisableTarget.model_disabled) return;
-
-        const target = activeDisableTarget;
-        const targetKey = makeDisableTargetKey(target);
-        setPendingDisableKey(targetKey);
-
-        disableMutation.mutate(
-            {
-                siteId: target.site_id,
-                accountId: target.account_id,
-                payload: [
-                    {
-                        group_key: target.group_key,
-                        model_name: target.model_name,
-                        disabled: true,
-                    },
-                ],
-            },
-            {
-                onSuccess: () => {
-                    setConfirmDisableOpen(false);
-                    setActiveDisableTarget(null);
-                    toast.success(`已禁用 ${target.group_name} / ${target.model_name}`);
-                },
-                onError: (error) => {
-                    toast.error(error.message);
-                },
-                onSettled: () => {
-                    setPendingDisableKey(null);
-                },
-            },
-        );
-    };
-
-    const isDisablePending = (target: LogSiteActionTarget | null) => {
-        if (!target || !pendingDisableKey) return false;
-        return pendingDisableKey === makeDisableTargetKey(target);
-    };
-
     return (
-        <>
-            <MorphingDialog>
-                <MorphingDialogTrigger
-                    aria-label={tOverview('openDetails', { model: displayRequestModelName, id: log.id })}
-                    onClick={() => {
-                        if (!detailLog && !detailLoading) {
-                            setDetailLoading(true);
-                            setDetailRequestID((value) => value + 1);
-                        }
-                    }}
-                    className={cn(
-                        'page-card w-full text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        hasError ? 'border-destructive/40 hover:border-destructive/60' : 'hover:border-primary/35',
-                    )}
-                >
-                    <LogSummary
-                        log={log}
-                        displayFields={displayFields}
-                        tokenUsage={tokenUsage}
-                        endpointLabel={endpointLabel}
-                        channelNameById={channelNameById}
-                    />
-                </MorphingDialogTrigger>
+        <MorphingDialog>
+            <MorphingDialogTrigger
+                aria-label={tOverview('openDetails', { model: displayRequestModelName, id: log.id })}
+                onClick={() => {
+                    if (!detailLog && !detailLoading) {
+                        setDetailLoading(true);
+                        setDetailRequestID((value) => value + 1);
+                    }
+                }}
+                className={cn(
+                    'page-card w-full text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    hasError ? 'border-destructive/40 hover:border-destructive/60' : 'hover:border-primary/35',
+                )}
+            >
+                <LogSummary
+                    log={log}
+                    displayFields={displayFields}
+                    tokenUsage={tokenUsage}
+                    endpointLabel={endpointLabel}
+                    channelNameById={channelNameById}
+                />
+            </MorphingDialogTrigger>
 
-                <MorphingDialogContainer>
-                    <MorphingDialogContent className="relative w-[calc(100vw-2rem)] md:w-[80vw] bg-card text-card-foreground px-4 sm:px-6 py-4 rounded-2xl h-[calc(100dvh-2rem)] flex flex-col overflow-hidden">
-                        <MorphingDialogClose className="top-4 right-5 text-muted-foreground hover:text-foreground transition-colors" />
-                        <MorphingDialogTitle className="mb-3 flex min-w-0 items-start gap-3 pr-14 text-sm md:pr-16">
-                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                                <ModelAvatar size={28} />
-                                <span className="max-w-full truncate font-semibold text-card-foreground" title={displayRequestModelName}>{displayRequestModelName}</span>
-                                {log.is_test ? <Badge variant="outline" className="shrink-0 border-blue-400/50 px-1.5 py-0 text-xs text-blue-500 dark:text-blue-400"><TestTube2 className="mr-1 size-3" />{t('testLog')}</Badge> : null}
-                                <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/50" />
-                                {visibility.endpointType && endpointLabel ? <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-xs" style={{ backgroundColor: `${brandColor}15`, color: brandColor }}>{endpointLabel}</Badge> : null}
-                                {visibility.channelName ? <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/50" /> : null}
-                                {visibility.channelName && hasMultipleAttempts ? (
-                                    <RetryBadgeWithTooltip
-                                        channelName={displayChannelName}
-                                        brandColor={brandColor}
-                                        attempts={log.attempts!}
-                                        channelNameById={channelNameById}
-                                    />
-                                ) : visibility.channelName ? (
-                                    <Badge
-                                        variant="secondary"
-                                        className="shrink-0 text-xs px-1.5 py-0"
-                                        style={{ backgroundColor: `${brandColor}15`, color: brandColor }}
-                                    >
-                                        {displayChannelName}
-                                    </Badge>
-                                ) : null}
-                                {visibility.actualModel ? <span className="text-muted-foreground truncate">{displayActualModelName}</span> : null}
-                                {log.attempts?.some((attempt) => attempt.sticky) ? (
-                                    <Pin className="size-3.5 shrink-0 text-amber-500" />
-                                ) : null}
-                            </div>
-                            <WSModeBadge log={log} />
-                        </MorphingDialogTitle>
-
-                        <MorphingDialogDescription className="flex-1 min-h-0">
-                            <div className="flex flex-col min-h-0 h-full gap-4">
-                                <LogDiagnosticPanel
-                                    log={log}
-                                    siteTargets={siteTargets}
+            <MorphingDialogContainer>
+                <MorphingDialogContent className="relative w-[calc(100vw-2rem)] md:w-[80vw] bg-card text-card-foreground px-4 sm:px-6 py-4 rounded-2xl h-[calc(100dvh-2rem)] flex flex-col overflow-hidden">
+                    <MorphingDialogClose className="top-4 right-5 text-muted-foreground hover:text-foreground transition-colors" />
+                    <MorphingDialogTitle className="mb-3 flex min-w-0 items-start gap-3 pr-14 text-sm md:pr-16">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                            <ModelAvatar size={28} />
+                            <span className="max-w-full truncate font-semibold text-card-foreground" title={displayRequestModelName}>{displayRequestModelName}</span>
+                            {log.is_test ? <Badge variant="outline" className="shrink-0 border-blue-400/50 px-1.5 py-0 text-xs text-blue-500 dark:text-blue-400"><TestTube2 className="mr-1 size-3" />{t('testLog')}</Badge> : null}
+                            <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/50" />
+                            {visibility.endpointType && endpointLabel ? <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-xs" style={{ backgroundColor: `${brandColor}15`, color: brandColor }}>{endpointLabel}</Badge> : null}
+                            {visibility.channelName ? <ArrowRight className="size-3.5 shrink-0 text-muted-foreground/50" /> : null}
+                            {visibility.channelName && hasMultipleAttempts ? (
+                                <RetryBadgeWithTooltip
+                                    channelName={displayChannelName}
+                                    brandColor={brandColor}
+                                    attempts={log.attempts!}
                                     channelNameById={channelNameById}
-                                    expanded={isDiagnosticExpanded}
-                                    onToggle={() => setIsDiagnosticExpanded((value) => !value)}
-                                    onDisable={openDisableDialog}
-                                    isDisablePending={isDisablePending}
                                 />
-                                {detailLog?.trace ? <LogTracePanels id={log.id} trace={detailLog.trace} /> : <LogContentPanels
-                                    requestContent={requestContent}
-                                    responseContent={responseContent}
-                                    requestTokens={totalInputTokens}
-                                    responseTokens={displayFields.outputTokens}
-                                    detailLoading={detailLoading}
-                                    requestCollapsed={requestJsonCollapsed}
-                                    responseCollapsed={responseJsonCollapsed}
-                                    onToggleRequest={() => setRequestJsonCollapsed((value) => !value)}
-                                    onToggleResponse={() => setResponseJsonCollapsed((value) => !value)}
-                                />}
-                            </div>
-                        </MorphingDialogDescription>
-
-                        <div className="mt-auto flex shrink-0 flex-wrap items-center gap-3 pt-4 text-xs text-muted-foreground md:gap-4">
-                            <div className="flex items-center gap-1.5">
-                                <Clock className="size-3.5" style={{ color: brandColor }} />
-                                <span className="tabular-nums">{formatTime(log.time)}</span>
-                            </div>
-                            {visibility.apiKeyName && requestAPIKeyName ? (
-                                <div className="flex min-w-0 items-center gap-1.5">
-                                    <KeyRound className="size-3.5 shrink-0 text-orange-500" />
-                                    <span className="truncate" title={requestAPIKeyName}>
-                                        {requestAPIKeyName}
-                                    </span>
-                                </div>
+                            ) : visibility.channelName ? (
+                                <Badge
+                                    variant="secondary"
+                                    className="shrink-0 text-xs px-1.5 py-0"
+                                    style={{ backgroundColor: `${brandColor}15`, color: brandColor }}
+                                >
+                                    {displayChannelName}
+                                </Badge>
                             ) : null}
-                            {visibility.clientIP && clientIP ? <div className="flex items-center gap-1.5"><Globe className="size-3.5 text-sky-500" /><span>{clientIP}</span></div> : null}
-                            <div className="flex items-center gap-1.5">
-                                <Zap className="size-3.5 text-amber-500" />
-                                <span>{t('firstTokenTime')}: {formatDurationCompact(log.ftut)}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5"><Cpu className="size-3.5 text-blue-500" /><span>{t('totalTime')}: {formatDurationCompact(log.use_time)}</span></div>
-                            {visibility.cost ? <div className="flex items-center gap-1.5">
-                                <DollarSign className="size-3.5 text-emerald-500" />
-                                <span className="font-medium text-emerald-600 dark:text-emerald-400">{t('cost')}: {Number(log.cost).toFixed(6)}</span>
-                            </div> : null}
-                            {visibility.tps ? <div className="flex items-center gap-1.5"><Gauge className="size-3.5 text-lime-500" /><span>{t('tps')}: {formatTPS(log.output_tokens, log.use_time)}</span></div> : null}
-                            {visibility.cacheHitRate && cacheReadTokens > 0 ? <div className="flex items-center gap-1.5"><Percent className="size-3.5 text-teal-500" /><span>{t('cacheHitRate')}: {formatCacheHitRate(cacheReadTokens, totalInputTokens)}</span></div> : null}
-                            <div className="flex items-center gap-1.5"><Sigma className="size-3.5 text-rose-500" /><span className="font-medium text-rose-600 dark:text-rose-400">{t('totalTokens')}: {totalTokens.toLocaleString()}</span></div>
-                            {cacheReadTokens > 0 ? <div className="flex items-center gap-1.5"><ArrowDownToLine className="size-3.5 text-teal-500" /><span>{t('cacheHit')}: {formatCompactTokenCount(cacheReadTokens)}</span></div> : null}
-                            {cacheWriteTokens > 0 ? <div className="flex items-center gap-1.5"><ArrowDownToLine className="size-3.5 text-sky-500" /><span>{t('cacheWrite')}: {formatCompactTokenCount(cacheWriteTokens)}</span></div> : null}
-                            {displayFields.semanticCacheHit ? <div className="flex items-center gap-1.5"><ArrowDownToLine className="size-3.5 text-cyan-500" /><span>{t('semanticCacheHit')}</span></div> : null}
-                            {visibility.reasoningEffort && log.reasoning_effort ? <div className="flex items-center gap-1.5"><Brain className="size-3.5 text-violet-500" /><span>{t('reasoningEffort')}: {log.reasoning_effort}</span></div> : null}
-                            {visibility.reasoningTokens && (log.reasoning_tokens ?? 0) > 0 ? <div className="flex items-center gap-1.5"><Brain className="size-3.5 text-indigo-500" /><span>{t('reasoningTokens')}: {formatCompactTokenCount(log.reasoning_tokens ?? 0)}t</span></div> : null}
-                            {visibility.reasoningTokens && (log.reasoning_tokens ?? 0) <= 0 && (log.reasoning_chars ?? 0) > 0 ? <div className="flex items-center gap-1.5"><Type className="size-3.5 text-indigo-500" /><span>{t('reasoningChars')}: {formatCompactTokenCount(log.reasoning_chars ?? 0)}{t('reasoningCharsUnit')}</span></div> : null}
+                            {visibility.actualModel ? <span className="text-muted-foreground truncate">{displayActualModelName}</span> : null}
+                            {log.attempts?.some((attempt) => attempt.sticky) ? (
+                                <Pin className="size-3.5 shrink-0 text-amber-500" />
+                            ) : null}
                         </div>
-                    </MorphingDialogContent>
-                </MorphingDialogContainer>
-            </MorphingDialog>
-            <LogDisableDialog
-                target={activeDisableTarget}
-                open={confirmDisableOpen}
-                pending={disableMutation.isPending}
-                onOpenChange={handleConfirmDisableOpenChange}
-                onConfirm={confirmDisableModel}
-            />
-        </>
+                        <WSModeBadge log={log} />
+                    </MorphingDialogTitle>
+
+                    <MorphingDialogDescription className="flex-1 min-h-0">
+                        <div className="flex flex-col min-h-0 h-full gap-4">
+                            <LogDiagnosticPanel
+                                log={log}
+                                channelNameById={channelNameById}
+                                expanded={isDiagnosticExpanded}
+                                onToggle={() => setIsDiagnosticExpanded((value) => !value)}
+                            />
+                            {detailLog?.trace ? <LogTracePanels id={log.id} trace={detailLog.trace} /> : <LogContentPanels
+                                requestContent={requestContent}
+                                responseContent={responseContent}
+                                requestTokens={totalInputTokens}
+                                responseTokens={displayFields.outputTokens}
+                                detailLoading={detailLoading}
+                                requestCollapsed={requestJsonCollapsed}
+                                responseCollapsed={responseJsonCollapsed}
+                                onToggleRequest={() => setRequestJsonCollapsed((value) => !value)}
+                                onToggleResponse={() => setResponseJsonCollapsed((value) => !value)}
+                            />}
+                        </div>
+                    </MorphingDialogDescription>
+
+                    <div className="mt-auto flex shrink-0 flex-wrap items-center gap-3 pt-4 text-xs text-muted-foreground md:gap-4">
+                        <div className="flex items-center gap-1.5">
+                            <Clock className="size-3.5" style={{ color: brandColor }} />
+                            <span className="tabular-nums">{formatTime(log.time)}</span>
+                        </div>
+                        {visibility.apiKeyName && requestAPIKeyName ? (
+                            <div className="flex min-w-0 items-center gap-1.5">
+                                <KeyRound className="size-3.5 shrink-0 text-orange-500" />
+                                <span className="truncate" title={requestAPIKeyName}>
+                                    {requestAPIKeyName}
+                                </span>
+                            </div>
+                        ) : null}
+                        {visibility.clientIP && clientIP ? <div className="flex items-center gap-1.5"><Globe className="size-3.5 text-sky-500" /><span>{clientIP}</span></div> : null}
+                        <div className="flex items-center gap-1.5">
+                            <Zap className="size-3.5 text-amber-500" />
+                            <span>{t('firstTokenTime')}: {formatDurationCompact(log.ftut)}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5"><Cpu className="size-3.5 text-blue-500" /><span>{t('totalTime')}: {formatDurationCompact(log.use_time)}</span></div>
+                        {visibility.cost ? <div className="flex items-center gap-1.5">
+                            <DollarSign className="size-3.5 text-emerald-500" />
+                            <span className="font-medium text-emerald-600 dark:text-emerald-400">{t('cost')}: {Number(log.cost).toFixed(6)}</span>
+                        </div> : null}
+                        {visibility.tps ? <div className="flex items-center gap-1.5"><Gauge className="size-3.5 text-lime-500" /><span>{t('tps')}: {formatTPS(log.output_tokens, log.use_time)}</span></div> : null}
+                        {visibility.cacheHitRate && cacheReadTokens > 0 ? <div className="flex items-center gap-1.5"><Percent className="size-3.5 text-teal-500" /><span>{t('cacheHitRate')}: {formatCacheHitRate(cacheReadTokens, totalInputTokens)}</span></div> : null}
+                        <div className="flex items-center gap-1.5"><Sigma className="size-3.5 text-rose-500" /><span className="font-medium text-rose-600 dark:text-rose-400">{t('totalTokens')}: {totalTokens.toLocaleString()}</span></div>
+                        {cacheReadTokens > 0 ? <div className="flex items-center gap-1.5"><ArrowDownToLine className="size-3.5 text-teal-500" /><span>{t('cacheHit')}: {formatCompactTokenCount(cacheReadTokens)}</span></div> : null}
+                        {cacheWriteTokens > 0 ? <div className="flex items-center gap-1.5"><ArrowDownToLine className="size-3.5 text-sky-500" /><span>{t('cacheWrite')}: {formatCompactTokenCount(cacheWriteTokens)}</span></div> : null}
+                        {displayFields.semanticCacheHit ? <div className="flex items-center gap-1.5"><ArrowDownToLine className="size-3.5 text-cyan-500" /><span>{t('semanticCacheHit')}</span></div> : null}
+                        {visibility.reasoningEffort && log.reasoning_effort ? <div className="flex items-center gap-1.5"><Brain className="size-3.5 text-violet-500" /><span>{t('reasoningEffort')}: {log.reasoning_effort}</span></div> : null}
+                        {visibility.reasoningTokens && (log.reasoning_tokens ?? 0) > 0 ? <div className="flex items-center gap-1.5"><Brain className="size-3.5 text-indigo-500" /><span>{t('reasoningTokens')}: {formatCompactTokenCount(log.reasoning_tokens ?? 0)}t</span></div> : null}
+                        {visibility.reasoningTokens && (log.reasoning_tokens ?? 0) <= 0 && (log.reasoning_chars ?? 0) > 0 ? <div className="flex items-center gap-1.5"><Type className="size-3.5 text-indigo-500" /><span>{t('reasoningChars')}: {formatCompactTokenCount(log.reasoning_chars ?? 0)}{t('reasoningCharsUnit')}</span></div> : null}
+                    </div>
+                </MorphingDialogContent>
+            </MorphingDialogContainer>
+        </MorphingDialog>
     );
 }

@@ -1,10 +1,9 @@
 'use client';
 
-import { V2_UI } from '@/lib/v2-ui';
 import { referenceNodeKey, referenceJumpTarget } from './references';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { ChevronDown, ExternalLink, FlaskConical, Network, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ExternalLink, FlaskConical, Network, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import {
     useCreateProxyConfiguration,
@@ -37,12 +36,6 @@ type FormState = {
 
 type ProxyPoolDialogTranslator = ReturnType<typeof useTranslations>;
 
-type ReferenceTreeNode = {
-    key: string;
-    reference: ProxyConfigurationReference;
-    children: ProxyConfigurationReference[];
-};
-
 const emptyForm: FormState = {
     name: '',
     url: '',
@@ -72,7 +65,7 @@ function createFormFromProxy(proxy: ProxyConfiguration): FormState {
     };
 }
 
-function referenceTitle(reference: ProxyConfigurationReference, t: ProxyPoolDialogTranslator) {
+function referenceTitle(reference: ProxyConfigurationReference) {
     switch (reference.type) {
         case 'checkin_site':
             return reference.checkin_site_name || `#${reference.checkin_site_id}`;
@@ -81,14 +74,6 @@ function referenceTitle(reference: ProxyConfigurationReference, t: ProxyPoolDial
             return reference.checkin_account_name || `#${reference.checkin_account_id}`;
         case 'checkin_credential':
             return reference.checkin_credential_name || `#${reference.checkin_credential_id}`;
-        case 'site':
-            return reference.site_name || `#${reference.site_id}`;
-        case 'site_account':
-            return reference.site_account_name || `#${reference.site_account_id}`;
-        case 'managed_channel':
-            return reference.channel_name
-                ? t('managedChannelTitle', { channel: reference.channel_name })
-                : t('managedChannelTitle', { channel: `#${reference.channel_id}` });
         case 'channel':
             return reference.channel_name || `#${reference.channel_id}`;
         default:
@@ -105,76 +90,11 @@ function referenceLocation(reference: ProxyConfigurationReference, t: ProxyPoolD
             return `${reference.checkin_site_name || `#${reference.checkin_site_id}`} · ${t(reference.type === 'checkin_balance' ? 'referenceLocations.checkinBalance' : 'referenceLocations.checkinAccount')}${reference.checkin_site_archived ? ` · ${t('referenceLocations.archivedCheckin')}` : ''}`;
         case 'checkin_credential':
             return t('referenceLocations.checkinCredential');
-        case 'site':
-            return reference.site_archived ? t('referenceLocations.archivedSite') : t('referenceLocations.site');
-        case 'site_account':
-            return reference.site_name ? t('referenceLocations.siteNamed', { name: reference.site_name }) : t('referenceLocations.siteAccount');
-        case 'managed_channel':
-            return reference.site_name
-                ? t('referenceLocations.managedChannelUnderSite', { site: reference.site_name })
-                : t('referenceLocations.managedChannel');
         case 'channel':
-            return t(V2_UI ? 'referenceLocations.normalChannel' : 'referenceLocations.channel');
+            return t('referenceLocations.channel');
         default:
             return '';
     }
-}
-
-function referenceTypeLabel(reference: ProxyConfigurationReference, t: ProxyPoolDialogTranslator) {
-    switch (reference.type) {
-        case 'checkin_site':
-        case 'checkin_account':
-        case 'checkin_balance':
-        case 'checkin_credential':
-            return t(`referenceTypes.${reference.type}`);
-        case 'site':
-            return t('referenceTypes.site');
-        case 'site_account':
-            return t('referenceTypes.siteAccount');
-        case 'managed_channel':
-            return t('referenceTypes.managedChannel');
-        case 'channel':
-            return t('referenceTypes.channel');
-        default:
-            return t('referenceTypes.reference');
-    }
-}
-
-function buildReferenceTree(references: ProxyConfigurationReference[]) {
-    const roots: ReferenceTreeNode[] = [];
-    const rootMap = new Map<string, ReferenceTreeNode>();
-
-    for (const reference of references) {
-        if (reference.type === 'managed_channel') continue;
-        const key = referenceNodeKey(reference);
-        const node = rootMap.get(key) ?? { key, reference, children: [] };
-        node.reference = reference;
-        rootMap.set(key, node);
-        if (!roots.includes(node)) roots.push(node);
-    }
-
-    const siteAccountRoots = roots.filter((node) => node.reference.type === 'site_account');
-    const siteRoots = roots.filter((node) => node.reference.type === 'site');
-
-    for (const reference of references) {
-        if (reference.type !== 'managed_channel') continue;
-        const accountParent = siteAccountRoots.find((node) =>
-            (node.reference.site_account_id ?? 0) > 0 && node.reference.site_account_id === reference.site_account_id,
-        );
-        const siteParent = siteRoots.find((node) =>
-            (node.reference.site_id ?? 0) > 0 && node.reference.site_id === reference.site_id,
-        );
-        const parent = accountParent ?? siteParent;
-        if (parent) {
-            parent.children.push(reference);
-            continue;
-        }
-
-        const key = `derived:${referenceNodeKey(reference)}`;
-        roots.push({ key, reference, children: [] });
-    }
-
-    return roots;
 }
 
 export function ProxyPoolDialog() {
@@ -194,14 +114,11 @@ export function ProxyPoolDialog() {
     const [testURL, setTestURL] = useState(DEFAULT_TEST_URL);
     const [testingKey, setTestingKey] = useState<string | null>(null);
     const [referencesProxy, setReferencesProxy] = useState<ProxyConfiguration | null>(null);
-    const [expandedReferenceKeys, setExpandedReferenceKeys] = useState<Set<string>>(() => new Set());
     const focusedProxyRefs = useRef<Map<number, HTMLElement>>(new Map());
     const { data: references = [], isLoading: referencesLoading, error: referencesError } = useProxyConfigurationReferences(
         referencesProxy?.id ?? null,
         isOpen && !!referencesProxy,
     );
-
-    const referenceTree = useMemo(() => buildReferenceTree(references), [references]);
 
     const filteredProxies = useMemo(() => {
         const term = query.trim().toLowerCase();
@@ -227,22 +144,8 @@ export function ProxyPoolDialog() {
         focusedProxyRefs.current.delete(proxyId);
     }
 
-    function openReferences(proxy: ProxyConfiguration) {
-        setReferencesProxy(proxy);
-        setExpandedReferenceKeys(new Set());
-    }
-
-    function toggleReferenceExpanded(key: string) {
-        setExpandedReferenceKeys((current) => {
-            const next = new Set(current);
-            if (next.has(key)) next.delete(key);
-            else next.add(key);
-            return next;
-        });
-    }
-
     function jumpToReference(reference: ProxyConfigurationReference) {
-        const target = referenceJumpTarget(reference, V2_UI);
+        const target = referenceJumpTarget(reference);
         if (!target) return;
         setReferencesProxy(null);
         setOpen(false);
@@ -336,7 +239,7 @@ export function ProxyPoolDialog() {
                                 <Network className="size-5" />
                                 {t('title')}
                             </DialogTitle>
-                            <DialogDescription>{t(V2_UI ? 'descriptionV2' : 'description')}</DialogDescription>
+                            <DialogDescription>{t('description')}</DialogDescription>
                         </DialogHeader>
                         <div className="shrink-0 px-6 pb-3">
                             <Input
@@ -369,7 +272,7 @@ export function ProxyPoolDialog() {
                                                 <Badge variant={proxy.enabled ? 'default' : 'secondary'}>
                                                     {proxy.enabled ? t('enabled') : t('disabled')}
                                                 </Badge>
-                                                <button type="button" onClick={() => openReferences(proxy)} className="rounded-full" title={t('referencesTitle')}>
+                                                <button type="button" onClick={() => setReferencesProxy(proxy)} className="rounded-full" title={t('referencesTitle')}>
                                                     <Badge variant="outline" className="cursor-pointer hover:bg-accent hover:text-accent-foreground">
                                                         <ExternalLink className="size-3" />
                                                         {t('references', { count: proxy.reference_count })}
@@ -463,59 +366,21 @@ export function ProxyPoolDialog() {
                             <div className="rounded-2xl border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
                                 {t('referencesEmpty')}
                             </div>
-                        ) : referenceTree.map((node) => {
-                            const expanded = expandedReferenceKeys.has(node.key);
+                        ) : references.map((reference) => {
+                            const label = t(`referenceTypes.${reference.type}`);
+                            const title = referenceTitle(reference);
                             return (
-                                <div key={node.key} role="group" aria-label={`${referenceTypeLabel(node.reference, t)}: ${referenceTitle(node.reference, t)}`} className="rounded-2xl border bg-card p-3">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div className="flex min-w-0 items-center gap-2">
-                                            {node.children.length > 0 ? (
-                                                <button
-                                                    type="button"
-                                                    className="shrink-0 rounded-lg p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                                                    onClick={() => toggleReferenceExpanded(node.key)}
-                                                    title={expanded ? t('collapseReference') : t('expandReference')}
-                                                >
-                                                    <ChevronDown className={cn('size-4 transition-transform', !expanded && '-rotate-90')} />
-                                                </button>
-                                            ) : (
-                                                <span className="w-6 shrink-0" />
-                                            )}
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <Badge variant="outline">{referenceTypeLabel(node.reference, t)}</Badge>
-                                                    <span className="truncate text-sm font-medium">{referenceTitle(node.reference, t)}</span>
-                                                    {node.children.length > 0 ? (
-                                                        <Badge variant="secondary" className="text-[10px]">
-                                                            {t('derivedReferences', { count: node.children.length })}
-                                                        </Badge>
-                                                    ) : null}
-                                                </div>
-                                                <div className="mt-1 truncate text-xs text-muted-foreground">{referenceLocation(node.reference, t)}</div>
-                                            </div>
+                                <div key={referenceNodeKey(reference)} role="group" aria-label={`${label}: ${title}`} className="flex items-center justify-between gap-3 rounded-2xl border bg-card p-3">
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="outline">{label}</Badge>
+                                            <span className="truncate text-sm font-medium">{title}</span>
                                         </div>
-                                        <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 rounded-xl" disabled={!referenceJumpTarget(node.reference, V2_UI)} onClick={() => jumpToReference(node.reference)} title={t('jumpToReference')}>
-                                            <ExternalLink className="size-4" />
-                                        </Button>
+                                        <div className="mt-1 truncate text-xs text-muted-foreground">{referenceLocation(reference, t)}</div>
                                     </div>
-                                    {expanded && node.children.length > 0 ? (
-                                        <div className="mt-3 space-y-2 border-l border-dashed border-border/80 pl-6">
-                                            {node.children.map((child, childIndex) => (
-                                                <div key={`${referenceNodeKey(child)}:${childIndex}`} className="flex items-center justify-between gap-3 rounded-xl bg-muted/20 px-3 py-2">
-                                                    <div className="min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <Badge variant="outline" className="text-[10px]">{referenceTypeLabel(child, t)}</Badge>
-                                                            <span className="truncate text-xs font-medium">{referenceTitle(child, t)}</span>
-                                                        </div>
-                                                        <div className="mt-1 truncate text-[11px] text-muted-foreground">{referenceLocation(child, t)}</div>
-                                                    </div>
-                                                    <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 rounded-xl" disabled={!referenceJumpTarget(child, V2_UI)} onClick={() => jumpToReference(child)} title={t('jumpToReference')}>
-                                                        <ExternalLink className="size-4" />
-                                                    </Button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : null}
+                                    <Button type="button" variant="ghost" size="icon-sm" className="shrink-0 rounded-xl" disabled={!referenceJumpTarget(reference)} onClick={() => jumpToReference(reference)} title={t('jumpToReference')}>
+                                        <ExternalLink className="size-4" />
+                                    </Button>
                                 </div>
                             );
                         })}

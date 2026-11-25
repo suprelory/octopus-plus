@@ -20,7 +20,7 @@ function credentials() {
 }
 
 test('temporary verification failure preserves credentials and offers a working retry', async ({ page }) => {
-    const state = await mockApp(page, 'site');
+    const state = await mockApp(page, 'group');
     let unavailable = true;
     let bootstrapRequests = 0;
     page.on('request', request => {
@@ -36,7 +36,7 @@ test('temporary verification failure preserves credentials and offers a working 
     expect(bootstrapRequests).toBe(0);
     unavailable = false;
     await page.getByRole('button', { name: '重新验证' }).click();
-    await expect(page.getByRole('heading', { name: '站点概览' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '分组概览' })).toBeVisible();
     expect(await storedToken(page)).toBe('browser-test-token');
     expect(state.unexpectedRequests).toEqual([]);
     expect(state.pageErrors).toEqual([]);
@@ -52,14 +52,14 @@ test('real interaction renews once without remounting an open search field', asy
     };
     let release!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
-    const state = await mockApp(page, 'site', { credentials: original, mutate: async request => {
+    const state = await mockApp(page, 'group', { credentials: original, mutate: async request => {
         expect(request.path).toBe('/api/v1/user/refresh');
         expect(request.body).toEqual({});
         await gate;
         return { data: renewed };
     } });
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: '站点概览' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '分组概览' })).toBeVisible();
     expect(state.mutations).toEqual([]);
     await page.getByRole('button', { name: '搜索', exact: true }).click();
     const search = page.getByRole('textbox', { name: '搜索', exact: true });
@@ -76,13 +76,13 @@ test('real interaction renews once without remounting an open search field', asy
 });
 
 test('logout in another tab promptly returns this tab to the login screen', async ({ page, context }) => {
-    const state = await mockApp(page, 'site');
+    const state = await mockApp(page, 'group');
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: '站点概览' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '分组概览' })).toBeVisible();
     const other = await context.newPage();
-    await mockApp(other, 'site');
+    await mockApp(other, 'group');
     await other.goto('/');
-    await expect(other.getByRole('heading', { name: '站点概览' })).toBeVisible();
+    await expect(other.getByRole('heading', { name: '分组概览' })).toBeVisible();
     await other.evaluate(() => localStorage.removeItem('auth-storage'));
     await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible();
     expect(await storedToken(page)).toBeNull();

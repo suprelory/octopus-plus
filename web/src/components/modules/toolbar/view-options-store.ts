@@ -3,9 +3,9 @@ import { persist } from 'zustand/middleware';
 
 export type ToolbarLayout = 'grid' | 'list';
 export type ToolbarSortOrder = 'asc' | 'desc';
-export type ToolbarSortField = 'default' | 'name' | 'created' | 'balance';
-export type ToolbarSortablePage = 'site' | 'checkin' | 'channel' | 'group';
-export const TOOLBAR_PAGES = ['site', 'checkin', 'channel', 'group', 'model', 'log'] as const;
+export type ToolbarSortField = 'name' | 'created';
+export type ToolbarSortablePage = 'channel' | 'group';
+export const TOOLBAR_PAGES = ['channel', 'group', 'model', 'log'] as const;
 export type ToolbarPage = (typeof TOOLBAR_PAGES)[number];
 export type LogDateRange = { start?: number; end?: number };
 export type LogKeywordMode = 'default' | 'prefix' | 'exact' | 'contains';
@@ -59,13 +59,7 @@ export const useToolbarViewOptionsStore = create<ToolbarViewOptionsState>()(
                 set((state) => ({ layouts: { ...state.layouts, [item]: value } }));
             },
 
-            getSortField: (item) => {
-                const field = get().sortFields[item];
-                if (item === 'site' || item === 'checkin') {
-                    return field === 'balance' || field === 'name' ? field : 'default';
-                }
-                return field === 'created' ? 'created' : 'name';
-            },
+            getSortField: (item) => get().sortFields[item] === 'created' ? 'created' : 'name',
             setSortConfig: (item, field, order) => {
                 set((state) => ({
                     sortFields: { ...state.sortFields, [item]: field },
@@ -73,12 +67,7 @@ export const useToolbarViewOptionsStore = create<ToolbarViewOptionsState>()(
                 }));
             },
 
-            getSortOrder: (item) => {
-                if ((item === 'site' || item === 'checkin') && get().getSortField(item) === 'default') {
-                    return 'asc';
-                }
-                return get().sortOrders[item] === 'desc' ? 'desc' : 'asc';
-            },
+            getSortOrder: (item) => get().sortOrders[item] === 'desc' ? 'desc' : 'asc',
             setSortOrder: (item, value) => {
                 set((state) => ({ sortOrders: { ...state.sortOrders, [item]: value } }));
             },

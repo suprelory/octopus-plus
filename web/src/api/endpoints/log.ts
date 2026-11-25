@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, API_BASE_URL } from '../client';
 import { logger } from '@/lib/logger';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from './user';
 import { sameAuthIdentity } from '../auth-session';
 
@@ -75,24 +75,6 @@ export interface RoutingSummary {
 /**
  * 日志数据
  */
-export interface LogSiteActionTarget {
-    site_id: number;
-    site_name: string;
-    account_id: number;
-    account_name: string;
-    group_key: string;
-    group_name: string;
-    model_name: string;
-    model_disabled: boolean;
-    can_disable_model: boolean;
-    channel_id: number;
-    channel_name: string;
-}
-
-export interface LogSiteActionTargets {
-    attempt_targets: Array<LogSiteActionTarget | null>;
-}
-
 export interface RelayLog {
     id: number;
     time: number;                // 时间戳
@@ -399,32 +381,6 @@ export function useLogStream(onLog: (log: RelayLog) => void, enabled: boolean) {
  */
 export async function getLogDetail(id: number): Promise<RelayLogDetail> {
     return apiClient.get<RelayLogDetail>(`/api/v1/log/${id}`);
-}
-
-export function useLogSiteActionTargets(ids: number[], enabled = true) {
-    const stableIds = useMemo(() => Array.from(new Set(ids.filter((id) => id > 0))).sort((a, b) => a - b), [ids]);
-    return useQuery({
-        queryKey: ['logs', 'site-action-targets', stableIds],
-        queryFn: async () => {
-            if (stableIds.length === 0) return {} as Record<number, LogSiteActionTargets>;
-            const chunkSize = 100;
-            const chunks: number[][] = [];
-            for (let i = 0; i < stableIds.length; i += chunkSize) {
-                chunks.push(stableIds.slice(i, i + chunkSize));
-            }
-            const results = await Promise.all(
-                chunks.map((chunk) =>
-                    apiClient.get<Record<number, LogSiteActionTargets>>(
-                        `/api/v1/log/site-action-targets?ids=${chunk.join(',')}`,
-                    ),
-                ),
-            );
-            return Object.assign({}, ...results) as Record<number, LogSiteActionTargets>;
-        },
-        enabled: enabled && stableIds.length > 0,
-        staleTime: 30000,
-        refetchOnWindowFocus: false,
-    });
 }
 
 export function useClearLogs() {

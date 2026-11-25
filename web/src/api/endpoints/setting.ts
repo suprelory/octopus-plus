@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, authenticatedFetch } from '../client';
 import { logger } from '@/lib/logger';
-import { V2_UI } from '@/lib/v2-ui';
 
 /**
  * Setting 数据
@@ -17,7 +16,6 @@ export const SettingKey = {
     StatsSaveInterval: 'stats_save_interval',
     ModelInfoUpdateInterval: 'model_info_update_interval',
     SyncLLMInterval: 'sync_llm_interval',
-    SiteSyncInterval: 'site_sync_interval',
     RelayLogKeepEnabled: 'relay_log_keep_enabled',
     RelayLogKeepPeriod: 'relay_log_keep_period',
     RelayLogContentEnabled: 'relay_log_content_enabled',
@@ -38,7 +36,6 @@ export const SettingKey = {
     SSEHeartbeatInterval: 'sse_heartbeat_interval',
     SSEPreStreamHeartbeatDelay: 'sse_pre_stream_heartbeat_delay',
     NonStreamKeepAliveInterval: 'nonstream_keepalive_interval',
-    ProjectedChannelAutoGroupEnabled: 'projected_channel_auto_group_enabled',
     ApiBaseUrl: 'api_base_url',
     WebDAVURL: 'webdav_url',
     WebDAVUsername: 'webdav_username',
@@ -54,11 +51,6 @@ export const SettingKey = {
     CheckinNotifyWebhookURL: 'checkin_notify_webhook_url',
     CheckinNotifyCooldownSeconds: 'checkin_notify_cooldown_seconds',
     CheckinLowBalanceThreshold: 'checkin_low_balance_threshold',
-    TurnstileSolverEnabled: 'turnstile_solver_enabled',
-    TurnstileCloudflareSolverEnabled: 'turnstile_cloudflare_solver_enabled',
-    TurnstileCloudflareSolverAPIKey: 'turnstile_cloudflare_solver_api_key',
-    TurnstileSolverQEnabled: 'turnstile_solverq_enabled',
-    TurnstileSolverQAPIKey: 'turnstile_solverq_api_key',
 } as const;
 
 /**
@@ -224,7 +216,7 @@ export function useExportDB() {
             params.set('include_logs', String(!!options.include_logs));
             params.set('include_stats', String(!!options.include_stats));
             params.set('format', format);
-            if (V2_UI) params.set('version', '2');
+            params.set('version', '2');
 
             const { blob, filename } = await authenticatedFetch(`/api/v1/setting/export?${params.toString()}`, {
                 method: 'GET',
@@ -256,7 +248,7 @@ export function useImportDB() {
             const form = new FormData();
             form.append('file', file);
 
-            return authenticatedFetch(`/api/v1/setting/import${V2_UI ? '?version=2' : ''}`, {
+            return authenticatedFetch('/api/v1/setting/import?version=2', {
                 method: 'POST',
                 body: form,
             }, async (res) => {
@@ -298,7 +290,7 @@ export function useTriggerWebDAVBackup() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async () => {
-            return apiClient.post<{ message: string }>(`/api/v1/webdav-backup/trigger${V2_UI ? '?version=2' : ''}`, {});
+            return apiClient.post<{ message: string }>('/api/v1/webdav-backup/trigger?version=2', {});
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['webdav-backups'] });
@@ -321,7 +313,7 @@ export function useRestoreWebDAVBackup() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async (filename: string) => {
-            return apiClient.post<DBImportResult>(`/api/v1/webdav-backup/restore${V2_UI ? '?version=2' : ''}`, { filename });
+            return apiClient.post<DBImportResult>('/api/v1/webdav-backup/restore?version=2', { filename });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['settings', 'list'] });

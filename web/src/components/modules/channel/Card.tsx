@@ -1,7 +1,5 @@
 'use client';
 
-import { V2_UI } from '@/lib/v2-ui';
-
 import {
     MorphingDialog,
     MorphingDialogTrigger,
@@ -74,7 +72,7 @@ export function Card({ channel, stats, layout = 'grid' }: {
                             </span>
                             <span className="inline-flex items-center gap-1" title={models.join(', ')}><Layers3 aria-hidden className="size-3.5" />{t('models', { count: models.length })}</span>
                             <span className="inline-flex items-center gap-1"><KeyRound aria-hidden className="size-3.5" />{t('keys', { enabled: enabledKeyCount, total: channel.keys.length })}</span>
-                            {channel.managed && <span className="text-amber-700 dark:text-amber-300">{t(V2_UI ? 'migrationPending' : 'managed')}</span>}
+                            {channel.managed && <span className="text-amber-700 dark:text-amber-300">{t('migrationPending')}</span>}
                         </div>
                     </div>
 

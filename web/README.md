@@ -69,7 +69,6 @@ NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8080" pnpm dev
 | `NEXT_PUBLIC_API_BASE_URL` | `.` | API 基础地址；生产默认同源，分离开发时指向 Go 后端 |
 | `NEXT_PUBLIC_APP_VERSION` | `unknown` | 界面版本号；构建脚本与 Build 工作流会注入版本信息 |
 | `NEXT_PUBLIC_GITHUB_REPO` | `https://github.com/suprelory/octopus-plus` | 界面使用的仓库链接 |
-| `NEXT_PUBLIC_V2_UI` | v2 启用 | 仅显式 `0` 启用旧界面兼容测试；生产应移除此覆盖，P6 将删除开关 |
 
 ## 生产构建
 
@@ -105,17 +104,16 @@ pnpm test
 pnpm exec tsc --noEmit
 pnpm exec playwright install chromium
 pnpm test:e2e
-pnpm test:e2e:v2
 pnpm build
 ```
 
-`pnpm test` 运行 `tests/*.test.mjs`；`pnpm test:e2e` 在端口 `4173` 显式启用旧界面兼容回归，`pnpm test:e2e:v2` 在端口 `4174` 验证默认 v2。两组使用模拟 API，无需 Go 后端或上游凭据；它们与构建共享 `.next`，需顺序运行。CI 使用预装浏览器的 Playwright 镜像。覆盖范围、失败截图和 trace 的查看方法见[测试说明](tests/README.md)，独立签到与生产接口说明见 [v2 契约](../docs/checkin-api-v2.md)。
+`pnpm test` 运行 `tests/*.test.mjs`。`pnpm test:e2e` 在 `127.0.0.1:4173` 启动当前管理界面，用模拟 API 验证工作区和独立签到流程，不需要 Go 后端或上游凭据。Playwright 与生产构建共享 `.next`，需顺序运行。CI 使用预装浏览器的 Playwright 镜像。覆盖范围、失败截图和 trace 的查看方法见[测试说明](tests/README.md)，独立签到与生产接口说明见 [v2 契约](../docs/checkin-api-v2.md)。
 
 ## 目录结构
 
 ```text
 src/app/                  Next.js 入口、布局与全局样式
-src/components/modules/   首页、站点、签到、渠道、分组、模型、日志与设置
+src/components/modules/   首页、签到、渠道、分组、模型、日志与设置
 src/components/ui/        通用 UI 组件
 src/api/                  API 客户端、端点与会话管理
 src/route/                模块导航、懒加载与预加载

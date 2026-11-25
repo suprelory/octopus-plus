@@ -27,12 +27,6 @@ export interface LLMChannel {
     enabled: boolean;
     channel_id: number;
     channel_name: string;
-    site_id?: number | null;
-    site_account_id?: number | null;
-    site_group_key?: string;
-    site_group_name?: string;
-    site_name?: string;
-    site_account_name?: string;
     endpoint_type?: string;
 }
 

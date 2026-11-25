@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import type { Group } from '../../src/api/endpoints/group';
 import type { RelayLog } from '../../src/api/endpoints/log';
-import { emptyStats, makeChannel, makeSite, mockApp } from './fixtures';
+import { emptyStats, makeChannel, mockApp } from './fixtures';
 
 const models = [
     { name: 'gpt-4.1', input: 2, output: 8, cache_read: 0.5, cache_write: 0 },
@@ -31,12 +31,9 @@ for (const { width, theme } of [{ width: 1440, theme: 'light' }, { width: 390, t
             }, theme);
         });
 
-        test('site and group overviews retain filtering and expandable members', async ({ page }, info) => {
-            const state = await mockApp(page, 'site', { groups, sites: [makeSite(1, 'Northstar AI'), makeSite(2, 'Cloud Gateway')] });
+        test('group overview retains filtering and expandable members', async ({ page }, info) => {
+            const state = await mockApp(page, 'group', { groups });
             await page.goto('/');
-            await expect(page.getByRole('heading', { name: '站点概览' })).toBeVisible();
-            await capture(page, info, 'sites');
-            await page.getByRole('navigation').getByRole('button', { name: '分组', exact: true }).click();
             await expect(page.getByRole('heading', { name: '分组概览' })).toBeVisible();
             const group = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'gpt-4.1', exact: true }) });
             const expand = group.getByRole('button', { expanded: false });

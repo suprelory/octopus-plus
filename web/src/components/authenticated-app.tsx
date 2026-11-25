@@ -11,11 +11,6 @@ import { NavBar, useNavStore } from '@/components/modules/navbar';
 import { useProxyPoolDialogStore } from '@/components/modules/proxy-pool/dialog-store';
 import { ENTRANCE_VARIANTS } from '@/lib/animations/fluid-transitions';
 import { ContentLoader } from '@/route/content-loader';
-import { V2_UI } from '@/lib/v2-ui';
-
-const ChannelTabSwitcher = lazy(() =>
-    import('@/components/modules/channel/TabSwitcher').then((module) => ({ default: module.ChannelTabSwitcher }))
-);
 const ProxyPoolDialog = lazy(() =>
     import('@/components/modules/proxy-pool/ProxyPoolDialog').then((module) => ({ default: module.ProxyPoolDialog }))
 );
@@ -30,8 +25,7 @@ export function AuthenticatedApp() {
     const queryClient = useQueryClient();
     const prefetchStartedRef = useRef(false);
     const proxyPoolDialogOpen = useProxyPoolDialogStore((state) => state.isOpen);
-    const showToolbar = (!V2_UI && (visibleItem === 'site' || visibleItem === 'checkin'))
-        || visibleItem === 'channel'
+    const showToolbar = visibleItem === 'channel'
         || visibleItem === 'group'
         || visibleItem === 'model'
         || visibleItem === 'log';
@@ -64,14 +58,11 @@ export function AuthenticatedApp() {
                 );
                 break;
             }
-            case 'site':
             case 'checkin': {
                 prefetches.push(
                     queryClient.prefetchQuery({
-                        queryKey: V2_UI ? ['checkin', 'sites'] : ['sites', 'list'],
-                        queryFn: async () => V2_UI
-                            ? apiClient.get('/api/v1/checkin/sites', { include_archived: true })
-                            : apiClient.get('/api/v1/site/list'),
+                        queryKey: ['checkin', 'sites'],
+                        queryFn: async () => apiClient.get('/api/v1/checkin/sites', { include_archived: true }),
                     })
                 );
                 break;
@@ -140,7 +131,7 @@ export function AuthenticatedApp() {
                 <main className="flex min-h-0 w-full min-w-0 flex-1 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-0">
                     <header className="my-6 flex flex-none flex-wrap items-start gap-x-2 gap-y-3 px-2">
                         <Logo size={48} />
-                        <div className={`flex-1 overflow-hidden pb-2 sm:pb-0 ${visibleItem === 'channel' ? 'sm:flex-none' : ''}`}>
+                        <div className="flex-1 overflow-hidden pb-2 sm:pb-0">
                             <AnimatePresence mode="wait" custom={direction}>
                                 <motion.div
                                     key={visibleItem}
@@ -169,11 +160,6 @@ export function AuthenticatedApp() {
                                 </motion.div>
                             </AnimatePresence>
                         </div>
-                        {visibleItem === 'channel' && !V2_UI && (
-                            <div className="order-last w-full sm:order-none sm:ml-4 sm:w-auto sm:self-center">
-                                <Suspense fallback={null}><ChannelTabSwitcher /></Suspense>
-                            </div>
-                        )}
                         {showToolbar && (
                             <div className="relative ml-auto flex min-h-[36px] items-center gap-3">
                                 <Suspense fallback={null}>

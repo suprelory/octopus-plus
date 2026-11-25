@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { V2_UI } from '@/lib/v2-ui';
 import { apiClient } from '../client';
 import { logger } from '@/lib/logger';
 import { AutoGroupType } from './channel';
@@ -168,21 +167,12 @@ export interface GroupAutoGroupSource {
     enabled: boolean;
     managed: boolean;
     auto_group: AutoGroupType;
-    effective_auto_group: AutoGroupType;
-    global_override: boolean;
     model_count: number;
     models: string[];
-    site_id?: number | null;
-    site_name?: string;
-    site_account_id?: number | null;
-    site_account_name?: string;
-    site_group_key?: string;
-    site_group_name?: string;
     endpoint_type?: string;
 }
 
 export interface GroupAutoGroupConfig {
-    projected_global_auto_group: AutoGroupType;
     sources: GroupAutoGroupSource[];
 }
 
@@ -192,7 +182,6 @@ export interface GroupAutoGroupSourceUpdateRequest {
 }
 
 export interface GroupAutoGroupConfigUpdateRequest {
-    projected_global_auto_group?: AutoGroupType;
     items?: GroupAutoGroupSourceUpdateRequest[];
     run_now?: boolean;
 }
@@ -380,7 +369,6 @@ function invalidateAutoGroupRelated(queryClient: ReturnType<typeof useQueryClien
     queryClient.invalidateQueries({ queryKey: ['groups', 'list'] });
     queryClient.invalidateQueries({ queryKey: ['channels', 'list'] });
     queryClient.invalidateQueries({ queryKey: ['models', 'channel'] });
-    if (!V2_UI) queryClient.invalidateQueries({ queryKey: ['site-channel', 'list'] });
     queryClient.invalidateQueries({ queryKey: ['settings', 'list'] });
 }
 

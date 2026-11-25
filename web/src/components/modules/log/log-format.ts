@@ -1,10 +1,7 @@
 'use client';
 
-import type { ChannelAttempt, RelayLog, LogSiteActionTarget as ApiLogSiteActionTarget, LogSiteActionTargets as ApiLogSiteActionTargets } from '@/api/endpoints/log';
+import type { ChannelAttempt, RelayLog } from '@/api/endpoints/log';
 import type { useTranslations } from 'next-intl';
-
-export type LogSiteActionTarget = ApiLogSiteActionTarget;
-export type LogSiteActionTargets = ApiLogSiteActionTargets;
 
 export function isLogFailure(log: Pick<RelayLog, 'success' | 'error'>): boolean {
     return typeof log.success === 'boolean' ? !log.success : !!log.error;
@@ -113,7 +110,6 @@ export function sanitizeErrorMessage(raw: string | undefined | null): string {
 }
 
 export interface MergedAttempt extends ChannelAttempt {
-    originalIndex: number;
     repeat: number;
     lastAttemptNum: number;
     totalDuration: number;
@@ -121,7 +117,7 @@ export interface MergedAttempt extends ChannelAttempt {
 
 export function mergeAdjacentAttempts(attempts: ChannelAttempt[]): MergedAttempt[] {
     const out: MergedAttempt[] = [];
-    for (const [originalIndex, a] of attempts.entries()) {
+    for (const a of attempts) {
         const last = out[out.length - 1];
         if (
             last
@@ -142,18 +138,12 @@ export function mergeAdjacentAttempts(attempts: ChannelAttempt[]): MergedAttempt
         }
         out.push({
             ...a,
-            originalIndex,
             repeat: 1,
             lastAttemptNum: a.attempt_num,
             totalDuration: a.duration,
         });
     }
     return out;
-}
-
-export function makeDisableTargetKey(target: LogSiteActionTarget | null | undefined) {
-    if (!target) return '';
-    return `${target.site_id}\u0000${target.account_id}\u0000${target.group_key}\u0000${target.model_name}`;
 }
 
 export function formatCompactTokenCount(value: number): string {

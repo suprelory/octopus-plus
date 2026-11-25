@@ -1,11 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { V2_UI } from '@/lib/v2-ui'
 
-export type NavItem = 'home' | 'site' | 'checkin' | 'channel' | 'group' | 'model' | 'log' | 'setting'
-
-const NAV_ORDER: NavItem[] = (['home', 'site', 'checkin', 'channel', 'group', 'model', 'log', 'setting'] as NavItem[])
-    .filter(item => !V2_UI || item !== 'site')
+const NAV_ORDER = ['home', 'checkin', 'channel', 'group', 'model', 'log', 'setting'] as const
+export type NavItem = (typeof NAV_ORDER)[number]
 
 function validNavItem(item: unknown): NavItem {
     return NAV_ORDER.includes(item as NavItem) ? item as NavItem : 'home'

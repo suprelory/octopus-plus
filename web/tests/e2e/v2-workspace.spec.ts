@@ -74,6 +74,7 @@ for (const width of [1440, 390]) {
                 await page.getByRole('group', { name: '设置分类' }).getByRole('button', { name: '连接与任务' }).click();
                 await expect(page.getByTestId('independent-checkin-tasks')).toBeVisible();
                 await expect(page.getByText('站点全量同步', { exact: true })).toHaveCount(0);
+                await expect(page.getByText('签到 Turnstile 求解', { exact: true })).toHaveCount(0);
                 await page.getByTestId('independent-checkin-tasks').scrollIntoViewIfNeeded();
                 await page.screenshot({ path: info.outputPath(`v2-tasks-${width}.png`), animations: 'disabled' });
             }
@@ -123,12 +124,7 @@ test('unconverted managed channels remain read only without subscription jumps',
     const state = await installCheckinAPI(page, {
         nav: 'channel',
         app: {
-            channels: [
-                makeChannel(102, 'Pending channel', {
-                    managed: true,
-                    managed_source: { site_id: 8, site_account_id: 9, group_key: 'default' },
-                }),
-            ],
+            channels: [makeChannel(102, 'Pending channel', { managed: true })],
         },
     });
     await page.goto('/');
@@ -144,7 +140,6 @@ test('unconverted managed channels remain read only without subscription jumps',
 async function autoGroup(page: Page, managed = false) {
     const state = await installCheckinAPI(page, { nav: 'group' });
     let config: GroupAutoGroupConfig = {
-        projected_global_auto_group: 1,
         sources: [
             {
                 channel_id: 101,
@@ -152,12 +147,9 @@ async function autoGroup(page: Page, managed = false) {
                 enabled: true,
                 managed,
                 auto_group: 0,
-                effective_auto_group: managed ? 1 : 0,
-                global_override: managed,
                 model_count: 1,
                 models: ['gpt-4.1'],
                 endpoint_type: 'openai_chat',
-                site_name: 'Legacy source must not appear',
             },
         ],
     };
@@ -181,7 +173,6 @@ async function autoGroup(page: Page, managed = false) {
 
 test('automatic grouping is organized by protocol and only writes channel settings', async ({ page }) => {
     const { state, writes, dialog } = await autoGroup(page);
-    await expect(dialog).not.toContainText('Legacy source must not appear');
     await expect(dialog).not.toContainText('全局默认模式');
     await dialog.getByRole('group', { name: 'Converted channel', exact: true }).getByRole('combobox').click();
     await page.getByRole('option', { name: '精确匹配', exact: true }).click();
@@ -306,12 +297,13 @@ const references: ProxyConfigurationReference[] = [
     },
     { type: 'checkin_credential', checkin_credential_id: 1, checkin_credential_name: 'Independent credential' },
     { type: 'checkin_credential', checkin_credential_id: 2, checkin_credential_name: 'Second credential' },
-    { type: 'site', site_id: 1, site_name: 'Legacy reference' },
+    { type: 'channel', channel_id: 101, channel_name: 'Converted channel' },
 ];
 
 async function proxyFixture(page: Page, locale: 'zh_hans' | 'zh_hant' | 'en' = 'zh_hans') {
     const state = await installCheckinAPI(page, {
         locale,
+        app: { channels: [makeChannel(101, 'Converted channel')] },
         sites: [checkinSite(), checkinSite({ id: 2, name: 'Archived site', archived: true, enabled: false })],
         accounts: [checkinAccount()],
         credentials: [checkinCredential(), checkinCredential({ id: 2, name: 'Second credential' })],
@@ -349,9 +341,6 @@ test('proxy references preserve distinct identities and open site, account, bala
         await expect(page.getByRole('button', { name: '仍被引用，不能删除', exact: true })).toBeDisabled();
         await page.getByRole('button', { name: '引用 6', exact: true }).click();
         await expect(page.getByRole('dialog', { name: '查看引用' }).getByRole('group')).toHaveCount(6);
-        await expect(
-            page.getByRole('group', { name: '站点: Legacy reference', exact: true }).getByRole('button'),
-        ).toBeDisabled();
     }
     for (const [label, title, field, value] of [
         ['签到站点: Archived site', '编辑签到站点', '站点名称', 'Archived site'],
@@ -366,6 +355,9 @@ test('proxy references preserve distinct identities and open site, account, bala
         if (label.startsWith('余额')) await expect(dialog.getByLabel('余额查询', { exact: true })).toBeFocused();
         await dialog.getByRole('button', { name: '取消', exact: true }).click();
     }
+    await openReferences();
+    await page.getByRole('group', { name: '渠道: Converted channel', exact: true }).getByRole('button').click();
+    await expect(page.getByRole('button', { name: '查看 Converted channel', exact: true })).toBeVisible();
     expect(state.writes).toEqual([]);
     expectIndependent(state);
 });

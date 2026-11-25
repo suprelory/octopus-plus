@@ -14,7 +14,7 @@
 | P3 独立签到执行 | 已完成 | HTTP/内置平台、会话、调度/批次、余额收益、持久化通知及三种数据库服务验收通过 |
 | P4 新 API 与前端 | 已完成 | 独立 API、签到页面与全局 v2 界面完成；生产默认已由 P5.4 切换 |
 | P5 数据迁移与备份 | 已完成 | P5.1 转换器/迁移日志、P5.2 离线迁移、P5.3 备份导入及 P5.4 生产运行时切换完成 |
-| P6 删除旧模块与发布验收 | 进行中（P6.2 已完成，下一步 P6.3） | 移除订阅/投影运行时、更新文档、完成完整回归 |
+| P6 删除旧模块与发布验收 | 进行中（P6.1–P6.3 已完成，下一步 P6.4） | 移除订阅/投影运行时、更新文档、完成完整回归 |
 
 开发按阶段推进。正式切换前必须同时完成迁移、接口和运行时适配，不在新旧服务之间双写。P1 的离线工具不执行数据库迁移。
 
@@ -195,11 +195,11 @@ P4.1 接口契约与请求示例见 [docs/checkin-api-v2.md](docs/checkin-api-v2
 
 前端移除订阅站导航和投影页签。签到页面管理全部站点、凭据、余额配置、记录和收益。渠道统一编辑；分组按渠道/协议展示；日志移除订阅模型禁用操作；代理引用更新到新实体。移除订阅同步和投影全局设置，保留普通模型同步和签到调度。
 
-P4.2 已实现独立签到页面，专用类型/hooks 位于 `web/src/api/endpoints/checkin*.ts`，页面位于 `web/src/components/modules/checkin/`。P5.4 默认启用全局 v2 界面和独立后端；原 `NEXT_PUBLIC_CHECKIN_V2` 已移除。`NEXT_PUBLIC_V2_UI=0` 仅保留给旧界面兼容回归，不能恢复旧后端接口，P6 将删除开关。新签到页面业务请求仅使用独立 API，不依赖旧订阅 DTO，也不在失败时回退旧接口。前端变量不执行数据迁移，旧数据库仍须先离线迁移；开发命令与验收边界见接口文档的「前端开发入口」。
+独立签到页面位于 `web/src/components/modules/checkin/`，业务请求使用 `web/src/api/endpoints/checkin*.ts`。P5.4 切换生产后端与默认界面，P6.3 删除临时构建开关。旧数据库须先完成离线迁移。开发和验证命令见[独立签到 API 契约](docs/checkin-api-v2.md)。
 
 P4.3 对浏览器保存的旧订阅导航和投影页签进行归一化。普通渠道保留编辑能力与原 ID；未迁移的托管渠道统一显示并提示迁移，仍禁止启停、编辑和删除，也不再提供旧来源跳转。有未迁移渠道时，自动分组禁止保存，避免修改仍受投影全局模式覆盖的配置。实际解除托管标记、展开全局覆盖和保留渠道/Key/分组关联属于 P5。
 
-v2 分组按渠道/协议展示，日志保留错误、请求内容和重试诊断，不查询旧站点模型操作目标。代理引用支持签到站点、账号执行、凭据认证及余额查询四种用途，引用键和跳转严格区分实体 ID；失效引用只提示刷新。设置页使用独立批次接口执行全量签到并轮询字符串 ID，调度入口指向签到站点配置；不挂载旧订阅同步及签到任务组件。P5.4 已验证普通渠道、分组、代理、转发和统计在无订阅业务表的运行时工作；旧源码与兼容测试留待 P6 清理。
+分组按渠道和协议展示，日志保留错误、请求内容和重试诊断。代理池可分别跳转到签到站点、执行账号、认证凭据和余额配置，失效引用提示刷新。设置页通过独立批次接口执行全量签到并轮询字符串 ID，调度入口指向签到站点配置。P5.4 已验证普通渠道、分组、代理、转发和统计可在无订阅业务表的数据库上运行。
 
 生产不再注册 `/api/v1/site`、`/api/v1/site-channel` 及旧签到接口，日志的订阅模型操作入口也已退出。旧数据兼容集中在转换代码，不增加永久旧接口转发或旧表回读。
 
@@ -248,7 +248,7 @@ P5.3 已由 `internal/backup` 实现 version 2 JSON/ZIP 导入导出，使用普
 
 ZIP 在私有临时文件中读取，不解压路径；验证清单、重复条目、截断 JSON/NDJSON，导出完整生成后才向客户端发送。中转日志和请求/尝试正文逐行处理，签到历史及其余表仍在内存中处理，不能视为整个备份的内存占用有固定上限。
 
-本地上传和 WebDAV 恢复共用读取器，P5.4 已将接口默认值和定时 WebDAV 切换为 version 2。version 1 文件仍通过共用转换器导入，生产拒绝以 `version=1` 参数选择旧服务。新导入链不调用 `SeparateLegacySiteCheckins`；旧服务只在显式兼容测试入口中保留，待 P6 删除。第三方订阅导入已随订阅路由退出；已有数据通过数据库/备份迁移承接。
+本地上传和 WebDAV 恢复共用备份读取器。导出使用 version 2，恢复时按文件版本识别 version 1 JSON 或 ZIP 并交给转换器。旧订阅数据通过备份导入或离线数据库迁移承接。
 
 ## 阶段任务与验收
 
@@ -289,7 +289,7 @@ go run . migrate v2-preflight --input D:\Backups\octopus-backup.zip > v2-preflig
 | proxy_unavailable / proxy_reference_missing | 不允许静默回退直连，需保留不可用状态或修复引用 |
 | invalid_binding_source / binding_channel_missing | 渠道绑定不完整，不能通过业务删除接口清理 |
 
-`PrepareCheckinSchema`、`CheckinStore` 和 `internal/checkin.Sessions` 已由 P5.4 生产入口统一装配，开发也可用正常 `start` 连接独立数据库。测试使用隔离 SQLite 或随机命名的服务器数据库，不访问生产配置；旧兼容测试通过 `InitLegacyDB` 显式构造旧表，生产 CLI 无此选择。`CheckinCredentialInput` 仅用于明确提交秘密；普通响应使用 `CheckinCredentialSummary`，备份 DTO `CheckinCredentialBackup` 显式导出秘密且不携带刷新租约，由 v2 备份导入/导出使用。
+`PrepareCheckinSchema`、`CheckinStore` 和 `internal/checkin.Sessions` 由生产入口统一装配，开发可用 `start` 连接独立数据库。测试使用隔离 SQLite 或随机命名的服务器数据库。`CheckinCredentialInput` 用于提交秘密，普通响应使用 `CheckinCredentialSummary`。备份通过 `CheckinCredentialBackup` 显式导出秘密并排除刷新租约。
 
 `NewEngine(store, sessions, proxies)`、`Execute(ctx, accountID, trigger)` 和 `Confirm(ctx, accountID)` 使用注入的独立存储与长期复用的会话服务。`Execute` 支持自定义 HTTP 和上述六个内置平台，`Confirm` 支持配置了状态查询的 HTTP 任务和 AgentRouter 登录任务。`trigger` 用于入口条件和历史来源。`CheckinLog` 映射已有 `site_checkin_logs`。`PrepareCheckinSchema` 可为旧开发库补充工作流版本列及凭据的 `session_cookies` 列，生产先通过迁移门禁再调用。
 
@@ -383,8 +383,8 @@ P6 分阶段按可验证的边界推进：
 - **P6.2 后端运行时代码清理（已完成）**
   - **P6.2.1 备份入口统一**。HTTP、手动和定时 WebDAV 导出 v2。恢复入口按文件版本读取 v1 JSON/ZIP 并转换，保留原文件指纹去重。导出与恢复均跳过订阅同步间隔和投影全局设置。
   - **P6.2.2 运行时代码清理**。删除 `internal/site`、`internal/sitesync`、旧管理路由、订阅任务、投影渠道写入、转发路由学习以及 `InitLegacyDB`、`LegacyRuntime`。转发只累计普通统计，旧站点模型统计通过归档恢复。签到使用独立站点、账号与凭据。保留旧备份和数据库转换所需的记录、原表名、序列化顺序及工作流指纹。
-- **P6.3 前端和文档清理（下一步）**。移除 `NEXT_PUBLIC_V2_UI`、旧订阅界面和投影渠道页签，更新签到操作指南、前端构建和浏览器用例。
-- **P6.4 发布验收**：在不含订阅表的新库执行渠道、转发、代理和签到回归；验证 v1 转换、备份恢复与迁移断点重试，并完成数据库、竞态、静态检查及前端验收。
+- **P6.3 前端和文档清理（已完成）**。移除 `NEXT_PUBLIC_V2_UI`、订阅站页面、投影渠道页签和旧 API 客户端。浏览器恢复旧导航时进入主页，未迁移的托管渠道保留只读与自动分组写入保护。前端开发与 CI 共用 `pnpm test:e2e`。站点凭据、批次范围、状态确认与备份选项见[独立签到使用指南](CHECKIN.md)。
+- **P6.4 发布验收（下一步）**。在不含订阅表的新库执行渠道、转发、代理和签到回归，验证 v1 转换、备份恢复与迁移断点重试，并完成数据库、竞态、静态检查及前端验收。
 
 ## 开发记录
 
@@ -414,3 +414,4 @@ P6 分阶段按可验证的边界推进：
 - 2026-11-21：完成 P6.1。普通渠道自动分组与投影代码分离，独立签到和旧签到共用 HTTP 规则校验、历史筛选及收益查询。旧站点、账号、投影关联和 v1 备份使用显式 `Legacy*` 类型，旧历史表升级归入 `internal/migration/v1`。新增无订阅表的普通渠道分组回归和 v1 指纹回归。
 - 2026-11-22，完成 P6.2。删除旧增量导入器、订阅运行时与专属测试。备份快照一致性、ZIP 下载前释放数据库连接、分组预设、事务回滚、历史统计、调度配置和通知等用例迁至 v2 路径。新增回归覆盖带旧托管字段的渠道创建后仍可作为普通渠道使用，以及 v1/v2 备份只恢复有效设置。CI 竞态命令纳入备份、数据库和模型包。
 - 2026-11-22，P6.2 验证通过 `go test ./... -count=1 -timeout=10m`、`go vet ./...`、`go build -tags=jsoniter ./...`、gofmt 和差异检查。受影响包通过 `go test -race ./cmd ./internal/backup ./internal/checkin/... ./internal/db ./internal/migration/... ./internal/model ./internal/op ./internal/relay/... ./internal/server/... ./internal/task ./internal/webdav -count=1 -timeout=10m`。最后的模型及渠道修正补跑了模型、迁移和备份包竞态，以及普通分组、渠道列表、实际转发和备份恢复的运行时竞态用例。`go test -tags=jsoniter ./internal/backup ./internal/migration/v2 ./internal/model ./internal/server/handlers -count=1 -timeout=10m` 通过。本轮使用隔离 SQLite 和本机 HTTP/WebDAV 测试服务，MySQL、PostgreSQL 集成用例因缺少测试 DSN 跳过。
+- 2026-11-25，完成 P6.3。移除独立签到运行时已停用的 Turnstile 设置面板，修正通知冷却提示。浏览器测试覆盖旧导航恢复、普通渠道、分组、独立签到、代理引用和 ZIP 备份，并检查意外访问旧接口。本地通过 `pnpm test`（50 项）、`pnpm test:e2e`（73 项，使用模拟 API）、`pnpm exec tsc --noEmit`、`pnpm lint`、`pnpm build` 和 `git diff --check`。

@@ -4,7 +4,6 @@ const baseURL = 'http://127.0.0.1:4173';
 
 export default defineConfig({
     testDir: './tests/e2e',
-    testIgnore: ['**/independent-checkin*.spec.ts', '**/v2-workspace*.spec.ts'],
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: 0,
@@ -27,6 +26,6 @@ export default defineConfig({
         url: baseURL,
         reuseExistingServer: false,
         timeout: 180_000,
-        env: { NEXT_PUBLIC_API_BASE_URL: baseURL, NEXT_PUBLIC_V2_UI: '0', NEXT_TELEMETRY_DISABLED: '1' },
+        env: { NEXT_PUBLIC_API_BASE_URL: baseURL, NEXT_TELEMETRY_DISABLED: '1' },
     },
 });

@@ -7,34 +7,25 @@ import { Badge } from '@/components/ui/badge';
 import { CopyIconButton } from '@/components/common/CopyButton';
 import { cn } from '@/lib/utils';
 import type { RelayLog } from '@/api/endpoints/log';
-import type { LogSiteActionTarget, LogSiteActionTargets } from '@/api/endpoints/log';
-import { AttemptDisableButton } from './AttemptDisableButton';
 import { formatAttemptAdapterLabel, formatDuration, mergeAdjacentAttempts, sanitizeErrorMessage, isLogFailure } from './log-format';
 import { getAttemptStatusMeta } from './log-status';
 import { RoutingDetails } from './RoutingDetails';
 
 export function LogDiagnosticPanel({
     log,
-    siteTargets,
     channelNameById,
     expanded,
     onToggle,
-    onDisable,
-    isDisablePending,
 }: {
     log: RelayLog;
-    siteTargets: LogSiteActionTargets | null;
     channelNameById?: ReadonlyMap<number, string>;
     expanded: boolean;
     onToggle: () => void;
-    onDisable: (target: LogSiteActionTarget) => void;
-    isDisablePending: (target: LogSiteActionTarget | null) => boolean;
 }) {
     const t = useTranslations('log.card');
     const hasError = isLogFailure(log);
     const hasAttempts = (log.attempts?.length ?? 0) > 0;
     const forwardedAttempts = (log.attempts ?? []).filter((attempt) => attempt.status === 'success' || attempt.status === 'failed').length;
-    const attemptTargets = siteTargets?.attempt_targets ?? [];
 
     if (!hasError && !hasAttempts) return null;
 
@@ -109,8 +100,6 @@ export function LogDiagnosticPanel({
                                 <div className="flex flex-col gap-2">
                                     {mergedAttempts.map((attempt, idx) => {
                                         const statusMeta = getAttemptStatusMeta(attempt.status, t);
-                                        const attemptTarget = attemptTargets[attempt.originalIndex] ?? null;
-                                        const canDisableAttempt = attempt.status === 'failed' && !!attemptTarget?.can_disable_model;
                                         const sanitizedMsg = sanitizeErrorMessage(attempt.msg);
 
                                         return (
@@ -144,13 +133,6 @@ export function LogDiagnosticPanel({
                                                     </div>
                                                     <div className="ml-auto flex items-center gap-2 shrink-0">
                                                         <span className="text-muted-foreground tabular-nums font-mono">{formatDuration(attempt.totalDuration)}</span>
-                                                        {canDisableAttempt ? (
-                                                            <AttemptDisableButton
-                                                                target={attemptTarget}
-                                                                pending={isDisablePending(attemptTarget)}
-                                                                onDisable={onDisable}
-                                                            />
-                                                        ) : null}
                                                     </div>
                                                 </div>
                                                 {sanitizedMsg ? (

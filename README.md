@@ -2,7 +2,7 @@
 
 Octopus 是一个面向多模型服务的 LLM API 聚合、协议转换和负载均衡服务。它提供统一的管理面板、API Key、渠道与分组管理、故障切换、熔断、统计和运行日志，并把不同上游的请求与响应转换为客户端熟悉的协议。
 
-当前 `v2` 分支默认使用普通渠道与独立签到运行时。旧数据库升级前须停止旧应用及其他写入、创建并验证完整备份，再执行离线 `migrate v2-database`；未完成迁移时 `start` 会拒绝启动。操作步骤与开发进度见 [v2 开发路线](V2_ROADMAP.md#数据库升级)，独立签到用法见 [API 与运行时说明](docs/checkin-api-v2.md)。
+`v2` 分支使用普通渠道和独立签到。升级旧数据库前，须停止旧应用及其他写入、创建并验证完整备份，再执行离线 `migrate v2-database`。迁移完成后才能启动服务。操作步骤见[数据库升级](V2_ROADMAP.md#数据库升级)，签到配置见[独立签到使用指南](CHECKIN.md)。
 
 ## 功能概览
 
@@ -227,7 +227,7 @@ OCTOPUS_DATABASE_PATH=data/data.db
 OCTOPUS_LOG_LEVEL=info
 ```
 
-管理操作、认证、转发拒绝和备份清理的日志事件与级别见[诊断日志](LOGGING.md)；其中订阅同步相关内容仅适用于旧版，待 P6 清理。
+管理操作、认证、转发拒绝、签到任务和备份清理的日志事件与级别见[诊断日志](LOGGING.md)。
 
 数据库类型支持 `sqlite`、`mysql` 和 `postgres`（也接受 `postgresql`）。SQLite 是默认选项；使用 MySQL 或 PostgreSQL 时，把 `OCTOPUS_DATABASE_PATH` 设置为对应驱动所需的 DSN，并确保数据库已创建且应用用户拥有读写、建表和迁移权限。新库启动只创建普通渠道与独立签到所需表；旧库必须先完成离线迁移，启动不会自动转换订阅数据。已安装数据库丢失凭据、签到历史或通知状态等关键表时拒绝启动，应从验证过的备份恢复。
 
@@ -290,7 +290,7 @@ internal/checkin/     独立签到、会话、调度、批次、余额与持久�
 internal/backup/      version 2 JSON/ZIP 备份与旧备份转换导入
 internal/migration/   离线预检、旧数据库转换与迁移日志
 internal/notify/      Webhook、Bark、Server酱、Telegram 和邮件通知
-internal/turnstile/   签到 Turnstile 求解平台集成
+internal/turnstile/   Cloudflare Solver 与 SolverQ HTTP 客户端
 internal/task/        后台定时任务
 internal/webdav/      WebDAV 备份与恢复
 internal/update/      发布校验、签名验证与自更新
@@ -330,11 +330,10 @@ pnpm test
 pnpm exec tsc --noEmit
 pnpm exec playwright install chromium
 pnpm test:e2e
-pnpm test:e2e:v2
 pnpm build
 ```
 
-Playwright 旧界面兼容测试使用 `127.0.0.1:4173`，默认 v2 测试使用 `127.0.0.1:4174`，两组顺序执行。测试使用模拟认证和拦截的 API 响应，无需运行 Go 后端。CI 使用内置 Chromium 的 Playwright 镜像；测试覆盖范围与失败诊断见 [web/tests/README.md](web/tests/README.md)。
+Playwright 使用模拟认证和拦截的 API 响应，无需运行 Go 后端，服务地址为 `127.0.0.1:4173`。浏览器测试与生产构建共享 `.next`，需顺序执行。CI 使用内置 Chromium 的 Playwright 镜像；测试覆盖范围与失败诊断见 [web/tests/README.md](web/tests/README.md)。
 
 在项目根目录运行价格生成器与发布校验的 Python 测试：
 
@@ -383,7 +382,7 @@ export OCTOPUS_RELEASE_SIGNING_KEY='<secret>'
 | [登录续期](AUTHENTICATION.md) | 管理员 JWT、自动续期与失效规则 |
 | [独立签到 API 与运行时](docs/checkin-api-v2.md) | 站点、账号、凭据、状态确认、批次、余额、通知与默认界面 |
 | [v2 开发路线](V2_ROADMAP.md) | 数据库升级、备份恢复、阶段进度与验收 |
-| [旧版签到能力、收益与通知](CHECKIN.md) | 旧版说明，订阅关联与配置入口待 P6 清理 |
+| [独立签到使用指南](CHECKIN.md) | 站点、凭据、余额、执行、历史、收益与通知 |
 | [中继路由](RELAY_ROUTING.md) | 路由策略、重试预算、故障范围、亲和与路由预览 |
 | [请求记录](REQUEST_LOGGING.md) | 正文捕获、保留、搜索、时间线与诊断 |
 | [诊断日志](LOGGING.md) | 服务日志事件、级别与脱敏 |

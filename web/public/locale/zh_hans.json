@@ -309,51 +309,6 @@
         "description": "服务器暂时无法连接，已保留你的登录信息。连接恢复后可以重试。",
         "retry": "重新验证"
     },
-    "siteCheckinCapability": {
-        "mode": "站点签到能力",
-        "auto": "平台默认（优先采用本站验证结果）",
-        "enabled": "启用",
-        "disabled": "禁用",
-        "modeHint": "启用或禁用只作用于本站；禁用会停止手动、批量及自动签到。",
-        "defaultEnabled": "平台默认启用，具体站点是否支持需通过接口验证。",
-        "defaultDisabled": "平台默认关闭，可在本站启用或手动签到验证。",
-        "requiresCustom": "请先配置自定义 HTTP 签到接口。",
-        "verifyHint": "保存后，在账号操作中点击“签到并验证”。这会实际执行一次签到，并记录本站的能力；修改站点地址或请求配置后需重新验证。",
-        "disabledForSite": "本站已禁用签到",
-        "enabledForSite": "本站签到已启用",
-        "unavailableForSite": "本站签到接口不可用，可手动重试验证",
-        "unknown": "签到能力尚未验证",
-        "supported": "已通过接口确认支持签到",
-        "unsupported": "接口已确认签到不可用",
-        "checkinNow": "立即签到",
-        "verifyNow": "签到并验证",
-        "inconclusive": "请求已完成，但响应无法确认签到能力。请检查签到结果和接口配置。"
-    },
-    "siteCheckinStats": {
-        "title": "签到收益",
-        "description": "按所选站点和账号汇总签到历史中的数字奖励。奖励沿用上游单位，不同站点的单位可能不同。",
-        "refresh": "刷新签到收益",
-        "site": "收益统计站点",
-        "account": "收益统计账号",
-        "allSites": "所有站点",
-        "allAccounts": "所有账号",
-        "today": "今日奖励",
-        "recent7": "近 7 天奖励",
-        "recent30": "近 30 天奖励",
-        "total": "累计奖励",
-        "loading": "正在加载签到收益…",
-        "loadFailed": "签到收益加载失败，请刷新重试。",
-        "empty": "暂无签到记录。",
-        "counts": "{total} 次执行 · 成功 {success} · 失败 {failed} · 跳过 {skipped}",
-        "excluded": "缺少奖励 {unknown} 条，无效数字奖励 {invalid} 条，未计入收益。",
-        "timezone": "日期按 {timezone} 计算，近 7 / 30 天包含今天。",
-        "bySite": "按站点查看明细",
-        "siteName": "站点",
-        "reward": "累计奖励",
-        "success": "成功",
-        "failed": "失败",
-        "skipped": "跳过"
-    },
     "checkinNotifications": {
         "title": "签到结果通知",
         "description": "通过统一通知渠道发送签到失败和低余额提醒，可按需包含成功及手动签到结果。",
@@ -363,21 +318,10 @@
         "manual": "包含手动签到",
         "manualHint": "包含单账号、批量和全量手动签到。默认仅通知定时签到结果；跳过的任务不发送通知。",
         "cooldown": "通知冷却时间（秒）",
-        "cooldownHint": "每个渠道分别按账号、事件和原因计时。只有发送成功才进入冷却；0 表示不冷却，重启服务后重新计时。",
+        "cooldownHint": "发送成功后，同一目标、账号、事件和原因的通知进入冷却。重启后继续计时。设为 0 可关闭冷却。",
         "threshold": "低余额阈值（USD）",
         "thresholdHint": "签到成功后，刷新所得余额低于此值时通知。0 表示关闭低余额提醒。",
         "deliveryHint": "请先配置统一通知渠道。此处修改自动保存；发送失败不会影响签到结果。"
-    },
-    "turnstileSolver": {
-        "title": "签到 Turnstile 求解",
-        "description": "站点的签到接口要求 Cloudflare Turnstile 验证时，通过求解平台获取 token 后重试一次签到。",
-        "enabled": "启用 Turnstile 求解",
-        "enabledHint": "总开关。关闭时不请求任何求解平台，签到遇到 Turnstile 仍按原样记录失败。",
-        "platformEnabled": "启用 {name}",
-        "platformAPIKey": "{name} API 令牌",
-        "showAPIKey": "显示令牌",
-        "hideAPIKey": "隐藏令牌",
-        "orderHint": "仅用于 NewAPI、OneAPI、OneHub、DoneHub 内置签到。两个平台都启用时先尝试 Cloudflare Solver，失败后使用 SolverQ；未填写令牌的平台不会使用。每次求解按平台规则计费，Cloudflare 5 秒盾质询不会触发求解。此处修改自动保存。"
     },
     "notificationChannels": {
         "templateTitle": "通知模板",
@@ -456,102 +400,6 @@
         "loadFailed": "通知配置加载失败，请刷新重试。",
         "invalidConfig": "已保存的通知配置无效，请重新填写并保存。"
     },
-    "siteCheckinBatch": {
-        "title": "全量签到任务",
-        "selectedTitle": "批量签到任务",
-        "processed": "已处理",
-        "success": "成功",
-        "failed": "失败",
-        "skipped": "跳过",
-        "current": "正在处理：{site} / {account}",
-        "progress": "进度 {value}%",
-        "taskID": "任务 {id}",
-        "refresh": "刷新任务状态",
-        "viewLogs": "查看本批日志",
-        "statuses": {
-            "queued": "排队中",
-            "running": "执行中",
-            "completed": "已完成",
-            "completed_with_errors": "完成但有失败",
-            "canceled": "已取消",
-            "failed": "任务失败",
-            "interrupted": "服务重启中断"
-        }
-    },
-    "siteCheckinHistory": {
-        "title": "签到记录",
-        "description": "查看每次签到的结果、来源与奖励。时间按浏览器本地时区显示。",
-        "site": "站点",
-        "account": "账号",
-        "allSites": "全部站点",
-        "allAccounts": "全部账号",
-        "status": "执行状态",
-        "source": "触发方式",
-        "allStatuses": "全部状态",
-        "allSources": "全部来源",
-        "from": "开始日期",
-        "until": "结束日期",
-        "invalidDates": "结束日期不能早于开始日期",
-        "time": "完成时间",
-        "detail": "结果说明",
-        "reward": "本次奖励",
-        "latency": "耗时",
-        "duration": "{value} 毫秒",
-        "unknownReward": "未返回",
-        "loading": "正在加载签到记录…",
-        "loadFailed": "加载签到记录失败：",
-        "empty": "没有符合条件的签到记录。",
-        "refresh": "刷新",
-        "previous": "上一页",
-        "next": "下一页",
-        "page": "第 {page} 页",
-        "close": "关闭",
-        "statuses": {
-            "success": "成功",
-            "failed": "失败",
-            "skipped": "跳过"
-        },
-        "sources": {
-            "manual": "手动",
-            "scheduled": "定时",
-            "import": "导入",
-            "auto": "自动"
-        },
-        "reasons": {
-            "checked_in": "签到成功",
-            "already_checked_in": "今日已签到",
-            "already_running": "正在执行，已跳过",
-            "unsupported_checkin": "本站签到接口不可用",
-            "checkin_disabled": "本站已禁用签到",
-            "checkin_default_disabled": "平台默认关闭签到",
-            "checkin_not_configured": "尚未配置签到接口",
-            "scheduled_later": "尚未到执行时间",
-            "unauthorized": "凭据失效或权限不足",
-            "login_failed": "登录失败",
-            "access_token_required": "缺少访问令牌",
-            "cloudflare_protection": "站点验证拦截",
-            "upstream_http_error": "上游请求失败",
-            "upstream_business_error": "上游拒绝签到",
-            "upstream_decode_failed": "上游响应无法解析",
-            "upstream_html_response": "上游返回了网页",
-            "network_error": "网络错误",
-            "timeout": "请求超时",
-            "context_canceled": "执行已取消",
-            "context_deadline_exceeded": "执行超时",
-            "database_error": "记录保存失败",
-            "internal_error": "内部错误",
-            "unknown": "未知原因",
-            "refresh_missing": "缺少 Refresh Token，无法自动续期",
-            "session_invalid": "登录会话或 Refresh Token 已失效",
-            "session_binding_mismatch": "会话出口 IP 或 User-Agent 不匹配",
-            "account_inactive": "订阅账号不可用",
-            "credentials_changed": "订阅账号凭据已变更",
-            "session_save_failed": "登录凭据保存失败",
-            "refresh_unavailable": "令牌刷新暂时不可用",
-            "refresh_rejected": "站点拒绝刷新令牌",
-            "checkin_auth_recovered": "凭据已更新，需确认签到结果"
-        }
-    },
     "workspace": {
         "total": "全部",
         "shown": "当前结果",
@@ -567,14 +415,6 @@
             "unit": "USD / 百万 Token",
             "empty": "还没有模型价格",
             "emptyHint": "使用上方的新增或同步按钮，添加模型价格。"
-        },
-        "checkin": {
-            "title": "签到概览",
-            "description": "使用独立的签到地址和账号，管理每日签到、执行记录与收益。"
-        },
-        "site": {
-            "title": "站点概览",
-            "description": "管理订阅站账号、同步与托管渠道。"
         },
         "log": {
             "title": "请求记录",
@@ -731,7 +571,6 @@
     },
     "navbar": {
         "home": "主页",
-        "site": "站点",
         "checkin": "签到",
         "channel": "渠道",
         "group": "分组",
@@ -753,8 +592,6 @@
             "nameDesc": "名称倒序",
             "createdAsc": "时间正序",
             "createdDesc": "时间倒序",
-            "balanceDesc": "余额高到低",
-            "balanceAsc": "余额低到高",
             "asc": "升序",
             "desc": "降序",
             "logRefresh": {
@@ -790,8 +627,6 @@
                     "title": "渠道",
                     "searchPlaceholder": "搜索渠道...",
                     "allChannels": "全部渠道",
-                    "manualGroup": "手动渠道",
-                    "siteFallback": "站点 #{id}",
                     "empty": "未找到渠道"
                 }
             }
@@ -1159,31 +994,6 @@
                 "pending": "更新中...",
                 "success": "价格更新成功",
                 "failed": "价格更新失败"
-            },
-            "siteSync": {
-                "label": "站点全量同步",
-                "button": "立即同步",
-                "pending": "同步中...",
-                "success": "已触发后台站点全量同步",
-                "failed": "触发同步失败"
-            },
-            "siteCheckin": {
-                "label": "站点全量签到",
-                "button": "立即签到",
-                "pending": "签到中...",
-                "cadence": "每 10 分钟检查",
-                "success": "已触发后台站点全量签到",
-                "failed": "触发签到失败",
-                "progress": "进度 {value}%",
-                "statuses": {
-                    "queued": "排队中",
-                    "running": "执行中",
-                    "completed": "已完成",
-                    "completed_with_errors": "完成但有失败",
-                    "canceled": "已取消",
-                    "failed": "任务失败",
-                    "interrupted": "服务重启中断"
-                }
             }
         },
         "data": {
@@ -1351,35 +1161,24 @@
         },
         "empty": "暂无分组，点击左上角按钮创建",
         "autoGroup": {
-            "descriptionV2": "按渠道配置模型自动分组，渠道按协议归类展示。",
             "migrationRequired": "部分渠道尚未完成迁移，请完成 v2 数据迁移后再保存自动分组配置。",
-            "searchPlaceholderV2": "搜索渠道、协议或模型",
             "otherProtocol": "其他协议",
             "title": "自动分组配置",
-            "description": "将渠道或站点分组加入列表后，系统会按模型组名称或正则自动把模型加入匹配的模型组。",
+            "description": "按渠道配置模型自动分组，渠道按协议归类展示。",
             "loadFailed": "加载自动分组配置失败：{message}",
-            "searchPlaceholder": "搜索...",
+            "searchPlaceholder": "搜索渠道、协议或模型",
             "runAll": "立即执行全部已启用",
             "loading": "加载中...",
             "emptyChannels": "暂无渠道",
             "matchMode": "匹配方式",
-            "notice": "关闭某渠道的自动分组或全局设置后，不会删除已存在的模型组成员；如需清理，请在具体模型组中手动移除。",
-            "global": {
-                "title": "全局默认模式",
-                "description": "开启后，所有站点投影渠道会统一使用所选匹配方式；下方单独渠道设置会保留，并在全局关闭后生效。"
-            },
             "sections": {
                 "channels": "渠道列表"
             },
             "source": {
-                "siteGroup": "站点组",
                 "disabled": "停用",
                 "modelCount": "{count} 个模型",
                 "moreModels": "+{count} 个",
-                "noModels": "暂无模型",
-                "unknownSite": "未知站点",
-                "manualGroup": "普通渠道",
-                "followingGlobalTip": "全局已开启，此渠道当前按全局模式分组；下方单独模式将在全局关闭后生效。"
+                "noModels": "暂无模型"
             },
             "bulk": {
                 "selected": "已选 {count} 项",
@@ -1599,9 +1398,6 @@
             },
             "reasoningChars": "思考",
             "reasoningCharsUnit": "字",
-            "disableModel": "禁用模型",
-            "disabling": "禁用中",
-            "disabled": "已禁用",
             "ws": "WS",
             "wsContinuation": "续传",
             "wsReplay": "回放",
@@ -1651,20 +1447,11 @@
             "disabled": "停用",
             "results": "搜索结果",
             "visible": "显示 {count} 个",
-            "targeted": "定位的托管渠道",
-            "targetedHint": "此渠道由站点账号统一管理。",
             "loadFailed": "渠道加载失败：{message}",
             "noResults": "没有找到匹配的渠道",
             "noResultsHint": "试试其他名称，或清空搜索查看全部渠道。",
             "empty": "连接你的第一个渠道",
-            "emptyHint": "使用上方的新增按钮，接入模型服务商。",
-            "siteEmpty": "还没有站点渠道",
-            "siteEmptyHint": "添加站点账号并同步模型后，即可在这里查看渠道。"
-        },
-        "tabs": {
-            "label": "渠道来源",
-            "site": "站点渠道",
-            "manual": "普通渠道"
+            "emptyHint": "使用上方的新增按钮，接入模型服务商。"
         },
         "card": {
             "openDetails": "查看 {name}",
@@ -1674,7 +1461,6 @@
             "disabled": "已停用",
             "models": "{count} 个模型",
             "keys": "密钥 {enabled}/{total}",
-            "managed": "站点托管",
             "migrationPending": "待迁移",
             "successRate": "成功率",
             "lifetime": "累计用量",
@@ -1782,55 +1568,6 @@
             "remark": "备注"
         }
     },
-    "siteChannel": {
-        "card": {
-            "openDetails": "查看 {name}",
-            "accountCount": "{count} 个账号",
-            "modelCount": "{count} 个模型",
-            "enabledKeys": "启用密钥 {enabled}/{total}",
-            "viewDetails": "详情",
-            "statusEnabled": "启用",
-            "statusDisabled": "停用",
-            "maskedPending": "{n} 待同步",
-            "noRouteDistribution": "暂无模型分布",
-            "metrics": {
-                "totalRequests": "请求",
-                "successRequests": "成功",
-                "failedRequests": "失败",
-                "totalCost": "成本",
-                "lastRequestAt": "最近使用"
-            }
-        },
-        "advanced": {
-            "title": "站点渠道高级设置",
-            "description": "配置分组 {group} 下各投影渠道的参数覆盖。自动分组请前往「模型组」页面右上角统一配置，自定义 Header 请在站点设置中统一配置。",
-            "channelList": "投影渠道",
-            "empty": "当前分组暂无投影渠道",
-            "paramOverride": "参数覆盖 JSON",
-            "paramOverridePlaceholder": "留空表示清除；支持 JSON 对象或操作数组，例如：{\"temperature\":0.7} 或 [{\"op\":\"remove\",\"path\":\"/temperature\"}]",
-            "cancel": "取消",
-            "save": "保存",
-            "saving": "保存中...",
-            "saved": "高级设置已保存",
-            "invalidParamOverride": "参数覆盖必须是合法的 JSON 对象或操作数组",
-            "saveFailed": "保存高级设置失败"
-        }
-    },
-    "siteImport": {
-        "errors": {
-            "invalidJson": "导入内容不是有效的 JSON，请检查文件格式或粘贴内容。",
-            "emptyPayload": "导入内容为空，请选择 JSON 文件或粘贴导出内容。",
-            "unrecognizedAllAPIHub": "未识别到 All API Hub 导出数据，请确认选择了正确的导出 JSON。",
-            "unrecognizedMetapi": "未识别到 Metapi 账号导出数据，请确认选择了正确的导出 JSON。",
-            "noImportableAllAPIHub": "未找到可导入的 All API Hub 站点账号数据。",
-            "noImportableMetapi": "未找到可导入的 Metapi 站点账号数据。"
-        }
-    },
-    "siteSync": {
-        "errors": {
-            "missingGroupKey": "分组“{groupKey}”没有可用的 Key。请先到站点创建这个分组的 Key，再重新同步。"
-        }
-    },
     "errors": {
         "checkin": {
             "not_found": "资源或引用配置不存在，请刷新后重试。",
@@ -1898,16 +1635,6 @@
             "api_key_cost_exceeded": "API Key 已达到最大费用限制。",
             "api_key_rate_limited": "API Key 已超出速率限制，请稍后重试。"
         },
-        "site_channel": {
-            "account_not_found": "站点账号不存在。",
-            "site_not_found": "站点不存在。",
-            "model_not_found": "站点模型不存在。",
-            "route_update_failed": "更新模型路由失败，请稍后重试。",
-            "model_disable_failed": "更新模型禁用状态失败，请稍后重试。",
-            "key_create_failed": "创建站点 Key 失败，请检查站点状态或稍后重试。",
-            "source_key_update_failed": "更新源 Key 失败，请检查输入后重试。",
-            "project_failed": "同步站点渠道投影失败，请稍后重试。"
-        },
         "channel": {
             "not_found": "通道不存在。",
             "create_failed": "创建通道失败。",
@@ -1937,55 +1664,6 @@
             "upstream_failed": "上游请求失败。",
             "timeout": "请求超时。",
             "circuit_breaker_tripped": "通道熔断中，请稍后重试。"
-        },
-        "site": {
-            "name_exists": "站点名称「{name}」已存在，请使用其他名称。",
-            "archived_name_exists": "归档站点中已存在「{name}」。请打开右上角「视图选项 → 全局操作 → 归档站点」恢复，或使用其他名称。",
-            "sync": {
-                "missing_group_key": "分组“{groupKey}”没有可用的 Key。请先到站点创建这个分组的 Key，再重新同步。",
-                "group_models_unresolved": "无法确认分组“{groupKey}”的模型，请检查分组模型配置或 Key 权限。",
-                "no_group_result": "站点账号同步失败：没有可用的分组同步结果。",
-                "all_groups_unresolved": "站点账号同步失败：所有分组都未能确认模型，已保留历史模型。",
-                "unsupported_platform": "不支持的站点平台：{platform}。",
-                "snapshot_nil": "同步结果为空，请稍后重试。",
-                "checkin_only": "签到站点不执行分组、Key 和模型同步。"
-            },
-            "checkin": {
-                "checkin_site_required": "请在签到页面使用独立签到站点执行签到。"
-            },
-            "auth": {
-                "access_token_required": "站点 Access Token 不能为空。",
-                "direct_token_required": "站点 Direct Token 不能为空。",
-                "login_failed": "站点登录失败：{reason}",
-                "login_token_missing": "站点登录成功但未返回 Access Token，请检查站点兼容性。"
-            },
-            "upstream": {
-                "http_error": "站点上游请求失败（HTTP {statusCode}）：{reason}",
-                "business_error": "站点拒绝了请求：{reason}",
-                "network_error": "无法连接站点：{reason}",
-                "timeout": "站点请求超时：{reason}",
-                "decode_failed": "站点响应解析失败：{reason}",
-                "cloudflare_challenge": "站点触发 Cloudflare 保护，请稍后重试，或手动访问站点完成验证。"
-            },
-            "operation": {
-                "canceled": "站点操作已取消。"
-            },
-            "import": {
-                "invalid_json": "导入内容不是有效的 JSON，请检查文件格式或粘贴内容。",
-                "empty_payload": "导入内容为空，请选择 JSON 文件或粘贴导出内容。",
-                "unrecognized_all_api_hub": "未识别到 All API Hub 导出数据，请确认选择了正确的导出 JSON。",
-                "unrecognized_metapi": "未识别到 Metapi 账号导出数据，请确认选择了正确的导出 JSON。",
-                "no_importable_all_api_hub": "未找到可导入的 All API Hub 站点账号数据。",
-                "no_importable_metapi": "未找到可导入的 Metapi 站点账号数据。",
-                "unsupported_payload": "暂不支持该导入内容，请确认导出格式是否正确。",
-                "persist_failed": "保存导入数据失败，请稍后重试。"
-            },
-            "sub2api": {
-                "api_key_required": "Sub2API 同步需要 API Key。请先在站点创建一个 Key 后再重新同步。",
-                "model_api_key_required": "Sub2API 模型发现需要 API Key。请先在站点创建一个 Key 后再重新同步。",
-                "envelope_failed": "Sub2API 返回错误，请检查 Access Token、权限或站点状态。",
-                "missing_data": "Sub2API 响应缺少必要数据，请检查站点兼容性或稍后重试。"
-            }
         }
     },
     "proxyPool": {
@@ -2010,7 +1688,7 @@
         },
         "dialog": {
             "title": "代理池",
-            "description": "管理可复用代理配置，站点、站点账号和普通渠道可从这里选择代理。",
+            "description": "管理普通渠道、签到站点、账号、认证凭据和余额查询共用的代理配置。",
             "searchPlaceholder": "搜索名称、URL 或备注",
             "loading": "加载中...",
             "loadFailed": "加载失败：{message}",
@@ -2022,21 +1700,12 @@
             "referencesDescription": "{name} 当前被以下位置使用。点击跳转图标可定位到对应位置。",
             "referencesEmpty": "暂无引用",
             "jumpToReference": "跳转到引用位置",
-            "managedChannelTitle": "投影渠道：{channel}",
-            "expandReference": "展开投影渠道",
-            "collapseReference": "收起投影渠道",
-            "derivedReferences": "投影 {count}",
-            "descriptionV2": "管理普通渠道、签到站点、账号、认证凭据和余额查询共用的代理配置。",
             "referenceTypes": {
                 "checkin_site": "签到站点",
                 "checkin_account": "签到账号",
                 "checkin_credential": "认证凭据",
                 "checkin_balance": "余额查询",
-                "site": "站点",
-                "siteAccount": "账号",
-                "managedChannel": "托管渠道",
-                "channel": "渠道",
-                "reference": "引用"
+                "channel": "渠道"
             },
             "referenceLocations": {
                 "checkinSite": "站点默认代理",
@@ -2044,14 +1713,7 @@
                 "checkinCredential": "凭据认证代理",
                 "checkinBalance": "独立余额代理",
                 "archivedCheckin": "已归档签到站点",
-                "normalChannel": "渠道",
-                "site": "站点",
-                "archivedSite": "已归档站点",
-                "siteNamed": "站点：{name}",
-                "siteAccount": "站点账号",
-                "managedChannel": "站点投影渠道（由站点/账号继承，不计入引用数）",
-                "managedChannelUnderSite": "由站点 {site} / 账号代理投影，不单独计数",
-                "channel": "普通渠道"
+                "channel": "渠道"
             },
             "test": "测试",
             "edit": "编辑",
@@ -2076,9 +1738,6 @@
             "testSuccess": "代理可连通：HTTP {statusCode} · {durationMs}ms",
             "testFailed": "代理测试失败",
             "operationFailed": "操作失败"
-        },
-        "site": {
-            "inherit": "继承站点代理"
         }
     }
 }

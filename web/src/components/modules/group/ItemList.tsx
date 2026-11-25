@@ -1,7 +1,5 @@
 'use client';
 
-import { V2_UI } from '@/lib/v2-ui';
-
 import { useEffect, useId, useRef, useState } from 'react';
 import { GripVertical, Trash2, Waves, X } from 'lucide-react';
 import {
@@ -61,8 +59,7 @@ function MemberItem({
     const { Avatar: ModelAvatar } = getModelIcon(member.name);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const isDisabled = member.enabled === false;
-    const isSiteChannel = !V2_UI && member.site_id != null;
-    const sourceLabel = [member.channel_name, isSiteChannel ? null : member.endpoint_type?.trim()]
+    const sourceLabel = [member.channel_name, member.endpoint_type?.trim()]
         .filter(Boolean)
         .join(' · ');
 

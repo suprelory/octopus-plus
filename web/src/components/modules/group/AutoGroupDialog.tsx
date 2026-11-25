@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronDown, Globe2, HelpCircle, Search, WandSparkles, X } from 'lucide-react';
+import { ChevronDown, Search, WandSparkles, X } from 'lucide-react';
 import { AutoGroupType } from '@/api/endpoints/channel';
 import {
     type GroupAutoGroupSource,
@@ -26,10 +26,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 import { toast } from '@/components/common/Toast';
 import { cn } from '@/lib/utils';
-import { V2_UI } from '@/lib/v2-ui';
 
 const AUTO_GROUP_VALUES = [
     AutoGroupType.None,
@@ -38,13 +36,11 @@ const AUTO_GROUP_VALUES = [
     AutoGroupType.Regex,
 ] as const;
 const MODEL_PREVIEW_LIMIT = 24;
-const MANUAL_GROUP_KEY = '__manual__';
 
 type SourceTreeGroup = {
     key: string;
     label: string;
     sources: GroupAutoGroupSource[];
-    manual: boolean;
 };
 
 function modeKey(value: AutoGroupType) {
@@ -65,7 +61,6 @@ function matchesKeyword(source: GroupAutoGroupSource, keyword: string) {
     if (!keyword) return true;
     const haystack = [
         source.channel_name,
-        ...(!V2_UI ? [source.site_name, source.site_account_name, source.site_group_name, source.site_group_key] : []),
         source.endpoint_type,
         ...source.models,
     ].join('\n').toLowerCase();
@@ -147,16 +142,12 @@ function ModelPreview({ source }: { source: GroupAutoGroupSource }) {
 function ChannelRow({
     source,
     mode,
-    overridden,
-    globalMode,
     selected,
     onSelectedChange,
     onModeChange,
 }: {
     source: GroupAutoGroupSource;
     mode: AutoGroupType;
-    overridden: boolean;
-    globalMode: AutoGroupType;
     selected: boolean;
     onSelectedChange: (next: boolean) => void;
     onModeChange: (mode: AutoGroupType) => void;
@@ -193,22 +184,6 @@ function ChannelRow({
                     {t('source.disabled')}
                 </Badge>
             ) : null}
-            {overridden ? (
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Badge
-                                variant="outline"
-                                className="h-5 cursor-help gap-1 border-primary/30 bg-primary/10 px-1.5 text-[10px] text-primary"
-                            >
-                                <Globe2 className="size-3" />
-                                {t(`mode.${modeKey(globalMode)}`)}
-                            </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">{t('source.followingGlobalTip')}</TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            ) : null}
             <ModelPreview source={source} />
             <Select value={String(mode)} onValueChange={(value) => onModeChange(Number(value) as AutoGroupType)}>
                 <SelectTrigger
@@ -216,7 +191,6 @@ function ChannelRow({
                     className={cn(
                         '!h-6 w-auto min-w-18 justify-end rounded-md border-transparent bg-transparent px-1 py-0 text-xs shadow-none hover:text-primary focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent dark:hover:bg-transparent',
                         configured ? 'font-medium text-foreground' : 'text-muted-foreground',
-                        overridden ? 'opacity-60' : '',
                     )}
                 >
                     <SelectValue />
@@ -240,7 +214,6 @@ export function GroupAutoGroupDialogContent() {
     const updateConfig = useUpdateGroupAutoGroupConfig();
     const [keyword, setKeyword] = useState('');
     const [modes, setModes] = useState<Record<number, AutoGroupType>>({});
-    const [projectedGlobalMode, setProjectedGlobalMode] = useState<AutoGroupType>(AutoGroupType.None);
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
     const [selection, setSelection] = useState<Set<number>>(new Set());
 
@@ -250,61 +223,25 @@ export function GroupAutoGroupDialogContent() {
         for (const source of config.sources) {
             next[source.channel_id] = source.auto_group;
         }
-        queueMicrotask(() => {
-            setModes(next);
-            setProjectedGlobalMode(config.projected_global_auto_group);
-        });
+        queueMicrotask(() => setModes(next));
     }, [config]);
 
     const normalizedKeyword = keyword.trim().toLowerCase();
     const sources = useMemo(() => config?.sources ?? [], [config?.sources]);
-    const migrationPending = V2_UI && sources.some(source => source.managed);
+    const migrationPending = sources.some(source => source.managed);
 
     const groups = useMemo<SourceTreeGroup[]>(() => {
-        if (V2_UI) {
-            const protocols = new Map<string, SourceTreeGroup>();
-            for (const source of sources) {
-                if (!matchesKeyword(source, normalizedKeyword)) continue;
-                const protocol = source.endpoint_type?.trim() || t('otherProtocol');
-                const group = protocols.get(protocol) ?? { key: `protocol:${protocol}`, label: protocol, sources: [], manual: true };
-                group.sources.push(source);
-                protocols.set(protocol, group);
-            }
-            return [...protocols.values()].sort((a, b) => a.label.localeCompare(b.label)).map(group => ({
-                ...group, sources: group.sources.sort((a, b) => a.channel_name.localeCompare(b.channel_name)),
-            }));
-        }
-        const siteBuckets = new Map<string, SourceTreeGroup>();
-        const manualSources: GroupAutoGroupSource[] = [];
-
+        const protocols = new Map<string, SourceTreeGroup>();
         for (const source of sources) {
             if (!matchesKeyword(source, normalizedKeyword)) continue;
-            if (!source.managed) {
-                manualSources.push(source);
-                continue;
-            }
-            const key = source.site_id ? `site:${source.site_id}` : `site:${source.site_name || 'unknown'}`;
-            const existing = siteBuckets.get(key);
-            if (existing) {
-                existing.sources.push(source);
-                continue;
-            }
-            siteBuckets.set(key, {
-                key,
-                label: source.site_name || t('source.unknownSite'),
-                sources: [source],
-                manual: false,
-            });
+            const protocol = source.endpoint_type?.trim() || t('otherProtocol');
+            const group = protocols.get(protocol) ?? { key: `protocol:${protocol}`, label: protocol, sources: [] };
+            group.sources.push(source);
+            protocols.set(protocol, group);
         }
-
-        const list = Array.from(siteBuckets.values()).sort((a, b) => a.label.localeCompare(b.label));
-        if (manualSources.length > 0) {
-            list.push({ key: MANUAL_GROUP_KEY, label: t('source.manualGroup'), sources: manualSources, manual: true });
-        }
-        for (const group of list) {
-            group.sources.sort((a, b) => a.channel_name.localeCompare(b.channel_name));
-        }
-        return list;
+        return [...protocols.values()].sort((a, b) => a.label.localeCompare(b.label)).map(group => ({
+            ...group, sources: group.sources.sort((a, b) => a.channel_name.localeCompare(b.channel_name)),
+        }));
     }, [sources, normalizedKeyword, t]);
 
     const configuredCount = useMemo(
@@ -324,14 +261,8 @@ export function GroupAutoGroupDialogContent() {
             .map(({ channel_id, auto_group }) => ({ channel_id, auto_group }));
     }, [config, modes, sources]);
 
-    const globalDirty = !V2_UI && !!config && projectedGlobalMode !== config.projected_global_auto_group;
-    const globalModeEnabled = !V2_UI && projectedGlobalMode !== AutoGroupType.None;
-    const shouldRunAfterSave = useMemo(() => {
-        if (!config) return false;
-        if (globalDirty && projectedGlobalMode !== AutoGroupType.None) return true;
-        return dirtyItems.some((item) => item.auto_group !== AutoGroupType.None);
-    }, [config, dirtyItems, globalDirty, projectedGlobalMode]);
-    const hasChanges = globalDirty || dirtyItems.length > 0;
+    const shouldRunAfterSave = dirtyItems.some((item) => item.auto_group !== AutoGroupType.None);
+    const hasChanges = dirtyItems.length > 0;
     const isPending = updateConfig.isPending;
 
     const toggleCollapsed = (key: string) => {
@@ -379,7 +310,6 @@ export function GroupAutoGroupDialogContent() {
         if (!config || migrationPending) return;
         updateConfig.mutate(
             {
-                ...(!V2_UI ? { projected_global_auto_group: globalDirty ? projectedGlobalMode : undefined } : {}),
                 items: dirtyItems,
                 run_now: shouldRunAfterSave,
             },
@@ -404,7 +334,7 @@ export function GroupAutoGroupDialogContent() {
                         </div>
                         <div className="space-y-1">
                             <h2 className="text-2xl font-bold text-card-foreground">{t('title')}</h2>
-                            <p className="text-sm text-muted-foreground">{t(V2_UI ? 'descriptionV2' : 'description')}</p>
+                            <p className="text-sm text-muted-foreground">{t('description')}</p>
                         </div>
                     </div>
                     <MorphingDialogClose className="relative right-0 top-0" />
@@ -419,40 +349,6 @@ export function GroupAutoGroupDialogContent() {
                 ) : (
                     <>
                         {migrationPending && <p role="alert" className="mb-3 rounded-lg border border-amber-500/30 p-3 text-sm">{t('migrationRequired')}</p>}
-                        {!V2_UI && <div className="mb-3 shrink-0 rounded-lg border border-border/30 bg-card px-4 py-3">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="flex min-w-0 items-center gap-2">
-                                    <Globe2 className="size-4 shrink-0 text-muted-foreground" />
-                                    <span className="text-sm font-medium text-foreground">{t('global.title')}</span>
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <HelpCircle className="size-4 cursor-help text-muted-foreground" />
-                                            </TooltipTrigger>
-                                            <TooltipContent className="max-w-xs">
-                                                {t('global.description')}
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                </div>
-                                <Select
-                                    value={String(projectedGlobalMode)}
-                                    onValueChange={(value) => setProjectedGlobalMode(Number(value) as AutoGroupType)}
-                                    disabled={isLoading || isPending}
-                                >
-                                    <SelectTrigger className="h-9 w-36 rounded-lg bg-card text-xs">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        {AUTO_GROUP_VALUES.map((value) => (
-                                            <SelectItem key={value} value={String(value)}>
-                                                {t(`mode.${modeKey(value)}`)}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>}
                         <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border/30 bg-card">
                             <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/20 px-4 py-3">
                                 <span className="min-w-0 truncate text-sm font-medium text-foreground">
@@ -469,7 +365,7 @@ export function GroupAutoGroupDialogContent() {
                                         <input
                                             value={keyword}
                                             onChange={(event) => setKeyword(event.target.value)}
-                                            placeholder={t(V2_UI ? 'searchPlaceholderV2' : 'searchPlaceholder')}
+                                            placeholder={t('searchPlaceholder')}
                                             className="h-8 w-full rounded-lg border border-border/35 bg-card pl-7 pr-2 text-xs shadow-none outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
                                         />
                                     </div>
@@ -583,8 +479,6 @@ export function GroupAutoGroupDialogContent() {
                                                                         key={source.channel_id}
                                                                         source={source}
                                                                         mode={modes[source.channel_id] ?? AutoGroupType.None}
-                                                                        overridden={globalModeEnabled && source.managed}
-                                                                        globalMode={projectedGlobalMode}
                                                                         selected={selection.has(source.channel_id)}
                                                                         onSelectedChange={(next) =>
                                                                             toggleSelected(source.channel_id, next)

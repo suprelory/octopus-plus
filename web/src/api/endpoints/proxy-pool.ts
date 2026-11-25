@@ -2,8 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '../client';
 import { logger } from '@/lib/logger';
-import { V2_UI } from '@/lib/v2-ui';
-
 export type ProxyMode = 'direct' | 'system' | 'pool' | 'inherit';
 
 export type ProxyConfiguration = {
@@ -17,19 +15,13 @@ export type ProxyConfiguration = {
     updated_at: string;
 };
 
-export type ProxyConfigurationReferenceType = 'site' | 'site_account' | 'channel' | 'managed_channel'
+export type ProxyConfigurationReferenceType = 'channel'
     | 'checkin_site' | 'checkin_account' | 'checkin_credential' | 'checkin_balance';
 
 export type ProxyConfigurationReference = {
     type: ProxyConfigurationReferenceType;
-    site_id?: number;
-    site_name?: string;
-    site_archived?: boolean;
-    site_account_id?: number;
-    site_account_name?: string;
     channel_id?: number;
     channel_name?: string;
-    managed?: boolean;
     checkin_site_id?: number;
     checkin_site_name?: string;
     checkin_site_archived?: boolean;
@@ -54,7 +46,7 @@ export type ProxyTestResult = {
 
 function invalidateProxyPool(queryClient: ReturnType<typeof useQueryClient>) {
     queryClient.invalidateQueries({ queryKey: ['proxy-pool'] });
-    queryClient.invalidateQueries({ queryKey: V2_UI ? ['checkin'] : ['sites', 'list'] });
+    queryClient.invalidateQueries({ queryKey: ['checkin'] });
     queryClient.invalidateQueries({ queryKey: ['channels', 'list'] });
 }
 

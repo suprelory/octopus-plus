@@ -229,3 +229,47 @@ test('notification configuration errors preserve the draft and explicit empty co
     expect(state.unexpectedRequests).toEqual([]);
     expect(state.pageErrors).toEqual([]);
 });
+
+test('check-in notification settings save values and roll back rejected edits', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 1000 });
+    const settings = [
+        { key: 'checkin_notify_enabled', value: 'false' }, { key: 'checkin_notify_webhook_url', value: '' },
+        { key: 'checkin_notify_cooldown_seconds', value: '3600' }, { key: 'checkin_low_balance_threshold', value: '0' },
+        { key: 'checkin_notify_success_enabled', value: 'false' }, { key: 'checkin_notify_manual_enabled', value: 'false' },
+    ];
+    const state = await mockApp(page, 'setting', { settings, mutate: request => {
+        if (request.path !== '/api/v1/setting/set') return { status: 500, message: 'Unexpected mutation' };
+        const body = request.body as { key: string; value: string };
+        if (body.key === 'checkin_notify_cooldown_seconds' && body.value === '-1') {
+            return { status: 400, message: 'Invalid cooldown' };
+        }
+        const setting = settings.find(setting => setting.key === body.key)!;
+        setting.value = body.value;
+        return { data: body };
+    } });
+    await page.goto('/');
+    await page.getByRole('group', { name: '设置分类' }).getByRole('button', { name: '连接与任务' }).click();
+    const card = page.locator('.page-card').filter({ has: page.getByRole('heading', { name: '签到结果通知', exact: true }) });
+    await card.scrollIntoViewIfNeeded();
+    await expect(card.getByRole('switch', { name: '启用签到结果通知' })).not.toBeChecked();
+    await card.getByRole('switch', { name: '启用签到结果通知' }).click();
+    await expect.poll(() => settings[0].value).toBe('true');
+    await card.getByRole('switch', { name: '通知签到成功' }).click();
+    await expect.poll(() => settings[4].value).toBe('true');
+    await card.getByRole('switch', { name: '包含手动签到' }).click();
+    await expect.poll(() => settings[5].value).toBe('true');
+    const cooldown = card.getByRole('spinbutton', { name: '通知冷却时间（秒）' });
+    await cooldown.fill('60');
+    await cooldown.blur();
+    await expect.poll(() => settings[2].value).toBe('60');
+    const threshold = card.getByRole('spinbutton', { name: '低余额阈值（USD）' });
+    await threshold.fill('0.5');
+    await threshold.blur();
+    await expect.poll(() => settings[3].value).toBe('0.5');
+    await cooldown.fill('-1');
+    await cooldown.blur();
+    await expect(cooldown).toHaveValue('60');
+    await card.screenshot({ path: testInfo.outputPath('checkin-notifications.png') });
+    expect(state.unexpectedRequests).toEqual([]);
+    expect(state.pageErrors).toEqual([]);
+});

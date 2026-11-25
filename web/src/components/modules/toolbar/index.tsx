@@ -1,20 +1,13 @@
 'use client';
 
-import { V2_UI } from '@/lib/v2-ui';
-
 import { Suspense, useMemo, useState } from 'react';
 import {
-    ArrowDownWideNarrow,
     ArrowDownZA,
     ArrowUpAZ,
-    ArrowUpNarrowWide,
     Clock3,
-    CalendarCheck2,
-    KeyRound,
     LayoutGrid,
     List,
     LoaderCircle,
-    Network,
     Plus,
     RefreshCw,
     Search,
@@ -33,11 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { NavItem } from '@/components/modules/navbar';
-import { useSiteUIStore } from '@/components/modules/site/ui-store';
 import { useLogUIStore } from '@/components/modules/log/ui-store';
-import { useProxyPoolDialogStore } from '@/components/modules/proxy-pool/dialog-store';
-import { useCompletionStore } from '@/components/modules/site-channel/completion-store';
-import { useChannelTabStore } from '@/components/modules/channel/tab-store';
 import { useTranslations } from 'next-intl';
 import { lazyWithPreload } from '@/route/lazy-with-preload';
 import { useSearchStore } from './search-store';
@@ -80,22 +69,12 @@ const COMBINED_SORT_OPTIONS: readonly CombinedSortOption[] = [
     { value: 'created-desc', field: 'created', order: 'desc', labelKey: 'popover.createdDesc' },
 ] as const;
 
-const SITE_SORT_OPTIONS: readonly CombinedSortOption[] = [
-    { value: 'name-asc', field: 'name', order: 'asc', labelKey: 'popover.nameAsc' },
-    { value: 'name-desc', field: 'name', order: 'desc', labelKey: 'popover.nameDesc' },
-    { value: 'balance-desc', field: 'balance', order: 'desc', labelKey: 'popover.balanceDesc' },
-    { value: 'balance-asc', field: 'balance', order: 'asc', labelKey: 'popover.balanceAsc' },
-] as const;
-
 function isToolbarPage(item: NavItem): item is ToolbarPage {
     return (TOOLBAR_PAGES as readonly NavItem[]).includes(item);
 }
 
 function CreateDialogContent({ activeItem }: { activeItem: ToolbarPage }) {
     switch (activeItem) {
-        case 'site':
-        case 'checkin':
-            return null;
         case 'channel':
             return <ChannelCreateContent />;
         case 'group':
@@ -109,37 +88,21 @@ function CreateDialogContent({ activeItem }: { activeItem: ToolbarPage }) {
 
 export function Toolbar({ activeItem }: { activeItem: NavItem }) {
     const t = useTranslations('toolbar');
-    const tProxyPool = useTranslations('proxyPool');
     const toolbarItem = isToolbarPage(activeItem) ? activeItem : null;
     const searchTerm = useSearchStore((s) => (toolbarItem ? s.searchTerms[toolbarItem] || '' : ''));
     const setSearchTerm = useSearchStore((s) => s.setSearchTerm);
     const layout = useToolbarViewOptionsStore((s) => (toolbarItem ? s.getLayout(toolbarItem) : 'grid'));
     const sortField = useToolbarViewOptionsStore((s) =>
-        toolbarItem === 'site' || toolbarItem === 'checkin' || toolbarItem === 'channel' || toolbarItem === 'group' ? s.getSortField(toolbarItem) : 'name'
+        toolbarItem === 'channel' || toolbarItem === 'group' ? s.getSortField(toolbarItem) : 'name'
     );
     const sortOrder = useToolbarViewOptionsStore((s) => (toolbarItem ? s.getSortOrder(toolbarItem) : 'asc'));
     const setLayout = useToolbarViewOptionsStore((s) => s.setLayout);
     const setSortConfig = useToolbarViewOptionsStore((s) => s.setSortConfig);
     const setSortOrder = useToolbarViewOptionsStore((s) => s.setSortOrder);
 
-    // Site actions
-    const requestOpenCreateSite = useSiteUIStore((s) => s.requestOpenCreateDialog);
-    const requestOpenImportDialog = useSiteUIStore((s) => s.requestOpenImportDialog);
-    const requestOpenArchivedDialog = useSiteUIStore((s) => s.requestOpenArchivedDialog);
-    const requestSyncAll = useSiteUIStore((s) => s.requestSyncAll);
-    const requestCheckinAll = useSiteUIStore((s) => s.requestCheckinAll);
-
     // Log actions
     const requestLogRefresh = useLogUIStore((s) => s.requestRefresh);
     const isLogRefreshing = useLogUIStore((s) => s.isRefreshing);
-
-    // Proxy pool
-    const openProxyPool = useProxyPoolDialogStore((s) => s.open);
-
-    // Completion (for channel site tab)
-    const activeChannelTab = useChannelTabStore((s) => s.activeTab);
-    const completionPendingCount = useCompletionStore((s) => s.pendingCount);
-    const openCompletionDialog = useCompletionStore((s) => s.openDialog);
 
     const [expandedSearchItem, setExpandedSearchItem] = useState<ToolbarPage | null>(null);
     const [viewOptionsOpen, setViewOptionsOpen] = useState(false);
@@ -150,7 +113,6 @@ export function Toolbar({ activeItem }: { activeItem: NavItem }) {
 
     const isLogToolbar = toolbarItem === 'log';
     const showLayoutOptions = toolbarItem === 'channel' || toolbarItem === 'model';
-    const showSiteSortOptions = toolbarItem === 'site' || toolbarItem === 'checkin';
     const showCombinedSortOptions = toolbarItem === 'channel' || toolbarItem === 'group';
     const showSortOptions = !isLogToolbar;
 
@@ -158,49 +120,8 @@ export function Toolbar({ activeItem }: { activeItem: NavItem }) {
     const actions = useMemo((): ToolbarAction[] => {
         const result: ToolbarAction[] = [];
 
-        // 站点页面按钮
-        if (toolbarItem === 'site' || toolbarItem === 'checkin') {
-            result.push(
-                {
-                    id: 'proxy-pool',
-                    icon: <Network className="size-4" />,
-                    label: tProxyPool('name'),
-                    onClick: () => openProxyPool(),
-                    priority: 'large', // xl以上可见
-                },
-                {
-                    id: 'create-site',
-                    icon: <Plus className="size-4" />,
-                    label: toolbarItem === 'checkin' ? '新增签到站点' : '新增站点',
-                    onClick: requestOpenCreateSite,
-                    priority: 'desktop', // md以上可见
-                }
-            );
-            if (toolbarItem === 'checkin') {
-                result.push({
-                    id: 'checkin-all',
-                    icon: <CalendarCheck2 className="size-4" />,
-                    label: '全量签到',
-                    onClick: requestCheckinAll,
-                    priority: 'desktop',
-                });
-            }
-        }
-
         // 渠道页面按钮
         if (toolbarItem === 'channel') {
-            // 站点渠道 tab 显示统一补全按钮
-            if (!V2_UI && activeChannelTab === 'site' && completionPendingCount > 0) {
-                result.push({
-                    id: 'completion',
-                    icon: <KeyRound className="size-4" />,
-                    label: '统一补全 Key',
-                    onClick: openCompletionDialog,
-                    badge: completionPendingCount,
-                    priority: 'large', // xl以上可见
-                });
-            }
-
             result.push({
                 id: 'create-channel',
                 icon: <Plus className="size-4" />,
@@ -254,18 +175,7 @@ export function Toolbar({ activeItem }: { activeItem: NavItem }) {
         }
 
         return result;
-    }, [
-        toolbarItem,
-        activeChannelTab,
-        completionPendingCount,
-        isLogRefreshing,
-        openProxyPool,
-        requestOpenCreateSite,
-        requestCheckinAll,
-        openCompletionDialog,
-        requestLogRefresh,
-        tProxyPool,
-    ]);
+    }, [toolbarItem, isLogRefreshing, requestLogRefresh]);
 
     if (!toolbarItem) return null;
 
@@ -403,46 +313,7 @@ export function Toolbar({ activeItem }: { activeItem: NavItem }) {
                                         <p className="text-xs font-medium text-muted-foreground">
                                             {t('popover.sort')}
                                         </p>
-                                        {showSiteSortOptions ? (
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {SITE_SORT_OPTIONS.map((option) => (
-                                                    <button
-                                                        key={option.value}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const active =
-                                                                sortField === option.field &&
-                                                                sortOrder === option.order;
-                                                            setSortConfig(
-                                                                toolbarItem === 'checkin' ? 'checkin' : 'site',
-                                                                active ? 'default' : option.field,
-                                                                active ? 'asc' : option.order
-                                                            );
-                                                        }}
-                                                        className={cn(
-                                                            'h-8 rounded-lg border text-xs font-medium inline-flex items-center justify-center gap-1.5 transition-colors',
-                                                            sortField === option.field &&
-                                                                sortOrder === option.order
-                                                                ? 'border-primary/30 bg-primary text-primary-foreground'
-                                                                : 'border-border bg-muted/20 text-foreground hover:bg-muted/30'
-                                                        )}
-                                                    >
-                                                        {option.field === 'balance' ? (
-                                                            option.order === 'desc' ? (
-                                                                <ArrowDownWideNarrow className="size-3.5" />
-                                                            ) : (
-                                                                <ArrowUpNarrowWide className="size-3.5" />
-                                                            )
-                                                        ) : option.order === 'desc' ? (
-                                                            <ArrowDownZA className="size-3.5" />
-                                                        ) : (
-                                                            <ArrowUpAZ className="size-3.5" />
-                                                        )}
-                                                        {t(option.labelKey)}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        ) : showCombinedSortOptions ? (
+                                        {showCombinedSortOptions ? (
                                             <div className="grid grid-cols-2 gap-2">
                                                 {COMBINED_SORT_OPTIONS.map((option) => (
                                                     <button
@@ -514,35 +385,6 @@ export function Toolbar({ activeItem }: { activeItem: NavItem }) {
                                     </div>
                                 )}
 
-                                {/* 站点页面的全局操作 */}
-                                {(toolbarItem === 'site' || toolbarItem === 'checkin') && (
-                                    <div className="grid gap-2">
-                                        <p className="text-xs font-medium text-muted-foreground">全局操作</p>
-                                        <div className="grid gap-2">
-                                            {toolbarItem === 'site' ? <><button
-                                                type="button"
-                                                onClick={requestOpenImportDialog}
-                                                className="h-8 rounded-lg border px-2 text-xs font-medium text-left transition-colors border-border bg-muted/20 text-foreground hover:bg-muted/30"
-                                            >
-                                                导入站点数据
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={requestSyncAll}
-                                                className="h-8 rounded-lg border px-2 text-xs font-medium text-left transition-colors border-border bg-muted/20 text-foreground hover:bg-muted/30"
-                                            >
-                                                全量同步
-                                            </button></> : null}
-                                            <button
-                                                type="button"
-                                                onClick={requestOpenArchivedDialog}
-                                                className="h-8 rounded-lg border px-2 text-xs font-medium text-left transition-colors border-border bg-muted/20 text-foreground hover:bg-muted/30"
-                                            >
-                                                归档站点
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </PopoverContent>
                     </Popover>
@@ -557,7 +399,7 @@ export function Toolbar({ activeItem }: { activeItem: NavItem }) {
                 避免其触发器外层 div 作为 flex 子项在工具栏右侧产生逐页不同的间隔 */}
             <div className="hidden">
                 {/* 创建对话框 (channel/group/model) */}
-                {toolbarItem !== 'site' && toolbarItem !== 'checkin' && toolbarItem !== 'log' && (
+                {toolbarItem !== 'log' && (
                     <MorphingDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                         <MorphingDialogTrigger>
                             <button type="button" className="hidden">

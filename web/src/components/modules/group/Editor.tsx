@@ -1,7 +1,5 @@
 'use client';
 
-import { V2_UI } from '@/lib/v2-ui';
-
 import { useCallback, useMemo, useState, type FormEvent } from 'react';
 import { Check, ChevronDownIcon, FlaskConical, Plus, Search, SlidersHorizontal, Sparkles, Trash2, Waves } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -80,11 +78,6 @@ function ModelPickerSection({
         }, []);
     }, [channels, normalizedSearch]);
 
-    const modelSourceLabel = (model: LLMChannel) => [model.site_name, model.site_account_name, model.site_group_name]
-        .map((value) => value?.trim())
-        .filter(Boolean)
-        .join(' / ');
-
     return (
         <div className="flex min-h-[28rem] flex-col rounded-lg border border-border/30 bg-card lg:min-h-0">
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-border/20 px-4 py-3">
@@ -145,11 +138,7 @@ function ModelPickerSection({
                                         {channel.models.map((m) => {
                                             const isSelected = selectedKeys.has(memberKey(m));
                                             const { Avatar } = getModelIcon(m.name);
-                                            const sourceLabel = V2_UI ? '' : modelSourceLabel(m);
-                                            const isSiteChannel = !V2_UI && m.site_id != null;
-                                            const suffix = [sourceLabel, isSiteChannel ? null : m.endpoint_type?.trim()]
-                                                .filter(Boolean)
-                                                .join(' · ');
+                                            const protocol = m.endpoint_type?.trim();
                                             return (
                                                 <button
                                                     key={memberKey(m)}
@@ -165,7 +154,7 @@ function ModelPickerSection({
                                                         <Avatar size={16} />
                                                         <span className="min-w-0 flex flex-col">
                                                             <span className="text-sm font-medium truncate">{m.name}</span>
-                                                            {suffix && <span className="text-[10px] text-muted-foreground truncate">{suffix}</span>}
+                                                            {protocol && <span className="text-[10px] text-muted-foreground truncate">{protocol}</span>}
                                                         </span>
                                                     </span>
 

@@ -1,7 +1,5 @@
 'use client';
 
-import { V2_UI } from '@/lib/v2-ui';
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Columns3, Inbox, TriangleAlert } from 'lucide-react';
@@ -10,7 +8,6 @@ import { useChannelList } from '@/api/endpoints/channel';
 import {
     logPageQueryKey,
     useLogPage,
-    useLogSiteActionTargets,
     useLogStream,
     type LogKeywordMode,
     type LogKeywordScope,
@@ -25,7 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useSearchStore } from '@/components/modules/toolbar';
 import { useToolbarViewOptionsStore } from '@/components/modules/toolbar/view-options-store';
 import { cn } from '@/lib/utils';
-import { LogCard, type LogSiteActionTargets } from './Item';
+import { LogCard } from './Item';
 import { LogListSkeleton } from './Skeleton';
 import { useLogFieldVisibilityStore, useLogUIStore, type LogFieldName } from './ui-store';
 
@@ -193,17 +190,6 @@ export function Log() {
         return map;
     }, [channels]);
 
-    const logIDs = useMemo(() => logs.map((log) => log.id), [logs]);
-    const siteActionTargetsQuery = useLogSiteActionTargets(logIDs, !V2_UI && logs.length > 0);
-    const siteActionTargets = useMemo(() => {
-        const next = new Map<number, LogSiteActionTargets>();
-        const data = V2_UI ? {} : siteActionTargetsQuery.data ?? {};
-        for (const [id, targets] of Object.entries(data)) {
-            next.set(Number(id), targets);
-        }
-        return next;
-    }, [siteActionTargetsQuery.data]);
-
     const refreshIdRef = useRef(0);
     const handleRefresh = useCallback(async () => {
         refreshIdRef.current += 1;
@@ -336,7 +322,7 @@ export function Log() {
                         estimateItemHeight={180}
                         overscan={8}
                         getItemKey={(log) => `log-${log.id}`}
-                        renderItem={(log) => <LogCard log={log} siteTargets={siteActionTargets.get(log.id) ?? null} channelNameById={channelNameById} />}
+                        renderItem={(log) => <LogCard log={log} channelNameById={channelNameById} />}
                         scrollResetKey={`${page}|${pageSize}|${filterSignature}`}
                     />
                 )}
