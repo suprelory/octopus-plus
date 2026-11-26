@@ -428,6 +428,7 @@ export function CheckinWorkspace() {
                                                     const awaiting =
                                                         !!account.checkin_pending?.submitted &&
                                                         !account.checkin_pending.finished;
+                                                    const confirmable = canConfirm(site, account);
                                                     return (
                                                         <section
                                                             key={account.id}
@@ -562,7 +563,7 @@ export function CheckinWorkspace() {
                                                                 >
                                                                     {t('refreshBalance')}
                                                                 </Button>
-                                                                {awaiting ? (
+                                                                {(awaiting || confirmable) && (
                                                                     <Button
                                                                         size="sm"
                                                                         disabled={
@@ -570,13 +571,14 @@ export function CheckinWorkspace() {
                                                                             !account.enabled ||
                                                                             !site.enabled ||
                                                                             site.archived ||
-                                                                            !canConfirm(site, account)
+                                                                            !confirmable
                                                                         }
                                                                         onClick={() => void execute(account, true)}
                                                                     >
                                                                         {t('confirmCheckin')}
                                                                     </Button>
-                                                                ) : (
+                                                                )}
+                                                                {!awaiting && (
                                                                     <Button
                                                                         size="sm"
                                                                         disabled={

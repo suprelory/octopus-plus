@@ -12,7 +12,7 @@ import type {
 } from '@/api/endpoints/checkin-types';
 
 export const credentialSecretFields: Record<CredentialType, CredentialSecret[]> = {
-    password: ['password'],
+    username_password: ['password'],
     access_token: ['access_token', 'refresh_token'],
     api_key: ['api_key'],
     cookie: ['cookie'],
@@ -80,7 +80,7 @@ export function accountDraft(site: CheckinSite, account?: CheckinAccount): Check
 export function credentialDraft(credential?: CheckinCredential): CheckinCredentialInput {
     return {
         name: credential?.name ?? '',
-        type: credential?.type ?? 'password',
+        type: credential?.type ?? 'username_password',
         platform: credential?.platform ?? 'new-api',
         auth_base_url: credential?.auth_base_url ?? '',
         username: credential?.username ?? '',
@@ -140,9 +140,9 @@ export function credentialMatches(
         credential.auth_base_url.replace(/\/+$/, '') !== site.base_url.replace(/\/+$/, '')
     )
         return false;
-    if (site.platform === 'agentrouter') return credential.type === 'password';
+    if (site.platform === 'agentrouter') return credential.type === 'username_password';
     return (
-        credential.type === 'password' ||
+        credential.type === 'username_password' ||
         credential.type === 'access_token' ||
         (site.platform === 'anyrouter' && credential.type === 'cookie')
     );
@@ -153,12 +153,16 @@ export function balanceCredentialMatches(platform: string, credential: CheckinCr
         (platform === 'sub2api'
             ? credential.type === 'access_token' || credential.type === 'api_key'
             : platform !== 'api' &&
-              (credential.type === 'password' || credential.type === 'access_token' || credential.type === 'cookie'))
+              (credential.type === 'username_password' ||
+                  credential.type === 'access_token' ||
+                  credential.type === 'cookie'))
     );
 }
 export function canConfirm(site: CheckinSite, account: CheckinAccount) {
     const pending = account.checkin_pending;
-    return !!pending?.submitted && !pending.finished && !!(site.checkin_status || site.platform === 'agentrouter');
+    if (!pending?.submitted || (pending.finished && pending.status !== 'failed')) return false;
+    // Explicit confirmation can recover a failed submission, even after its deadline.
+    return site.checkin_http_enabled ? !!site.checkin_status : site.platform === 'agentrouter';
 }
 export function externalLink(value?: string | null) {
     if (!value) return undefined;

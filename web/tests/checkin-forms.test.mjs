@@ -58,6 +58,35 @@ test('credential edits omit secrets and keep the editor version; clearing is exp
     assert.equal('refresh_token' in switched, false);
 });
 
+test('password credentials use the API discriminator for drafts, payloads and matching', () => {
+    const credential = {
+        id: 3,
+        name: 'password login',
+        type: 'username_password',
+        platform: 'agentrouter',
+        auth_base_url: 'https://login.example',
+        username: 'demo',
+        proxy_mode: 'direct',
+        credential_version: 4,
+        has_password: true,
+    };
+    const draft = credentialDraft(credential);
+    assert.equal(draft.type, 'username_password');
+    assert.equal(credentialDraft().type, 'username_password');
+    assert.equal(draft.password, '');
+    const patch = credentialPayload({ ...draft, name: 'renamed' }, credential);
+    assert.equal(patch.type, 'username_password');
+    assert.equal('password' in patch, false);
+    const created = credentialPayload({ ...draft, password: 'secret' });
+    assert.equal(created.type, 'username_password');
+    assert.equal(created.password, 'secret');
+
+    const site = { platform: 'agentrouter', base_url: credential.auth_base_url, checkin_http_enabled: false };
+    assert.equal(credentialMatches(site, 'platform', credential), true);
+    assert.equal(credentialMatches(site, 'platform', { ...credential, type: 'password' }), false);
+    assert.equal(balanceCredentialMatches('agentrouter', credential), true);
+});
+
 test('management drafts strip server state, retain false/zero, and disable automation by default', () => {
     const site = siteDraft({
         name: 'disabled',
@@ -85,7 +114,7 @@ test('management drafts strip server state, retain false/zero, and disable autom
 
 test('credential selection follows execution and balance identity boundaries', () => {
     const site = { platform: 'agentrouter', base_url: 'https://site.example', checkin_http_enabled: false };
-    const credential = { platform: 'agentrouter', auth_base_url: site.base_url, type: 'password' };
+    const credential = { platform: 'agentrouter', auth_base_url: site.base_url, type: 'username_password' };
     assert.equal(credentialMatches(site, 'platform', credential), true);
     assert.equal(credentialMatches(site, 'platform', { ...credential, type: 'access_token' }), false);
     assert.equal(credentialMatches(site, 'platform', { ...credential, auth_base_url: 'https://other.example' }), false);
@@ -99,17 +128,45 @@ test('credential selection follows execution and balance identity boundaries', (
     );
     assert.equal(balanceCredentialMatches('sub2api', { platform: 'sub2api', type: 'api_key' }), true);
     assert.equal(balanceCredentialMatches('new-api', { platform: 'sub2api', type: 'api_key' }), false);
+    for (const platform of ['new-api', 'one-api', 'one-hub', 'done-hub', 'anyrouter']) {
+        const password = { ...credential, platform };
+        assert.equal(credentialMatches({ ...site, platform }, 'platform', password), true, platform);
+        assert.equal(balanceCredentialMatches(platform, password), true, platform);
+    }
 });
 
-test('confirmation only applies to submitted unfinished workflows and external links are HTTP(S)', () => {
-    const account = { checkin_pending: { submitted: true, finished: false } };
-    assert.equal(canConfirm({ platform: 'api', checkin_status: {} }, account), true);
-    assert.equal(canConfirm({ platform: 'api' }, account), false);
-    assert.equal(canConfirm({ platform: 'agentrouter' }, account), true);
-    assert.equal(
-        canConfirm({ platform: 'agentrouter' }, { checkin_pending: { submitted: true, finished: true } }),
-        false,
-    );
+test('confirmation is available for submitted pending or failed workflows on supported adapters', () => {
+    const httpSite = { platform: 'api', checkin_http_enabled: true, checkin_status: {} };
+    const agentRouterSite = { platform: 'agentrouter', checkin_http_enabled: false };
+    const pending = { checkin_pending: { submitted: true, finished: false, status: 'pending' } };
+    const failedAfterDeadline = {
+        checkin_pending: {
+            submitted: true,
+            finished: true,
+            status: 'failed',
+            deadline: '2020-01-01T00:00:00Z',
+        },
+    };
+    assert.equal(canConfirm(httpSite, pending), true);
+    assert.equal(canConfirm({ ...httpSite, checkin_status: null }, pending), false);
+    assert.equal(canConfirm(agentRouterSite, pending), true);
+    assert.equal(canConfirm(httpSite, failedAfterDeadline), true);
+    assert.equal(canConfirm(agentRouterSite, failedAfterDeadline), true);
+    for (const site of [httpSite, agentRouterSite]) {
+        for (const checkin_pending of [
+            undefined,
+            { submitted: false, finished: false, status: 'pending' },
+            { submitted: false, finished: true, status: 'failed' },
+            { submitted: true, finished: true, status: 'success' },
+            { submitted: true, finished: true, status: 'skipped' },
+        ])
+            assert.equal(canConfirm(site, { checkin_pending }), false, JSON.stringify({ site, checkin_pending }));
+    }
+    assert.equal(canConfirm({ ...agentRouterSite, checkin_http_enabled: true }, pending), false);
+    assert.equal(canConfirm({ ...httpSite, platform: 'new-api', checkin_http_enabled: false }, pending), false);
+});
+
+test('external links are HTTP(S)', () => {
     assert.equal(externalLink('javascript:alert(1)'), undefined);
     assert.equal(externalLink('https://example.com/path'), 'https://example.com/path');
 });

@@ -52,7 +52,7 @@ export function checkinCredential(overrides: Partial<CheckinCredential> = {}): C
     return {
         id: 1,
         name: 'Independent credential',
-        type: 'password',
+        type: 'username_password',
         platform: 'new-api',
         auth_base_url: 'https://checkin.example',
         proxy_mode: 'direct',
@@ -362,13 +362,14 @@ export async function installCheckinAPI(
                 const replayed = account.last_checkin_status === 'success';
                 account.last_checkin_status = 'success';
                 account.last_checkin_at = timestamp;
-                if (account.checkin_pending) account.checkin_pending.finished = true;
+                if (account.checkin_pending)
+                    Object.assign(account.checkin_pending, { finished: true, status: 'success', reason: 'checked_in' });
                 result = {
                     data: {
-                        log_id: longID,
+                        log_id: account.checkin_pending?.log_id ?? longID,
                         site_id: account.site_id,
                         account_id: account.id,
-                        date: '2026-11-20',
+                        date: account.checkin_pending?.date ?? '2026-11-20',
                         status: 'success',
                         reason: 'checked_in',
                         message: 'Success',

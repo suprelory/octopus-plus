@@ -52,7 +52,7 @@ export function CredentialFields({
                         value={value.type}
                         onChange={(e) => set('type', e.target.value as CredentialType)}
                     >
-                        {(['password', 'access_token', 'api_key', 'cookie'] as const).map((type) => (
+                        {(['username_password', 'access_token', 'api_key', 'cookie'] as const).map((type) => (
                             <option key={type} value={type}>
                                 {t(`types.${type}`)}
                             </option>
@@ -77,7 +77,7 @@ export function CredentialFields({
                     value={value.auth_base_url}
                     onChange={(e) => set('auth_base_url', e.target.value)}
                 />
-                {value.type === 'password' && (
+                {value.type === 'username_password' && (
                     <TextField
                         label={t('username')}
                         required

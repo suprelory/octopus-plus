@@ -138,7 +138,7 @@
         "username": "Username",
         "platformUserID": "Platform user ID (optional)",
         "types": {
-            "password": "Username & password",
+            "username_password": "Username & password",
             "access_token": "Access token",
             "api_key": "API key",
             "cookie": "Cookie"

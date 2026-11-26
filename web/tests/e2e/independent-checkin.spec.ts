@@ -60,6 +60,81 @@ test('creates an independent site and an account with an inline credential', asy
     expectIndependent(state);
 });
 
+for (const platform of ['new-api', 'agentrouter'] as const) {
+    test(`creates and selects a password credential for ${platform}`, async ({ page }) => {
+        const state = await installCheckinAPI(page, {
+            sites: [checkinSite({ platform })],
+            accounts: [],
+            credentials: [],
+        });
+        await page.goto('/');
+        await page.getByRole('button', { name: '凭据', exact: true }).click();
+        await page.getByRole('button', { name: '新增凭据', exact: true }).click();
+        const credential = page.getByRole('dialog', { name: '新增凭据' });
+        await expect(credential.getByLabel('凭据类型')).toHaveValue('username_password');
+        await credential.getByLabel('凭据名称').fill('Password login');
+        await credential.getByLabel('认证平台').selectOption(platform);
+        await credential.getByLabel('认证地址').fill('https://checkin.example');
+        await credential.getByLabel('用户名', { exact: true }).fill('demo');
+        await credential.getByLabel('密码', { exact: true }).fill('e2e-secret');
+        await credential.getByRole('button', { name: '保存', exact: true }).click();
+        await expect(credential).not.toBeVisible();
+        expect(state.writes.at(-1)).toMatchObject({
+            method: 'POST',
+            path: '/credentials',
+            body: { type: 'username_password', platform, username: 'demo', password: 'e2e-secret' },
+        });
+
+        await page.getByRole('button', { name: '站点与账号', exact: true }).click();
+        await page.getByRole('button', { name: '新增账号', exact: true }).click();
+        const account = page.getByRole('dialog', { name: '新增账号' });
+        await account.getByLabel('账号名称').fill('Password account');
+        await account.getByLabel('签到凭据', { exact: true }).selectOption('1');
+        await account.getByLabel('余额查询', { exact: true }).selectOption('custom');
+        await account.getByLabel('余额凭据').selectOption('1');
+        await account.getByRole('button', { name: '保存', exact: true }).click();
+        await expect(account).not.toBeVisible();
+        expect(state.writes.at(-1)).toMatchObject({
+            method: 'POST',
+            path: '/accounts',
+            body: { credential_id: 1, balance_config: { mode: 'custom', platform, credential_id: 1 } },
+        });
+        expect(state.writes.at(-1)!.body).not.toHaveProperty('credential');
+        expectIndependent(state);
+    });
+}
+
+test('creates an account with an inline password credential using the API type', async ({ page }) => {
+    const state = await installCheckinAPI(page, {
+        sites: [checkinSite({ platform: 'agentrouter' })],
+        accounts: [],
+        credentials: [],
+    });
+    await page.goto('/');
+    await page.getByRole('button', { name: '新增账号', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '新增账号' });
+    await expect(dialog.getByLabel('凭据类型')).toHaveValue('username_password');
+    await dialog.getByLabel('账号名称').fill('Password account');
+    await dialog.getByLabel('凭据名称').fill('Inline login');
+    await dialog.getByLabel('用户名', { exact: true }).fill('demo');
+    await dialog.getByLabel('密码', { exact: true }).fill('e2e-secret');
+    await dialog.getByRole('button', { name: '保存', exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    expect(state.writes.map((row) => row.path)).toEqual(['/accounts']);
+    expect(state.writes[0].body).toMatchObject({
+        auth_mode: 'platform',
+        credential: {
+            type: 'username_password',
+            platform: 'agentrouter',
+            auth_base_url: 'https://checkin.example',
+            username: 'demo',
+            password: 'e2e-secret',
+        },
+    });
+    expect(state.writes[0].body).not.toHaveProperty('credential_id');
+    expectIndependent(state);
+});
+
 test('credential editing preserves omitted secrets and detects stale versions', async ({ page }) => {
     let conflicts = true;
     const state = await installCheckinAPI(page, {
@@ -72,11 +147,14 @@ test('credential editing preserves omitted secrets and detects stale versions', 
     await page.getByRole('button', { name: '凭据', exact: true }).click();
     await page.getByRole('article', { name: 'Independent credential' }).getByRole('button', { name: '编辑' }).click();
     let dialog = page.getByRole('dialog', { name: '编辑凭据' });
+    await expect(dialog.getByLabel('凭据类型')).toHaveValue('username_password');
+    await expect(dialog.getByLabel('用户名', { exact: true })).toHaveValue('demo');
     await expect(dialog.getByLabel('密码', { exact: true })).toHaveValue('');
     await dialog.getByLabel('凭据名称').fill('Renamed');
     await dialog.getByRole('button', { name: '保存', exact: true }).click();
     await expect(dialog.getByRole('alert')).toContainText('凭据已被更新');
     const patch = state.writes.at(-1)!.body!;
+    expect(patch.type).toBe('username_password');
     expect(patch.expected_version).toBe(7);
     for (const key of ['password', 'access_token', 'refresh_token', 'auth_headers', 'id', 'credential_version'])
         expect(patch).not.toHaveProperty(key);
@@ -179,6 +257,87 @@ test('confirms a submitted workflow without resubmitting and shows zero reward',
     expect(state.writes.map((row) => row.path)).toEqual(['/accounts/1/confirm']);
     expectIndependent(state);
 });
+
+for (const reason of ['verification_required', 'confirmation_expired'] as const) {
+    test(`confirms a finished ${reason} workflow without resubmitting`, async ({ page }) => {
+        const http = reason === 'confirmation_expired';
+        const platform = http ? 'api' : 'agentrouter';
+        const state = await installCheckinAPI(page, {
+            sites: [
+                checkinSite({
+                    platform,
+                    checkin_http_enabled: http,
+                    checkin_http_path: http ? '/checkin' : '',
+                    checkin_status: http
+                        ? {
+                              method: 'GET',
+                              path: '/status',
+                              body: '',
+                              headers: [],
+                              skip_precheck: false,
+                              checked_path: 'checked',
+                              checked_value: true,
+                              unchecked_value: false,
+                              date_path: 'date',
+                              code: '',
+                              initial_delay_ms: 1000,
+                              poll_interval_ms: 2000,
+                              max_attempts: 3,
+                              timeout_seconds: 10,
+                              confirm_timeout_minutes: 30,
+                              reward_source: 'status',
+                          }
+                        : null,
+                }),
+            ],
+            credentials: [
+                checkinCredential({
+                    platform,
+                    type: http ? 'cookie' : 'username_password',
+                    has_cookie: http,
+                    has_password: !http,
+                }),
+            ],
+            accounts: [
+                checkinAccount({
+                    auth_mode: http ? 'cookie' : 'platform',
+                    balance_config: null,
+                    last_checkin_status: 'failed',
+                    checkin_pending: {
+                        log_id: longID,
+                        source: 'manual',
+                        date: '2026-11-19',
+                        started_at: '2026-11-19T00:00:00Z',
+                        deadline: '2026-11-19T00:30:00Z',
+                        submitted: true,
+                        finished: true,
+                        status: 'failed',
+                        reason,
+                    },
+                }),
+            ],
+        });
+        await page.goto('/');
+        const account = page.getByRole('region', { name: 'Independent account', exact: true });
+        await expect(account.getByRole('button', { name: '确认结果', exact: true })).toBeEnabled();
+        // A finished workflow must also leave the next day's check-in available.
+        await expect(account.getByRole('button', { name: '签到', exact: true })).toBeEnabled();
+        expect(state.writes).toHaveLength(0);
+        await account.getByRole('button', { name: '确认结果', exact: true }).click();
+        await expect(page.getByText('成功 · 奖励：0', { exact: true })).toBeVisible();
+        await expect(account.getByRole('button', { name: '确认结果', exact: true })).toHaveCount(0);
+        await expect(account.getByRole('button', { name: '签到', exact: true })).toBeEnabled();
+        expect(state.writes.map((row) => row.path)).toEqual(['/accounts/1/confirm']);
+        expect(state.accounts[0].checkin_pending).toMatchObject({
+            log_id: longID,
+            date: '2026-11-19',
+            submitted: true,
+            finished: true,
+            status: 'success',
+        });
+        expectIndependent(state);
+    });
+}
 
 test('creates only the selected batch, polls string IDs and refuses empty selections', async ({ page }) => {
     const state = await installCheckinAPI(page, {

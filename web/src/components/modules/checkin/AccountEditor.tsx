@@ -39,7 +39,7 @@ export function AccountEditor({
         ...credentialDraft(),
         platform: site.platform,
         auth_base_url: site.base_url,
-        type: site.checkin_http_enabled ? 'cookie' : 'password',
+        type: site.checkin_http_enabled ? 'cookie' : 'username_password',
     }));
     const save = useCheckinMutation((body: CheckinAccountCreate | CheckinAccountInput) =>
         account

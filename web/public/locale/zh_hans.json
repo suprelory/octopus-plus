@@ -138,7 +138,7 @@
         "username": "用户名",
         "platformUserID": "平台用户 ID（可选）",
         "types": {
-            "password": "用户名与密码",
+            "username_password": "用户名与密码",
             "access_token": "Access Token",
             "api_key": "API Key",
             "cookie": "Cookie"

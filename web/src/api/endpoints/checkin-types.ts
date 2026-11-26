@@ -74,7 +74,7 @@ export interface CheckinSite extends Omit<CheckinSiteInput, 'checkin_status' | '
     checkin_status?: CheckinStatusRule | null;
     external_checkin_url?: string | null;
 }
-export type CredentialType = 'password' | 'access_token' | 'api_key' | 'cookie';
+export type CredentialType = 'username_password' | 'access_token' | 'api_key' | 'cookie';
 export type CredentialSecret = 'password' | 'access_token' | 'refresh_token' | 'api_key' | 'cookie';
 export interface CheckinCredentialInput extends CheckinNetwork {
     name: string;
